@@ -5,7 +5,7 @@ import * as THREE from './vendor/three.module.js';
 
 const V = THREE.MathUtils;
 let renderer, scene, camera, clock, host;
-let motors = [], sprockets = [], chainLinks = [], rotorGroup, currentArrow, trueArrow, encoderDisc, housing;
+let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, currentArrow, trueArrow, encoderDisc, housing;
 let insideKeep = [];
 let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null };
 let opts = { rpm: 400, sensorless: false, slow: 0.04 };
@@ -22,6 +22,11 @@ function cyl(r, h, colour, x, y, z, parent, segments = 28) {
     new THREE.MeshStandardMaterial({ color: colour, roughness: .45, metalness: .45 }));
   m.rotation.x = Math.PI / 2; m.position.set(x, y, z); (parent || scene).add(m); return m;
 }
+function ring(rInner, rOuter, h, colour, x, y, z, parent, segments = 40) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rOuter, rOuter, h, segments, 1, true),
+    new THREE.MeshStandardMaterial({ color: colour, roughness: .5, metalness: .5, side: THREE.DoubleSide }));
+  m.rotation.x = Math.PI / 2; m.position.set(x, y, z); (parent || scene).add(m); return m;
+}
 function tube(points, radius, colour) {
   const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
   const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 30, radius, 8, false),
@@ -33,10 +38,25 @@ function buildRig() {
   box(1.05, .035, .46, 0x171d27, 0, -.08, 0);                        // bench
   for (const [i, x] of [-.26, .26].entries()) {
     const body = cyl(.05, .13, COLOUR.steel, x, .06, 0);             // motor body
-    const cap = cyl(.052, .01, 0x6c7787, x, .06, .066, null);        // end cap
+    const cap = cyl(.052, .01, 0x6c7787, x, .06, .066, null);        // front end cap
     if (x < 0) body.userData.cap = cap;
+    cyl(.052, .012, 0x6c7787, x, .06, -.066, null);                  // rear end cap
+    for (let f = 0; f < 18; f++) {                                   // cooling fins
+      const a = f / 18 * Math.PI * 2;
+      const fin = box(.006, .012, .118, 0x7d8896, x + Math.cos(a) * .053, .06 + Math.sin(a) * .053, 0);
+      fin.rotation.z = a;
+    }
+    for (let b = 0; b < 4; b++) {                                    // end-cap bolts
+      const a = Math.PI / 4 + b / 4 * Math.PI * 2;
+      cyl(.004, .006, 0x4e5866, x + Math.cos(a) * .04, .06 + Math.sin(a) * .04, .072, null, 8);
+    }
     cyl(.008, .07, COLOUR.steel, x, .06, .10);                       // shaft
-    box(.12, .02, .1, COLOUR.dark, x, -.04, 0);                      // mount
+    cyl(.013, .012, 0x6c7787, x, .06, .112, null, 16);               // shaft collar
+    box(.03, .022, .03, 0x20262f, x, .002, .03);                     // terminal box
+    box(.13, .022, .11, COLOUR.dark, x, -.045, 0);                   // mounting foot
+    for (const s2 of [-1, 1]) for (const s3 of [-1, 1]) {            // foot bolts
+      cyl(.005, .008, 0x4e5866, x + s2 * .05, -.034, s3 * .04, null, 8).rotation.set(0, 0, 0);
+    }
     motors.push(body);
     const s = cyl(.045, .012, 0x9aa5b1, x, .06, .125, null, 18);     // sprocket
     for (let t = 0; t < 16; t++) {                                   // teeth
@@ -45,21 +65,54 @@ function buildRig() {
         .rotation.set(Math.PI / 2, 0, 0);
     }
     sprockets.push(s);
-    box(.1, .004, .07, COLOUR.pcb, x, .17, -.02);                    // ODrive board
-    tube([[x, .16, -.02], [x, .11, .02], [x, .075, .02]], .004, COLOUR.cable);
+    const board = box(.1, .004, .07, COLOUR.pcb, x, .17, -.02);      // ODrive board
+    box(.052, .012, .04, 0x39414d, x - .012, .178, -.02);            // heatsink
+    for (let hs = 0; hs < 5; hs++) box(.003, .016, .04, 0x4b5462, x - .03 + hs * .012, .182, -.02);
+    box(.02, .01, .012, 0x15191f, x + .036, .177, -.006);            // phase connector
+    box(.014, .008, .01, 0x15191f, x + .036, .176, -.034);           // power connector
+    box(.008, .006, .008, 0x2b3340, x + .01, .175, -.05);            // encoder header
+    const led = box(.004, .002, .004, 0x34d399, x - .04, .173, -.048);
+    led.material.emissive = new THREE.Color(0x34d399); led.material.emissiveIntensity = 1.2;
+    boards.push(board);
+    // three phase leads from the controller down into the motor terminal box
+    for (const [k, off] of [-.006, 0, .006].entries()) {
+      tube([[x + .036, .172, -.006 + off], [x + .03, .12, .01 + off], [x + off, .03, .03]], .0028,
+        [0xef4444, 0xe8eaed, 0x7aa2f7][k]);
+    }
   }
-  const battery = box(.16, .09, .08, 0x243040, 0, .035, -.22);       // battery
+  box(.16, .09, .08, 0x243040, 0, .035, -.22);                       // battery
   box(.16, .01, .08, 0x3a4a5e, 0, .085, -.22);
+  box(.05, .004, .022, 0xd7dde5, 0, .081, -.185);                    // battery label
+  for (const s2 of [-1, 1]) box(.012, .012, .012, s2 > 0 ? 0xef4444 : 0x1b2430, s2 * .045, .088, -.2);
+  box(.024, .014, .016, 0x15191f, 0, .09, -.25);                     // BMS / connector block
   tube([[-.26, .17, -.03], [-.12, .13, -.18], [0, .09, -.2]], .005, COLOUR.power);
   tube([[.26, .17, -.03], [.12, .13, -.18], [0, .09, -.2]], .005, COLOUR.power);
   tube([[-.26, .17, -.02], [0, .21, -.05], [.26, .17, -.02]], .0035, COLOUR.signal);
-  box(.07, .012, .05, 0x1b2430, 0, .2, -.05);                        // laptop stand-in
-  cyl(.03, .012, 0x8a3429, .48, .02, -.1);                           // emergency stop
+  const lidBase = box(.13, .008, .09, 0x1b2430, 0, .196, -.05);      // laptop
+  const lid = box(.13, .085, .006, 0x222b36, 0, .238, -.095);
+  lid.rotation.x = .28;
+  const lidScreen = box(.118, .073, .002, 0x0d1117, 0, .238, -.09);
+  lidScreen.rotation.x = .28; lidScreen.material.emissive = new THREE.Color(0x11303f);
+  lidScreen.material.emissiveIntensity = .7;
+  tube([[-.26, .174, -.05], [-.1, .2, -.06], [-.05, .198, -.05]], .0022, 0x5b6b7f);   // USB
+  tube([[.26, .174, -.05], [.1, .2, -.06], [.05, .198, -.05]], .0022, 0x5b6b7f);
+  // emergency stop on its own post
+  cyl(.012, .06, 0x39414d, .46, .0, -.12);
+  const mushroom = new THREE.Mesh(new THREE.CylinderGeometry(.03, .026, .016, 20),
+    new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: .5 }));
+  mushroom.position.set(.46, .036, -.12); scene.add(mushroom);
+  box(.05, .008, .05, 0xf0b429, .46, .002, -.12);                    // yellow base plate
+  // chain guard: a transparent shield over the drive, as the rig will need
+  const guard = box(.6, .16, .006, 0x9ec1ff, 0, .06, .158);
+  guard.material.transparent = true; guard.material.opacity = .12;
 
-  // chain: links following a stadium path around both sprockets
+  // chain: alternating roller and side-plate links around both sprockets
   const R = .05, span = .52;
-  for (let i = 0; i < 64; i++) {
-    const link = box(.016, .009, .012, 0xb9c2cd, 0, 0, 0);
+  for (let i = 0; i < 72; i++) {
+    const link = i % 2
+      ? box(.014, .010, .014, 0x8d97a4, 0, 0, 0)                     // side plate
+      : cyl(.005, .016, 0xc8d0da, 0, 0, 0, null, 10);                // roller
+    if (i % 2 === 0) link.rotation.z = Math.PI / 2;
     chainLinks.push(link);
   }
   positionChain(0, R, span);
@@ -74,23 +127,40 @@ function positionChain(offset, R = .05, span = .52) {
     else if (s < straight + arc) { const a = (s - straight) / R; x = span / 2 + Math.sin(a) * R; y = Math.cos(a) * R; angle = -a; }
     else if (s < 2 * straight + arc) { const d = s - straight - arc; x = span / 2 - d; y = -R; angle = Math.PI; }
     else { const a = (s - 2 * straight - arc) / R; x = -span / 2 - Math.sin(a) * R; y = -Math.cos(a) * R; angle = Math.PI - a; }
-    link.position.set(x, y + .06, .125); link.rotation.z = angle;
+    link.position.set(x, y + .06, .125);
+    if (link.geometry.type === 'BoxGeometry') link.rotation.z = angle;
   });
 }
 
 function buildMotorInside() {
   rotorGroup = new THREE.Group(); rotorGroup.position.set(-.26, .06, 0); scene.add(rotorGroup);
-  const north = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .1, 24, 1, false, 0, Math.PI),
-    new THREE.MeshStandardMaterial({ color: COLOUR.magnetN, roughness: .5 }));
-  const south = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .1, 24, 1, false, Math.PI, Math.PI),
-    new THREE.MeshStandardMaterial({ color: COLOUR.magnetS, roughness: .5 }));
-  for (const half of [north, south]) { half.rotation.x = Math.PI / 2; rotorGroup.add(half); }
+  // Three pole pairs, so six magnet segments alternating north and south. This
+  // matches bm1109.p = 3 in the parameter file: the electrical angle turns three
+  // times for every mechanical turn.
+  const POLES = 6;
+  cyl(.014, .102, 0x6c7787, 0, 0, 0, rotorGroup, 20);                 // rotor shaft
+  cyl(.028, .1, 0x39414d, 0, 0, 0, rotorGroup, 30);                   // rotor back iron
+  for (let k = 0; k < POLES; k++) {
+    const start = k / POLES * Math.PI * 2 + .04, sweep = Math.PI * 2 / POLES - .08;
+    const magnet = new THREE.Mesh(new THREE.CylinderGeometry(.032, .032, .096, 18, 1, false, start, sweep),
+      new THREE.MeshStandardMaterial({ color: k % 2 ? COLOUR.magnetS : COLOUR.magnetN, roughness: .45 }));
+    magnet.rotation.x = Math.PI / 2; rotorGroup.add(magnet);
+  }
   encoderDisc = cyl(.026, .005, 0x7aa2f7, -.26, .06, -.072);   // encoders mount at the rear
   const stator = new THREE.Group(); stator.position.set(-.26, .06, 0); scene.add(stator);
-  for (let k = 0; k < 6; k++) {                                       // coils around the rotor
-    const a = k / 6 * Math.PI * 2;
-    const coil = box(.012, .018, .075, COLOUR.copper, Math.cos(a) * .043, Math.sin(a) * .043, 0, stator);
-    coil.rotation.z = a;
+  ring(.044, .048, .09, 0x5c6672, 0, 0, 0, stator);                   // laminated back iron
+  const SLOTS = 9;                                                    // nine slots, three per phase
+  for (let k = 0; k < SLOTS; k++) {
+    const a = k / SLOTS * Math.PI * 2;
+    const tooth = box(.009, .014, .088, 0x707b89, Math.cos(a) * .039, Math.sin(a) * .039, 0, stator);
+    tooth.rotation.z = a;
+    for (const side of [-1, 1]) {                                     // copper windings either side
+      const b = a + side * .17;
+      const winding = box(.007, .016, .094, [0x34d399, 0xf0b429, 0x7aa2f7][k % 3],
+        Math.cos(b) * .0435, Math.sin(b) * .0435, 0, stator);
+      winding.rotation.z = b;
+      winding.material.metalness = .3;
+    }
   }
   housing = motors[0];
   currentArrow = makeArrow(COLOUR.current); trueArrow = makeArrow(COLOUR.estimate);
@@ -187,7 +257,7 @@ function frame() {
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .05, 0);
-  const wanted = view === 'inside' ? .22 : .78;
+  const wanted = view === 'inside' ? .25 : .78;
   const ease = Math.min(intro / 3.5, 1);
   const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease));
   if (intro < 8 && !orbit.drag && view === 'rig') orbit.yaw += dt * .12;
