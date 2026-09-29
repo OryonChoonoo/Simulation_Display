@@ -371,10 +371,25 @@ const RIG_PARTS = {
 
 function showPart(key) {
   const part = RIG_PARTS[key]; if (!part) return;
-  $('rig-title').textContent = part[0];
-  $('rig-text').textContent = part[1];
-  for (const g of document.querySelectorAll('#rig .part')) g.classList.toggle('active', g.dataset.part === key);
+  $('d3-title').textContent = part[0];
+  $('d3-text').textContent = part[1];
+  for (const b of document.querySelectorAll('#partbar button')) b.classList.toggle('active', b.dataset.part === key);
+  if (rig3d) { rig3d.setView('rig'); rig3d.highlight(key); }
 }
+
+// A row of buttons beside the 3D view: the parts are small on a screen, and a
+// visitor should not have to hunt for the emergency stop to read about it.
+function buildPartBar() {
+  $('partbar').innerHTML = Object.entries(RIG_PARTS)
+    .map(([k, v]) => `<button data-part="${k}">${PART_LABEL[k]}</button>`).join('');
+  for (const b of document.querySelectorAll('#partbar button'))
+    b.addEventListener('click', () => { touched(); showPart(b.dataset.part); });
+}
+
+const PART_LABEL = {
+  battery: 'Battery', odrive1: 'Controller 1', odrive2: 'Controller 2', motor1: 'Test motor',
+  motor2: 'Load motor', chain: 'Chain drive', encoder: 'Encoder', laptop: 'Laptop', estop: 'Emergency stop',
+};
 
 // ---- the 3D view ---------------------------------------------------------------
 // Loaded on demand: if the three.js file is missing the rest of the page still works.
@@ -384,6 +399,10 @@ async function ensure3d() {
   try {
     rig3d = await import('./rig3d.js');
     rig3d.init($('stage3d'));
+    rig3d.setPickHandler(key => { touched(); showPart(key); });
+    // the selection was made before the scene existed, so light it up now
+    const active = document.querySelector('#partbar button.active');
+    if (active) rig3d.highlight(active.dataset.part);
     update3d();
   } catch (err) {
     rig3dFailed = true;
@@ -411,7 +430,6 @@ function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
   $('tab-envelope').hidden = name !== 'envelope';
   $('tab-foc').hidden = name !== 'foc';
-  $('tab-rig').hidden = name !== 'rig';
   $('tab-3d').hidden = name !== '3d';
   if (name === '3d') ensure3d();
   if (name === 'envelope') render();
@@ -435,7 +453,6 @@ async function start() {
     if (e.key === 'r') reset();
     if (e.key === 'e') setTab('envelope');
     if (e.key === 'f') setTab('foc');
-    if (e.key === 'w') setTab('rig');
     if (e.key === '3') setTab('3d');
     if (SCENARIOS[e.key] && !$('tab-envelope').hidden) scenario(e.key);
   });
@@ -444,19 +461,16 @@ async function start() {
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
   $('d3-rig').addEventListener('click', () => { touched(); rig3d && rig3d.setView('rig');
+    rig3d && rig3d.highlight(null);
+    for (const b of document.querySelectorAll('#partbar button')) b.classList.remove('active');
     $('d3-title').textContent = 'The rig';
-    $('d3-text').textContent = 'Two motors joined by a chain, each driven by its own controller from one battery. The left motor is the one under test; the right one acts as the brake that loads it.'; });
+    $('d3-text').textContent = 'Two motors joined by a chain, each driven by its own controller from one battery. The left motor is the one under test; the right one acts as the brake that loads it. Tap any part to see what it does.'; });
   $('d3-inside').addEventListener('click', () => { touched(); rig3d && rig3d.setView('inside');
     $('d3-title').textContent = 'Inside the test motor';
     $('d3-text').textContent = 'The housing is hidden. The rotor magnets spin, and the green arrow is the current the controller pushes into the windings: it has to stay at right angles to the magnets to make torque. That is field-oriented control, and it needs the rotor angle.'; });
   for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
   setInterval(() => { if (!$('tab-3d').hidden) update3d(); }, 250);
-  for (const g of document.querySelectorAll('#rig .part')) {
-    const pick = () => { touched(); showPart(g.dataset.part); };
-    g.addEventListener('click', pick);
-    g.addEventListener('mouseenter', pick);
-    g.addEventListener('focus', pick);
-  }
+  buildPartBar();
   for (const id of ['foc-speed', 'foc-load', 'foc-rate', 'foc-err']) $(id).addEventListener('input', touched);
   $('foc-err').addEventListener('input', () => { if (Number($('foc-err').value) === 0) setFrame(rotorFrame); });
   setFrame(false);

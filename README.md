@@ -34,7 +34,7 @@ Visitor mode hides the advanced controls, enlarges everything, resets to default
 45 seconds of no interaction, and then sweeps the operating point to catch the eye.
 
 **Presenter keys:** `1` no load · `2` under load · `3` voltage ceiling · `4` thermal corner ·
-`5` current limit · `R` reset · `K` switch mode.
+`5` current limit · `R` reset · `K` switch mode · `E` envelope · `F` control · `3` rig.
 
 ## Running it
 
@@ -82,6 +82,13 @@ of a different motor.
 Two views: the whole rig, which opens with a slow fly-in and can be dragged around, and a
 cutaway of the test motor seen down the shaft, showing the rotor magnets, the stator coils
 and the current vector the controller holds at right angles to the magnets.
+
+**The rig itself is the orientation exhibit.** Clicking a motor, a controller, the chain, the
+battery, the encoder, the laptop or the emergency stop lights that part up and explains what
+it does and why it is there. The buttons under the view select the same parts, for a visitor
+who would rather read a list than hunt for the emergency stop on a screen. This replaces the
+earlier flat "What am I looking at?" diagram, which said the same things about a drawing
+instead of about the rig.
 
 The **"estimate the angle instead of measuring it"** switch adds a second arrow for where a
 sensorless controller *thinks* the rotor is. The gap between the arrows grows as the motor

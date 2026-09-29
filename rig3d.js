@@ -13,30 +13,42 @@ let opts = { rpm: 400, sensorless: false, slow: 0.04 };
 const COLOUR = { steel: 0x8b97a6, dark: 0x2a323d, pcb: 0x1f6b45, magnetN: 0xef4444, magnetS: 0x5b6b7f,
   copper: 0xf0b429, current: 0x34d399, estimate: 0xf0b429, cable: 0xef4444, power: 0xf0b429, signal: 0x7aa2f7 };
 
+// Every mesh built while `tagging` is set belongs to that part of the rig, which is
+// what makes the rig itself clickable rather than a diagram beside it.
+let tagging = null;
+const partMeshes = {};
+function tag(m) {
+  if (!tagging) return m;
+  m.userData.part = tagging;
+  (partMeshes[tagging] = partMeshes[tagging] || []).push(m);
+  return m;
+}
+
 function box(w, h, d, colour, x, y, z, parent) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: colour, roughness: .6, metalness: .25 }));
-  m.position.set(x, y, z); (parent || scene).add(m); return m;
+  m.position.set(x, y, z); (parent || scene).add(m); return tag(m);
 }
 function cyl(r, h, colour, x, y, z, parent, segments = 28) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, segments),
     new THREE.MeshStandardMaterial({ color: colour, roughness: .45, metalness: .45 }));
-  m.rotation.x = Math.PI / 2; m.position.set(x, y, z); (parent || scene).add(m); return m;
+  m.rotation.x = Math.PI / 2; m.position.set(x, y, z); (parent || scene).add(m); return tag(m);
 }
 function ring(rInner, rOuter, h, colour, x, y, z, parent, segments = 40) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rOuter, rOuter, h, segments, 1, true),
     new THREE.MeshStandardMaterial({ color: colour, roughness: .5, metalness: .5, side: THREE.DoubleSide }));
-  m.rotation.x = Math.PI / 2; m.position.set(x, y, z); (parent || scene).add(m); return m;
+  m.rotation.x = Math.PI / 2; m.position.set(x, y, z); (parent || scene).add(m); return tag(m);
 }
 function tube(points, radius, colour) {
   const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
   const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 30, radius, 8, false),
     new THREE.MeshStandardMaterial({ color: colour, roughness: .8 }));
-  scene.add(m); return m;
+  scene.add(m); return tag(m);
 }
 
 function buildRig() {
   box(1.05, .035, .46, 0x171d27, 0, -.08, 0);                        // bench
   for (const [i, x] of [-.26, .26].entries()) {
+    tagging = i ? 'motor2' : 'motor1';
     const body = cyl(.05, .13, COLOUR.steel, x, .06, 0);             // motor body
     const cap = cyl(.052, .01, 0x6c7787, x, .06, .066, null);        // front end cap
     if (x < 0) body.userData.cap = cap;
@@ -58,6 +70,11 @@ function buildRig() {
       cyl(.005, .008, 0x4e5866, x + s2 * .05, -.034, s3 * .04, null, 8).rotation.set(0, 0, 0);
     }
     motors.push(body);
+    // a small encoder housing on the rear face, where the rotor angle is measured
+    tagging = 'encoder';
+    cyl(.022, .014, 0x2b3a55, x, .06, -.079, null, 20);
+    cyl(.01, .006, 0x7aa2f7, x, .06, -.088, null, 14);
+    tagging = 'chain';
     const s = new THREE.Group(); s.position.set(x, .06, .125); scene.add(s);
     cyl(.045, .012, 0x9aa5b1, 0, 0, 0, s, 24);                       // sprocket disc
     cyl(.014, .018, 0x6c7787, 0, 0, 0, s, 16);                       // hub
@@ -67,6 +84,7 @@ function buildRig() {
       tooth.rotation.z = a;
     }
     sprockets.push(s);
+    tagging = i ? 'odrive2' : 'odrive1';
     // The ODrive Pro is not on the bench: it sits in the middle of a round plate
     // carried on threaded rods past the sprocket, so the shaft stays behind it.
     cyl(.085, .006, 0xc3cad3, x, .06, .145, null, 44);               // face plate
@@ -94,7 +112,11 @@ function buildRig() {
         [x - .015, .002, .034]], .0028,
         [0xef4444, 0xe8eaed, 0x7aa2f7][k]);
     }
+    // the encoder cable runs from the rear of the motor to the controller
+    tagging = 'encoder';
+    tube([[x, .06, -.092], [x + .075, .01, -.02], [x + .04, .076, .15]], .002, COLOUR.signal);
   }
+  tagging = 'battery';
   box(.16, .09, .08, 0x243040, 0, .035, -.22);                       // battery
   box(.16, .01, .08, 0x3a4a5e, 0, .085, -.22);
   box(.05, .004, .022, 0xd7dde5, 0, .081, -.185);                    // battery label
@@ -102,6 +124,7 @@ function buildRig() {
   box(.024, .014, .016, 0x15191f, 0, .09, -.25);                     // BMS / connector block
   tube([[-.322, .06, .155], [-.40, .02, .04], [-.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
   tube([[.198, .06, .155], [.40, .02, .04], [.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
+  tagging = 'laptop';
   const lidBase = box(.13, .008, .09, 0x1b2430, 0, .196, -.05);      // laptop
   const lid = box(.13, .085, .006, 0x222b36, 0, .238, -.095);
   lid.rotation.x = .28;
@@ -111,11 +134,13 @@ function buildRig() {
   tube([[-.23, .076, .156], [-.26, .17, .02], [-.05, .2, -.05]], .0022, 0x5b6b7f);   // USB
   tube([[.29, .076, .156], [.26, .17, .02], [.05, .2, -.05]], .0022, 0x5b6b7f);
   // emergency stop on its own post
+  tagging = 'estop';
   cyl(.012, .06, 0x39414d, .46, .0, -.12);
   const mushroom = new THREE.Mesh(new THREE.CylinderGeometry(.03, .026, .016, 20),
     new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: .5 }));
-  mushroom.position.set(.46, .036, -.12); scene.add(mushroom);
+  mushroom.position.set(.46, .036, -.12); scene.add(mushroom); tag(mushroom);
   box(.05, .008, .05, 0xf0b429, .46, .002, -.12);                    // yellow base plate
+  tagging = 'chain';
   // chain guard: a transparent shield over the drive, as the rig will need
   const guard = box(.4, .16, .006, 0x9ec1ff, 0, .06, .158);
   guard.material.transparent = true; guard.material.opacity = .12;
@@ -130,6 +155,7 @@ function buildRig() {
     chainLinks.push(link);
   }
   positionChain(0, R, span);
+  tagging = null;
 }
 
 function positionChain(offset, R = .05, span = .52) {
@@ -201,6 +227,39 @@ function estimateError(rpm, t) {
   return V.degToRad(base) * (0.7 + 0.3 * Math.sin(t * 6));
 }
 
+const raycaster = new THREE.Raycaster();
+const HIGHLIGHT = new THREE.Color(0x2f9e6b);
+let onPick = null;
+
+export function setPickHandler(fn) { onPick = fn; }
+
+// Light the chosen part up rather than drawing a box round it: on a dark scene a
+// glow reads from across a room, an outline does not.
+export function highlight(key) {
+  for (const [k, list] of Object.entries(partMeshes)) for (const m of list) {
+    if (m.userData.baseEmissive === undefined) {
+      m.userData.baseEmissive = m.material.emissive.clone();
+      m.userData.baseIntensity = m.material.emissiveIntensity;
+    }
+    if (k === key) { m.material.emissive.copy(HIGHLIGHT); m.material.emissiveIntensity = .55; }
+    else { m.material.emissive.copy(m.userData.baseEmissive); m.material.emissiveIntensity = m.userData.baseIntensity; }
+  }
+}
+
+function shown(o) { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; }
+
+function partAt(e) {
+  if (view !== 'rig') return null;
+  const r = host.getBoundingClientRect();
+  raycaster.setFromCamera(new THREE.Vector2(
+    ((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+  for (const hit of raycaster.intersectObjects(scene.children, true)) {
+    if (!shown(hit.object)) continue;
+    if (hit.object.userData.part) return hit.object.userData.part;
+  }
+  return null;
+}
+
 export function init(container) {
   host = container;
   scene = new THREE.Scene(); scene.background = new THREE.Color(0x11161f);
@@ -214,9 +273,18 @@ export function init(container) {
   buildRig(); buildMotorInside(); setView('rig');
   clock = new THREE.Clock();
 
+  let pressed = null;
   const pointer = e => {
-    if (e.type === 'pointerdown') orbit.drag = { x: e.clientX, y: e.clientY };
-    else if (e.type === 'pointerup' || e.type === 'pointerleave') orbit.drag = null;
+    if (e.type === 'pointerdown') { orbit.drag = { x: e.clientX, y: e.clientY }; pressed = { x: e.clientX, y: e.clientY }; }
+    else if (e.type === 'pointerup' || e.type === 'pointerleave') {
+      // A press that did not turn the view is a tap on a part, not a drag.
+      if (e.type === 'pointerup' && pressed && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < 5) {
+        const key = partAt(e);
+        if (key && onPick) onPick(key);
+      }
+      pressed = null; orbit.drag = null;
+    }
+    else if (!orbit.drag) host.style.cursor = partAt(e) ? 'pointer' : 'grab';
     else if (orbit.drag) {
       orbit.yaw -= (e.clientX - orbit.drag.x) * .006;
       orbit.pitch = V.clamp(orbit.pitch + (e.clientY - orbit.drag.y) * .004, -.2, 1.1);
