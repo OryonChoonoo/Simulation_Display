@@ -96,6 +96,19 @@ slows, because the back-EMF it estimates from shrinks with speed. **That growth 
 illustrative shape, not simulated behaviour** — the sensorless model does not exist yet.
 When it does, this can be driven by measured estimation error.
 
+## Side by side
+
+The last tab runs the same motor twice at once, under the same speed and the same load,
+differing only in where the controller gets the rotor angle. It shows what an angle error
+actually costs: the current needed to hold the demanded torque rises as `1/cos e`, the heat
+in the windings as `1/cos^2 e`, and once that current hits the 25 A limit the torque cannot
+be held at all. "Run the speed down" sweeps 1600 rpm to 30 rpm, which is the clearest way to
+show why a low-speed limit exists.
+
+**Both sides are the real model. The estimator's error is not.** How wrong a sensorless
+estimate gets is a stand-in shape, stated as such on the tab, and it should be replaced by
+the sensorless simulation's own error once that simulation works.
+
 ## The physics in the page
 
 ```

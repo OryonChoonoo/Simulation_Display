@@ -507,12 +507,135 @@ function update3d() {
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
 }
 
+// ---- exhibit 5: side by side, measured angle against estimated angle -------------
+// Both sides are the same motor model under the same demand. Only the angle differs,
+// and the angle error shape is illustrative: see the banner on the tab.
+let sbsPhase = 0, sbsLast = 0, sbsSweep = null;
+
+function sbsState() {
+  const rpm = Number($('sbs-speed').value), torque = Number($('sbs-load').value);
+  const o = operate(rpm, torque);
+  const err = V_deg(Math.min(85, 2500 / Math.max(rpm, 25)));
+  // To hold the same torque while pushing at the wrong angle, pull more current.
+  const wanted = o.iq / Math.max(Math.cos(err), .05);
+  const limited = wanted > P.iq_limit_A;
+  const current = Math.min(wanted, P.iq_limit_A);
+  const delivered = P.Kt_NmPerA * current * Math.cos(err) - P.B_Nms * o.w;
+  return {
+    rpm, torque, o, err,
+    sensored: { err: 0, current: o.iq, loss: 1.5 * P.Rs_ohm * o.iq * o.iq, torque: torque, limited: o.overCurrent },
+    sensorless: { err, current, loss: 1.5 * P.Rs_ohm * current * current, torque: Math.max(delivered, 0), limited },
+    backEmf: (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb,
+  };
+}
+function V_deg(d) { return d * Math.PI / 180; }
+
+function drawSbs(theta, s) {
+  const c = $('sbs'), g = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  panel(g, w / 4, h, theta, s.sensored, 'Encoder', 'measured', '#34d399', s);
+  g.strokeStyle = '#26303c'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(w / 2, 20); g.lineTo(w / 2, h - 20); g.stroke();
+  panel(g, 3 * w / 4, h, theta, s.sensorless, 'Estimate', 'worked out from the back-EMF', '#f0b429', s);
+}
+
+function panel(g, cx, h, theta, side, name, sub, colour, s) {
+  const r = Math.min(h * .27, 110), cy = h * .42;
+  g.fillStyle = '#e8eaed'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
+  g.fillText(name, cx, 26);
+  g.fillStyle = '#9aa5b1'; g.font = '13px system-ui';
+  g.fillText(sub, cx, 45);
+
+  g.strokeStyle = '#2b3646'; g.lineWidth = 2;
+  g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.stroke();
+  g.save(); g.translate(cx, cy); g.rotate(-theta);
+  g.fillStyle = '#ef4444'; g.beginPath(); g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2); g.fill();
+  g.fillStyle = '#5b6b7f'; g.beginPath(); g.arc(0, 0, r, Math.PI / 2, 1.5 * Math.PI); g.fill();
+  g.restore();
+  g.fillStyle = '#fff'; g.font = 'bold 15px system-ui';
+  g.fillText('N', cx + Math.cos(theta) * r * .55, cy - Math.sin(theta) * r * .55 + 5);
+  g.fillText('S', cx - Math.cos(theta) * r * .55, cy + Math.sin(theta) * r * .55 + 5);
+
+  const arrow = (a, len, col, dash) => {
+    g.setLineDash(dash ? [6, 5] : []);
+    g.strokeStyle = col; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * len, cy - Math.sin(a) * len); g.stroke();
+    g.setLineDash([]);
+  };
+  arrow(theta, r * .92, '#ef4444');                       // the magnets
+  if (side.err > .01) arrow(theta + Math.PI / 2, r * .92, '#3f6b57', true);   // where it should push
+  arrow(theta + Math.PI / 2 + side.err, r * .92, side.err > Math.PI / 3 ? '#ef4444' : colour);
+
+  // A heat bar: visitors understand "it gets hot" faster than "efficiency falls".
+  const bw = Math.min(190, r * 1.9), bx = cx - bw / 2, by = cy + r * 1.55;
+  const full = 40, frac = Math.min(side.loss / full, 1);
+  g.fillStyle = '#1b2430'; g.fillRect(bx, by, bw, 14);
+  g.fillStyle = frac > .75 ? '#ef4444' : frac > .4 ? '#f0b429' : '#34d399';
+  g.fillRect(bx, by, bw * frac, 14);
+  g.strokeStyle = '#33404f'; g.lineWidth = 1; g.strokeRect(bx, by, bw, 14);
+  g.fillStyle = '#cfd6df'; g.font = '13px system-ui';
+  g.fillText(`heat in the windings: ${side.loss.toFixed(1)} W`, cx, by + 32);
+  if (side.limited) {
+    g.fillStyle = '#ef4444'; g.font = 'bold 14px system-ui';
+    g.fillText('at the current limit \u2014 cannot hold the torque', cx, by + 52);
+  }
+}
+
+function sbsFrame(now) {
+  if ($('tab-sbs').hidden) { sbsLast = now; return requestAnimationFrame(sbsFrame); }
+  const dt = Math.min((now - sbsLast) / 1000, .05); sbsLast = now;
+  if (sbsSweep !== null) {                                 // the money shot: speed falling
+    sbsSweep -= dt;
+    const t = Math.max(sbsSweep, 0) / 9;
+    $('sbs-speed').value = String(Math.round(30 + (1600 - 30) * t));
+    if (sbsSweep <= 0) { sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; }
+  }
+  const s = sbsState();
+  sbsPhase += dt * (s.rpm * 2 * Math.PI / 60) * P.pole_pairs * .08;
+  $('sbs-speed-out').textContent = Math.round(s.rpm) + ' rpm';
+  $('sbs-load-out').textContent = s.torque.toFixed(2) + ' N\u00b7m';
+  drawSbs(sbsPhase, s);
+  const extra = s.sensorless.loss - s.sensored.loss;
+  $('sbs-numbers').innerHTML = [
+    ['Angle error', '0\u00b0 \u00b7 ' + Math.round(s.err * 180 / Math.PI) + '\u00b0'],
+    ['Current for that torque', s.sensored.current.toFixed(1) + ' A \u00b7 ' + s.sensorless.current.toFixed(1) + ' A'],
+    ['Heat in the windings', s.sensored.loss.toFixed(1) + ' W \u00b7 ' + s.sensorless.loss.toFixed(1) + ' W'],
+    ['Torque actually delivered', s.sensored.torque.toFixed(2) + ' \u00b7 ' + s.sensorless.torque.toFixed(2) + ' N\u00b7m'],
+    ['Back-EMF to estimate from', s.backEmf.toFixed(2) + ' V'],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  sbsVerdict(s, extra);
+  requestAnimationFrame(sbsFrame);
+}
+
+function sbsVerdict(s, extra) {
+  const head = $('sbs-title'), body = $('sbs-text'), deg = Math.round(s.err * 180 / Math.PI);
+  if (s.sensorless.limited || deg >= 45) {
+    head.textContent = 'The estimate has lost the rotor';
+    head.className = 'verdict bad';
+    body.textContent = `At ${Math.round(s.rpm)} rpm the magnets generate only ${s.backEmf.toFixed(2)} V for the estimator to work from, and it is ${deg} degrees out. `
+      + (s.sensorless.limited
+        ? 'The drive has run into its current limit, so it can no longer hold the torque at all and the shaft slows.'
+        : `Holding the same torque now costs ${s.sensorless.current.toFixed(1)} A instead of ${s.sensored.current.toFixed(1)} A, and ${extra.toFixed(0)} W of extra heat.`);
+  } else if (deg >= 12) {
+    head.textContent = 'Still turning, but paying for it';
+    head.className = 'verdict warn';
+    body.textContent = `${deg} degrees out. Both motors deliver the torque asked of them, but the estimating drive needs ${s.sensorless.current.toFixed(1)} A against ${s.sensored.current.toFixed(1)} A, and puts ${extra.toFixed(1)} W more heat into the windings for exactly the same work.`;
+  } else {
+    head.textContent = 'Both are keeping up';
+    head.className = 'verdict ok';
+    body.textContent = `At ${Math.round(s.rpm)} rpm there is plenty of back-EMF (${s.backEmf.toFixed(1)} V) to estimate from, so the two are within ${deg} degree${deg === 1 ? '' : 's'} of each other and cost almost the same. This is the easy end of the range \u2014 drag the speed down.`;
+  }
+}
+
 // ---- tabs ----------------------------------------------------------------------
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
   $('tab-envelope').hidden = name !== 'envelope';
   $('tab-foc').hidden = name !== 'foc';
   $('tab-3d').hidden = name !== '3d';
+  $('tab-sbs').hidden = name !== 'sbs';
   if (name === '3d') ensure3d();
   if (name === 'envelope') render();
 }
@@ -538,6 +661,7 @@ async function start() {
     if (e.key === 'e') setTab('envelope');
     if (e.key === 'f') setTab('foc');
     if (e.key === '3') setTab('3d');
+    if (e.key === 's') setTab('sbs');
     if (SCENARIOS[e.key] && !$('tab-envelope').hidden) scenario(e.key);
   });
   for (const t of document.querySelectorAll('.tab')) {
@@ -568,6 +692,13 @@ async function start() {
   $('foc-err').addEventListener('input', () => { if (Number($('foc-err').value) === 0) setFrame(rotorFrame); });
   setFrame(false);
   requestAnimationFrame(focFrame);
+  requestAnimationFrame(sbsFrame);
+  for (const id of ['sbs-speed', 'sbs-load']) $(id).addEventListener('input', () => { touched(); sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; });
+  $('sbs-sweep').addEventListener('click', () => {
+    touched();
+    sbsSweep = sbsSweep === null ? 9 : null;
+    $('sbs-sweep').textContent = sbsSweep === null ? 'Run the speed down' : 'Stop';
+  });
   document.addEventListener('pointerdown', touched);
   window.addEventListener('resize', render);
   const kiosk = new URLSearchParams(location.search).get('mode') === 'kiosk';

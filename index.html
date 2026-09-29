@@ -32,7 +32,7 @@
   <button class="tab" data-tab="3d" role="tab" aria-selected="true">The rig</button>
   <button class="tab" data-tab="envelope" role="tab" aria-selected="false">Operating envelope</button>
   <button class="tab" data-tab="foc" role="tab" aria-selected="false">How the control works</button>
-  <button class="tab" data-tab="soon" role="tab" aria-selected="false" disabled title="Added once the sensorless simulation exists">Sensorless comparison &middot; coming</button>
+  <button class="tab" data-tab="sbs" role="tab" aria-selected="false">Side by side</button>
 </nav>
 
 <main id="tab-3d" hidden>
@@ -82,6 +82,50 @@
         current using the motor's torque constant, and that constant is itself provisional, so torque
         figures carry that uncertainty. The encoder type, the chain pitch and the battery's charge
         behaviour are all still to be confirmed.</p>
+    </div>
+  </section>
+</main>
+
+<main id="tab-sbs" hidden>
+  <section class="plot-card">
+    <p class="source-note sensorless">
+      <b>An illustration, not a result.</b> Both motors are the real model: the same equations, the same
+      26.5 V bus and 25 A limit as every other page here. What is <b>not</b> measured is how wrong the
+      estimate gets &mdash; that shape is a stand-in, and it will be replaced by the sensorless
+      simulation's own error once that simulation works.</p>
+    <canvas id="sbs" aria-label="Two rotors under the same load: one fed by an encoder, one by an estimate"></canvas>
+    <p class="caption">Same motor, same speed, same load demanded of both. The only difference is where the
+      controller gets the rotor angle from.</p>
+  </section>
+
+  <section class="side">
+    <div class="verdict-card">
+      <p class="verdict ok" id="sbs-title">Both are keeping up</p>
+      <p class="explain" id="sbs-text">Drag the speed down and watch the right-hand motor lose the plot.</p>
+    </div>
+    <div class="controls">
+      <button id="sbs-sweep" class="primary-btn">Run the speed down</button>
+      <label>Speed <b id="sbs-speed-out">1200 rpm</b>
+        <input id="sbs-speed" type="range" min="30" max="2000" step="10" value="1200"></label>
+      <label>Load torque <b id="sbs-load-out">1.00 N&middot;m</b>
+        <input id="sbs-load" type="range" min="0" max="2.6" step="0.05" value="1.0"></label>
+      <p class="hint">Both are asked for the same torque. To deliver it while pushing at the wrong angle,
+        the estimating drive has to pull more current &mdash; and current makes heat.</p>
+    </div>
+    <div class="numbers-card">
+      <h2>Asked for the same torque</h2>
+      <div id="sbs-numbers" class="numbers"></div>
+    </div>
+    <div class="numbers-card advanced">
+      <h2>Where these numbers come from</h2>
+      <p class="explain">Only the current at right angles to the magnets makes torque, so holding a given
+        torque with an angle error &epsilon; needs current I/cos&nbsp;&epsilon;, and the copper loss
+        1.5&middot;R&middot;I&sup2; therefore rises as 1/cos&sup2;&nbsp;&epsilon;. Once that current reaches
+        the 25 A limit the drive simply cannot hold the torque any more, and the shaft slows.</p>
+      <p class="explain">The back-EMF the estimator has to work from is &omega;<sub>e</sub>&middot;&lambda;,
+        which falls in proportion to speed: about 11 V at 1500 rpm and 0.4 V at 50 rpm on these parameters.
+        That is the physical reason a low-speed limit exists at all, and finding where it sits on this motor
+        is the investigation's question.</p>
     </div>
   </section>
 </main>
