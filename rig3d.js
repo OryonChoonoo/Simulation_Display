@@ -58,25 +58,39 @@ function buildRig() {
       cyl(.005, .008, 0x4e5866, x + s2 * .05, -.034, s3 * .04, null, 8).rotation.set(0, 0, 0);
     }
     motors.push(body);
-    const s = cyl(.045, .012, 0x9aa5b1, x, .06, .125, null, 18);     // sprocket
+    const s = new THREE.Group(); s.position.set(x, .06, .125); scene.add(s);
+    cyl(.045, .012, 0x9aa5b1, 0, 0, 0, s, 24);                       // sprocket disc
+    cyl(.014, .018, 0x6c7787, 0, 0, 0, s, 16);                       // hub
     for (let t = 0; t < 16; t++) {                                   // teeth
       const a = t / 16 * Math.PI * 2;
-      box(.008, .008, .012, 0x9aa5b1, Math.cos(a) * .048, Math.sin(a) * .048, 0, s)
-        .rotation.set(Math.PI / 2, 0, 0);
+      const tooth = box(.008, .010, .012, 0x9aa5b1, Math.cos(a) * .049, Math.sin(a) * .049, 0, s);
+      tooth.rotation.z = a;
     }
     sprockets.push(s);
-    const board = box(.1, .004, .07, COLOUR.pcb, x, .17, -.02);      // ODrive board
-    box(.052, .012, .04, 0x39414d, x - .012, .178, -.02);            // heatsink
-    for (let hs = 0; hs < 5; hs++) box(.003, .016, .04, 0x4b5462, x - .03 + hs * .012, .182, -.02);
-    box(.02, .01, .012, 0x15191f, x + .036, .177, -.006);            // phase connector
-    box(.014, .008, .01, 0x15191f, x + .036, .176, -.034);           // power connector
-    box(.008, .006, .008, 0x2b3340, x + .01, .175, -.05);            // encoder header
-    const led = box(.004, .002, .004, 0x34d399, x - .04, .173, -.048);
-    led.material.emissive = new THREE.Color(0x34d399); led.material.emissiveIntensity = 1.2;
+    // The ODrive Pro is not on the bench: it is bolted to a round plate on the
+    // motor's face, with the shaft passing through the middle of the plate.
+    cyl(.085, .006, 0xc3cad3, x, .06, .078, null, 44);               // face plate
+    for (const a of [Math.PI / 2, -Math.PI / 2]) {                   // threaded studs holding it
+      cyl(.005, .13, 0x9aa5b1, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .022, null, 10);
+      cyl(.008, .008, 0x4e5866, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .086, null, 8);
+    }
+    const bx = x - .016, by = .024, bz = .087;                       // board centre
+    const board = box(.076, .056, .003, COLOUR.pcb, bx, by, bz);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1])              // standoffs
+      cyl(.0028, .009, 0x5b6b7f, bx + sx * .032, by + sy * .022, .0825, null, 8);
+    box(.05, .009, .009, 0x39414d, bx - .004, by + .019, bz + .005); // heatsink over the FETs
+    for (let hs = 0; hs < 5; hs++)
+      box(.0025, .013, .009, 0x4b5462, bx - .026 + hs * .012, by + .021, bz + .005);
+    box(.011, .044, .014, 0x2f8f5b, bx - .039, by, bz + .004);       // green phase terminal
+    for (let k = 0; k < 4; k++)                                      // yellow bullet connectors
+      box(.018, .007, .007, 0xf0b429, bx - .053, by - .016 + k * .011, bz + .004);
+    box(.012, .007, .006, 0x15191f, bx + .03, by + .016, bz + .004); // encoder header
+    const led = box(.004, .004, .003, 0x34d399, bx + .012, by - .018, bz + .004);
+    led.material.emissive = new THREE.Color(0x34d399); led.material.emissiveIntensity = 1.4;
     boards.push(board);
-    // three phase leads from the controller down into the motor terminal box
-    for (const [k, off] of [-.006, 0, .006].entries()) {
-      tube([[x + .036, .172, -.006 + off], [x + .03, .12, .01 + off], [x + off, .03, .03]], .0028,
+    // phase leads from the bullet connectors round the side to the terminal box
+    for (const [k, off] of [-.008, 0, .008].entries()) {
+      tube([[bx - .062, by + off, bz], [x - .085, .005 + off, .05], [x - .015, .002, .034]], .0028,
         [0xef4444, 0xe8eaed, 0x7aa2f7][k]);
     }
   }
@@ -85,17 +99,16 @@ function buildRig() {
   box(.05, .004, .022, 0xd7dde5, 0, .081, -.185);                    // battery label
   for (const s2 of [-1, 1]) box(.012, .012, .012, s2 > 0 ? 0xef4444 : 0x1b2430, s2 * .045, .088, -.2);
   box(.024, .014, .016, 0x15191f, 0, .09, -.25);                     // BMS / connector block
-  tube([[-.26, .17, -.03], [-.12, .13, -.18], [0, .09, -.2]], .005, COLOUR.power);
-  tube([[.26, .17, -.03], [.12, .13, -.18], [0, .09, -.2]], .005, COLOUR.power);
-  tube([[-.26, .17, -.02], [0, .21, -.05], [.26, .17, -.02]], .0035, COLOUR.signal);
+  tube([[-.276, .024, .09], [-.38, .02, -.06], [-.14, .05, -.21], [0, .085, -.2]], .005, COLOUR.power);
+  tube([[.244, .024, .09], [.38, .02, -.06], [.14, .05, -.21], [0, .085, -.2]], .005, COLOUR.power);
   const lidBase = box(.13, .008, .09, 0x1b2430, 0, .196, -.05);      // laptop
   const lid = box(.13, .085, .006, 0x222b36, 0, .238, -.095);
   lid.rotation.x = .28;
   const lidScreen = box(.118, .073, .002, 0x0d1117, 0, .238, -.09);
   lidScreen.rotation.x = .28; lidScreen.material.emissive = new THREE.Color(0x11303f);
   lidScreen.material.emissiveIntensity = .7;
-  tube([[-.26, .174, -.05], [-.1, .2, -.06], [-.05, .198, -.05]], .0022, 0x5b6b7f);   // USB
-  tube([[.26, .174, -.05], [.1, .2, -.06], [.05, .198, -.05]], .0022, 0x5b6b7f);
+  tube([[-.246, .042, .09], [-.24, .14, -.02], [-.05, .2, -.05]], .0022, 0x5b6b7f);   // USB
+  tube([[.274, .042, .09], [.28, .14, -.02], [.05, .2, -.05]], .0022, 0x5b6b7f);
   // emergency stop on its own post
   cyl(.012, .06, 0x39414d, .46, .0, -.12);
   const mushroom = new THREE.Mesh(new THREE.CylinderGeometry(.03, .026, .016, 20),
@@ -246,7 +259,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), .05);
   intro += dt;
   spin += dt * (opts.rpm * 2 * Math.PI / 60) * opts.slow;
-  for (const s of sprockets) s.rotation.y = spin;
+  for (const s of sprockets) s.rotation.z = spin;
   rotorGroup.rotation.z = spin; encoderDisc.rotation.y = spin;
   positionChain(spin * .05);
 
