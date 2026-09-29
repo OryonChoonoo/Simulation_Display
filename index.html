@@ -21,6 +21,7 @@
 
 <nav class="tabs" role="tablist">
   <button class="tab" data-tab="envelope" role="tab" aria-selected="true">Operating envelope</button>
+  <button class="tab" data-tab="rig" role="tab" aria-selected="false">What am I looking at?</button>
   <button class="tab" data-tab="foc" role="tab" aria-selected="false">How the control works</button>
   <button class="tab" data-tab="soon" role="tab" aria-selected="false" disabled title="Added once the sensorless simulation exists">Sensorless comparison &middot; coming</button>
 </nav>
@@ -68,6 +69,110 @@
     <div class="numbers-card advanced">
       <h2>Numbers</h2>
       <div id="numbers" class="numbers"></div>
+    </div>
+  </section>
+</main>
+
+<main id="tab-rig" hidden>
+  <section class="plot-card">
+    <h2 class="panel-title">The test rig</h2>
+    <svg id="rig" viewBox="0 0 880 470" role="img" aria-label="Two chain-coupled motors, each driven by an ODrive Pro from a shared battery">
+      <!-- battery and supply -->
+      <g class="part" data-part="battery" tabindex="0">
+        <rect x="360" y="16" width="160" height="56" rx="8"/>
+        <text x="440" y="40">26.5 V battery</text>
+        <text x="440" y="58" class="sm">shared by both</text>
+      </g>
+      <path class="wire power" d="M400 72 V108 H196 V150"/>
+      <path class="wire power" d="M480 72 V108 H684 V150"/>
+
+      <!-- controllers -->
+      <g class="part" data-part="odrive1" tabindex="0">
+        <rect x="116" y="150" width="160" height="60" rx="8"/>
+        <text x="196" y="175">ODrive Pro 1</text>
+        <text x="196" y="193" class="sm">speed control</text>
+      </g>
+      <g class="part" data-part="odrive2" tabindex="0">
+        <rect x="604" y="150" width="160" height="60" rx="8"/>
+        <text x="684" y="175">ODrive Pro 2</text>
+        <text x="684" y="193" class="sm">torque control</text>
+      </g>
+      <path class="wire phase" d="M196 210 V262"/>
+      <path class="wire phase" d="M684 210 V262"/>
+
+      <!-- motors -->
+      <g class="part" data-part="motor1" tabindex="0">
+        <rect x="116" y="262" width="160" height="86" rx="8"/>
+        <text x="196" y="292">Test motor</text>
+        <text x="196" y="312" class="sm">BM1109 PMSM</text>
+        <text x="196" y="330" class="sm">the one being studied</text>
+      </g>
+      <g class="part" data-part="motor2" tabindex="0">
+        <rect x="604" y="262" width="160" height="86" rx="8"/>
+        <text x="684" y="292">Load motor</text>
+        <text x="684" y="312" class="sm">BM1109 PMSM</text>
+        <text x="684" y="330" class="sm">pushes back</text>
+      </g>
+
+      <!-- chain drive -->
+      <g class="part" data-part="chain" tabindex="0">
+        <circle cx="330" cy="305" r="34"/>
+        <circle cx="550" cy="305" r="34"/>
+        <circle class="hub" cx="330" cy="305" r="7"/>
+        <circle class="hub" cx="550" cy="305" r="7"/>
+        <path class="chain" d="M330 271 H550 M330 339 H550"/>
+        <text x="440" y="378">chain, nominally 1:1</text>
+        <text x="440" y="396" class="sm">pitch not yet confirmed</text>
+      </g>
+      <path class="wire shaft" d="M276 305 H296"/>
+      <path class="wire shaft" d="M584 305 H604"/>
+
+      <!-- encoder -->
+      <g class="part" data-part="encoder" tabindex="0">
+        <rect x="116" y="374" width="160" height="52" rx="8"/>
+        <text x="196" y="398">Encoder</text>
+        <text x="196" y="416" class="sm">rotor angle · to be confirmed</text>
+      </g>
+      <path class="wire signal" d="M196 348 V374"/>
+
+      <!-- host and safety -->
+      <g class="part" data-part="laptop" tabindex="0">
+        <rect x="360" y="150" width="160" height="60" rx="8"/>
+        <text x="440" y="175">Laptop</text>
+        <text x="440" y="193" class="sm">USB, isolated</text>
+      </g>
+      <path class="wire signal" d="M360 180 H276"/>
+      <path class="wire signal" d="M520 180 H604"/>
+      <g class="part danger" data-part="estop" tabindex="0">
+        <rect x="604" y="374" width="160" height="52" rx="8"/>
+        <text x="684" y="398">Emergency stop</text>
+        <text x="684" y="416" class="sm">physical, independent</text>
+      </g>
+    </svg>
+    <p class="caption">Tap any part of the rig to see what it does.</p>
+  </section>
+
+  <section class="side">
+    <div class="verdict-card">
+      <p class="verdict ok" id="rig-title">A motor testing a motor</p>
+      <p class="explain" id="rig-text">Two identical motors are bolted down and joined by a chain. The
+        left one is the motor being studied. The right one acts as a brake, pushing back by exactly as
+        much as we ask, so the left motor can be tested at any load we choose without lifting anything
+        or wasting fuel. The energy goes back into the battery instead of into a brake.</p>
+    </div>
+    <div class="numbers-card">
+      <h2>The question this rig answers</h2>
+      <p class="explain">Field-oriented control needs to know where the rotor is. The encoder measures it
+        directly. A sensorless drive estimates it instead, from the voltage the spinning magnets generate.
+        This rig measures <strong>at which speeds and loads that estimate is good enough</strong> to
+        replace the encoder.</p>
+    </div>
+    <div class="numbers-card advanced">
+      <h2>Honest about the limits</h2>
+      <p class="explain">There is no torque transducer on this rig. Torque is inferred from the measured
+        current using the motor's torque constant, and that constant is itself provisional, so torque
+        figures carry that uncertainty. The encoder type, the chain pitch and the battery's charge
+        behaviour are all still to be confirmed.</p>
     </div>
   </section>
 </main>

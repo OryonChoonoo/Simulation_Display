@@ -167,7 +167,7 @@ function watchIdle() {
   setInterval(() => {
     if (mode !== 'kiosk' || Date.now() - idleTimer < 45000) return;
     if (!attract) {
-      reset();
+      reset(); setTab('envelope');   // the sweeping envelope is what catches the eye
       let phase = 0;
       attract = setInterval(() => {
         phase += 0.02;
@@ -347,11 +347,41 @@ function setFrame(next) {
     : 'Three sine waves, endlessly changing. A controller cannot hold a steady value against a moving target like this.';
 }
 
+// ---- exhibit 3: what am I looking at? -------------------------------------------
+const RIG_PARTS = {
+  battery: ['One battery, two controllers',
+    'A 26.5 V battery feeds both controllers on a shared bus. When the load motor brakes it acts as a generator, and that energy flows back into the battery rather than being burnt in a resistor. Its fully charged voltage and current ratings are still to be confirmed.'],
+  odrive1: ['The controller under test',
+    'An ODrive Pro running field-oriented control on the test motor, updating the current twenty thousand times a second. It holds the speed we ask for. This is the controller whose sensored and sensorless modes the investigation compares.'],
+  odrive2: ['The controller that creates the load',
+    'A second ODrive Pro running the load motor in torque control. Instead of holding a speed, it holds a pushing force against the test motor, which is how a load of exactly 0.5 or 2.0 newton-metres is applied on demand.'],
+  motor1: ['The motor being studied',
+    'A BM1109 permanent-magnet motor, nominally 1.2 kW. Everything the investigation measures is about this motor: how accurately it holds speed, how much current it draws, and how well its rotor position can be tracked with and without an encoder.'],
+  motor2: ['The brake, which is also a motor',
+    'An identical BM1109 used backwards, as a brake. It keeps its encoder in every test, so it also serves as an independent measurement of shaft speed: a second opinion the sensorless estimate can be checked against.'],
+  chain: ['The mechanical link',
+    'A chain over nominally equal sprockets ties the two shafts together, so whatever one motor does the other feels. The sprocket pitch is not yet determined, and chain slack matters: earlier simulation work showed backlash can multiply the peak torque in the chain several times over. Tension and alignment are a safety requirement, not a detail.'],
+  encoder: ['How the controller knows where the rotor is',
+    'The encoder reports rotor angle directly, which is what "sensored" means. Field-oriented control needs that angle to aim the current correctly. Its type, mounting and resolution are still to be confirmed for this rig.'],
+  laptop: ['The operator, and the record',
+    'A laptop connected to both controllers over USB, through isolators that stop the two boards forming a ground loop. It configures the drives, runs the test matrix and records the data. It never replaces the safety systems.'],
+  estop: ['The stop that actually stops it',
+    'A physical emergency stop, independent of any software. The software stop only removes the driving torque and lets the motors coast: it cannot brake them, and it cannot help if the computer has stopped responding. That is why the physical one exists.'],
+};
+
+function showPart(key) {
+  const part = RIG_PARTS[key]; if (!part) return;
+  $('rig-title').textContent = part[0];
+  $('rig-text').textContent = part[1];
+  for (const g of document.querySelectorAll('#rig .part')) g.classList.toggle('active', g.dataset.part === key);
+}
+
 // ---- tabs ----------------------------------------------------------------------
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
   $('tab-envelope').hidden = name !== 'envelope';
   $('tab-foc').hidden = name !== 'foc';
+  $('tab-rig').hidden = name !== 'rig';
   if (name === 'envelope') render();
 }
 
@@ -373,19 +403,30 @@ async function start() {
     if (e.key === 'r') reset();
     if (e.key === 'e') setTab('envelope');
     if (e.key === 'f') setTab('foc');
+    if (e.key === 'w') setTab('rig');
     if (SCENARIOS[e.key] && !$('tab-envelope').hidden) scenario(e.key);
   });
   for (const t of document.querySelectorAll('.tab')) {
     t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
+  for (const g of document.querySelectorAll('#rig .part')) {
+    const pick = () => { touched(); showPart(g.dataset.part); };
+    g.addEventListener('click', pick);
+    g.addEventListener('mouseenter', pick);
+    g.addEventListener('focus', pick);
+  }
   for (const id of ['foc-speed', 'foc-load', 'foc-rate', 'foc-err']) $(id).addEventListener('input', touched);
   $('foc-err').addEventListener('input', () => { if (Number($('foc-err').value) === 0) setFrame(rotorFrame); });
   setFrame(false);
   requestAnimationFrame(focFrame);
   document.addEventListener('pointerdown', touched);
   window.addEventListener('resize', render);
-  setMode(new URLSearchParams(location.search).get('mode') === 'kiosk' ? 'kiosk' : 'presenter');
+  const kiosk = new URLSearchParams(location.search).get('mode') === 'kiosk';
+  setMode(kiosk ? 'kiosk' : 'presenter');
+  // Unattended visitors need orientation before numbers, so the kiosk opens on the rig.
+  setTab(kiosk ? 'rig' : 'envelope');
+  showPart('motor1');
   reset(); watchIdle(); touched();
 }
 start();
