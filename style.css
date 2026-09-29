@@ -90,3 +90,10 @@ body[data-mode=kiosk] .stage3d{height:620px}
 .partbar button:hover{border-color:#34d399;color:#e8eaed}
 .partbar button.active{background:#1f3a30;border-color:#34d399;color:#e8eaed}
 body[data-mode=kiosk] .partbar button{font-size:15.5px;padding:8px 16px}
+
+/* Shown only when the page was opened as a file and never booted */
+#boot-warning{max-width:720px;margin:14vh auto;padding:26px 30px;background:#1b2430;
+  border:1px solid #33404f;border-radius:12px;color:#cfd6df;font:400 16px/1.55 system-ui}
+#boot-warning h2{margin:0 0 10px;color:#f0b429;font-size:20px}
+#boot-warning code{background:#0d1117;padding:2px 7px;border-radius:5px;color:#e8eaed}
+#boot-warning a{color:#34d399}

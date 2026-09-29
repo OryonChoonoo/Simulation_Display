@@ -437,6 +437,8 @@ function setTab(name) {
 
 // ---- start --------------------------------------------------------------------
 async function start() {
+  const warning = document.getElementById('boot-warning');
+  if (warning) warning.remove();            // the scripts clearly did run
   const data = await fetch('data/matrix.json').then(r => r.json());
   P = { ...data.parameters }; CASES = data.cases;
   $('provenance').textContent = `${data.source.cases} simulated cases from ${data.source.run} (${data.source.date}). ${data.source.note}`;

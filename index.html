@@ -8,6 +8,15 @@
 </head>
 <body data-mode="presenter">
 
+<!-- Opened straight off the disk, a browser blocks module scripts and fetch, so the
+     page stays blank with no clue why. This banner is removed once the page boots. -->
+<div id="boot-warning">
+  <h2>This page has to be served, not opened from the folder</h2>
+  <p>Browsers block the page's scripts and data file when it is opened as a file. In a terminal
+    in this folder, run <code>python -m http.server 8790</code> and then open
+    <a href="http://127.0.0.1:8790/">http://127.0.0.1:8790/</a>.</p>
+</div>
+
 <header>
   <div>
     <p class="eyebrow">FOURTH-YEAR INVESTIGATION &middot; SENSORED FIELD-ORIENTED CONTROL</p>
