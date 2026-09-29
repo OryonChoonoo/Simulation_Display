@@ -67,17 +67,17 @@ function buildRig() {
       tooth.rotation.z = a;
     }
     sprockets.push(s);
-    // The ODrive Pro is not on the bench: it is bolted to a round plate on the
-    // motor's face, with the shaft passing through the middle of the plate.
-    cyl(.085, .006, 0xc3cad3, x, .06, .078, null, 44);               // face plate
-    for (const a of [Math.PI / 2, -Math.PI / 2]) {                   // threaded studs holding it
-      cyl(.005, .13, 0x9aa5b1, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .022, null, 10);
-      cyl(.008, .008, 0x4e5866, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .086, null, 8);
+    // The ODrive Pro is not on the bench: it sits in the middle of a round plate
+    // carried on threaded rods past the sprocket, so the shaft stays behind it.
+    cyl(.085, .006, 0xc3cad3, x, .06, .145, null, 44);               // face plate
+    for (const a of [Math.PI / 2, -Math.PI / 2]) {                   // threaded rods carrying it
+      cyl(.005, .19, 0x9aa5b1, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .055, null, 10);
+      cyl(.008, .008, 0x4e5866, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .152, null, 8);
     }
-    const bx = x - .016, by = .024, bz = .087;                       // board centre
+    const bx = x, by = .06, bz = .154;                               // board, centred on the plate
     const board = box(.076, .056, .003, COLOUR.pcb, bx, by, bz);
     for (const sx of [-1, 1]) for (const sy of [-1, 1])              // standoffs
-      cyl(.0028, .009, 0x5b6b7f, bx + sx * .032, by + sy * .022, .0825, null, 8);
+      cyl(.0028, .009, 0x5b6b7f, bx + sx * .032, by + sy * .022, .1495, null, 8);
     box(.05, .009, .009, 0x39414d, bx - .004, by + .019, bz + .005); // heatsink over the FETs
     for (let hs = 0; hs < 5; hs++)
       box(.0025, .013, .009, 0x4b5462, bx - .026 + hs * .012, by + .021, bz + .005);
@@ -90,7 +90,8 @@ function buildRig() {
     boards.push(board);
     // phase leads from the bullet connectors round the side to the terminal box
     for (const [k, off] of [-.008, 0, .008].entries()) {
-      tube([[bx - .062, by + off, bz], [x - .085, .005 + off, .05], [x - .015, .002, .034]], .0028,
+      tube([[bx - .062, by + off, bz], [x - .105, .03 + off, .11], [x - .06, .004, .05],
+        [x - .015, .002, .034]], .0028,
         [0xef4444, 0xe8eaed, 0x7aa2f7][k]);
     }
   }
@@ -99,16 +100,16 @@ function buildRig() {
   box(.05, .004, .022, 0xd7dde5, 0, .081, -.185);                    // battery label
   for (const s2 of [-1, 1]) box(.012, .012, .012, s2 > 0 ? 0xef4444 : 0x1b2430, s2 * .045, .088, -.2);
   box(.024, .014, .016, 0x15191f, 0, .09, -.25);                     // BMS / connector block
-  tube([[-.276, .024, .09], [-.38, .02, -.06], [-.14, .05, -.21], [0, .085, -.2]], .005, COLOUR.power);
-  tube([[.244, .024, .09], [.38, .02, -.06], [.14, .05, -.21], [0, .085, -.2]], .005, COLOUR.power);
+  tube([[-.322, .06, .155], [-.40, .02, .04], [-.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
+  tube([[.198, .06, .155], [.40, .02, .04], [.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
   const lidBase = box(.13, .008, .09, 0x1b2430, 0, .196, -.05);      // laptop
   const lid = box(.13, .085, .006, 0x222b36, 0, .238, -.095);
   lid.rotation.x = .28;
   const lidScreen = box(.118, .073, .002, 0x0d1117, 0, .238, -.09);
   lidScreen.rotation.x = .28; lidScreen.material.emissive = new THREE.Color(0x11303f);
   lidScreen.material.emissiveIntensity = .7;
-  tube([[-.246, .042, .09], [-.24, .14, -.02], [-.05, .2, -.05]], .0022, 0x5b6b7f);   // USB
-  tube([[.274, .042, .09], [.28, .14, -.02], [.05, .2, -.05]], .0022, 0x5b6b7f);
+  tube([[-.23, .076, .156], [-.26, .17, .02], [-.05, .2, -.05]], .0022, 0x5b6b7f);   // USB
+  tube([[.29, .076, .156], [.26, .17, .02], [.05, .2, -.05]], .0022, 0x5b6b7f);
   // emergency stop on its own post
   cyl(.012, .06, 0x39414d, .46, .0, -.12);
   const mushroom = new THREE.Mesh(new THREE.CylinderGeometry(.03, .026, .016, 20),
@@ -116,7 +117,7 @@ function buildRig() {
   mushroom.position.set(.46, .036, -.12); scene.add(mushroom);
   box(.05, .008, .05, 0xf0b429, .46, .002, -.12);                    // yellow base plate
   // chain guard: a transparent shield over the drive, as the rig will need
-  const guard = box(.6, .16, .006, 0x9ec1ff, 0, .06, .158);
+  const guard = box(.4, .16, .006, 0x9ec1ff, 0, .06, .158);
   guard.material.transparent = true; guard.material.opacity = .12;
 
   // chain: alternating roller and side-plate links around both sprockets
