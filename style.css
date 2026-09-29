@@ -73,3 +73,5 @@ body[data-mode=kiosk] .caption{font-size:17px}
 
 /* An element-level display rule beats the browser default for [hidden], so tabs need this. */
 [hidden]{display:none !important}
+.hint{margin:-6px 0 16px;color:var(--muted);font-size:13px}
+body[data-mode=kiosk] .hint{font-size:16px}

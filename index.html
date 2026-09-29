@@ -104,6 +104,11 @@
       <label>Load torque <b id="foc-load-out">0.50 N·m</b>
         <input id="foc-load" type="range" min="0" max="2.6" step="0.05" value="0.5">
       </label>
+      <label>Rotor angle error <b id="foc-err-out">0&deg;</b>
+        <input id="foc-err" type="range" min="-90" max="90" step="1" value="0">
+      </label>
+      <p class="hint">An encoder knows the angle to a fraction of a degree. Without one, the
+        controller has to estimate it &mdash; drag this to see what an error costs.</p>
       <label class="advanced">Animation speed <b id="foc-rate-out">1&times;</b>
         <input id="foc-rate" type="range" min="0.05" max="1" step="0.05" value="0.35">
       </label>
@@ -118,6 +123,11 @@
         the controller holds it at zero. Iq is the torque-producing part. Both are steady numbers in the
         rotor's frame, so a simple controller can hold them &mdash; which is the whole idea of
         field-oriented control.</p>
+      <p class="explain">Everything here depends on knowing where the rotor is. The encoder on this rig
+        measures it directly. A sensorless drive infers it from the voltage the spinning magnets generate,
+        and that voltage shrinks with speed: about 11 V at 1500 rpm, but only 0.4 V at 50 rpm. That is why
+        the investigation expects sensorless control to fail at low speed, and why the comparison is
+        measured as a speed and load envelope.</p>
     </div>
   </section>
 </main>

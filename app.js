@@ -189,10 +189,14 @@ function focState() {
   const rpm = Number($('foc-speed').value), torque = Number($('foc-load').value);
   const o = operate(rpm, torque);
   const peak = o.iq * Math.SQRT2;          // the sinusoids peak above the steady q-axis value
-  return { rpm, torque, o, peak };
+  // The controller aims its current at where it *thinks* the rotor is. An angle error
+  // splits that current: cos(error) still makes torque, sin(error) is pushed into the
+  // magnets and only makes heat.
+  const err = Number($('foc-err').value) * Math.PI / 180;
+  return { rpm, torque, o, peak, err, iq: o.iq * Math.cos(err), id: o.iq * Math.sin(err) };
 }
 
-function drawRotor(theta, peak) {
+function drawRotor(theta, peak, err) {
   const c = $('rotor'), g = c.getContext('2d');
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -233,10 +237,20 @@ function drawRotor(theta, peak) {
     g.fillText(label, cx + Math.cos(angle) * (len + 20), cy - Math.sin(angle) * (len + 20) + 4);
   };
   arrow(theta, r * 0.95, '#ef4444', 'magnets (d)');
-  if (peak > 0.05) arrow(theta + Math.PI / 2, r * 0.95, '#34d399', 'current (q)');
+  if (peak > 0.05) {
+    if (Math.abs(err) < 0.01) {
+      arrow(theta + Math.PI / 2, r * 0.95, '#34d399', 'current (q)');
+    } else {
+      // Where the current actually points, versus where it should.
+      g.setLineDash([6, 5]);
+      arrow(theta + Math.PI / 2, r * 0.95, '#3f6b57', 'should be here');
+      g.setLineDash([]);
+      arrow(theta + Math.PI / 2 + err, r * 0.95, Math.abs(err) > Math.PI / 3 ? '#ef4444' : '#f0b429', 'current');
+    }
+  }
 }
 
-function drawScope(theta, peak, iq) {
+function drawScope(theta, peak, iq, id) {
   const c = $('scope'), g = c.getContext('2d');
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -254,7 +268,7 @@ function drawScope(theta, peak, iq) {
   const CYCLES = 2, N = 260;
   const series = rotorFrame
     ? [{ colour: '#34d399', label: 'Iq  torque', value: () => iq },
-       { colour: '#ef4444', label: 'Id  wasted', value: () => 0 }]
+       { colour: '#ef4444', label: 'Id  wasted', value: () => id }]
     : [0, 1, 2].map(k => ({
         colour: ['#34d399', '#f0b429', '#7aa2f7'][k], label: 'phase ' + 'ABC'[k],
         value: a => peak * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2),
@@ -278,21 +292,46 @@ function drawScope(theta, peak, iq) {
 
 function focFrame(now) {
   if (document.getElementById('tab-foc').hidden) { focLast = now; return requestAnimationFrame(focFrame); }
-  const { rpm, o, peak } = focState();
+  const { rpm, o, peak, err, iq, id } = focState();
   const dt = Math.min((now - focLast) / 1000, 0.05); focLast = now;
   focPhase += dt * (rpm * 2 * Math.PI / 60) * P.pole_pairs * Number($('foc-rate').value);
+  const degrees = Math.round(err * 180 / Math.PI);
   $('foc-speed-out').textContent = Math.round(rpm) + ' rpm';
   $('foc-load-out').textContent = Number($('foc-load').value).toFixed(2) + ' N\u00b7m';
+  $('foc-err-out').textContent = (degrees > 0 ? '+' : '') + degrees + '\u00b0';
   $('foc-rate-out').textContent = Number($('foc-rate').value).toFixed(2) + '\u00d7';
-  drawRotor(focPhase, peak); drawScope(focPhase, peak, o.iq);
+  drawRotor(focPhase, peak, err); drawScope(focPhase, peak, iq, id);
+  const kept = Math.cos(err), backEmf = (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb;
   $('foc-numbers').innerHTML = (rotorFrame
-    ? [['Iq, makes torque', o.iq.toFixed(2) + ' A'], ['Id, makes only heat', '0.00 A'],
-       ['Torque', (o.iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m'], ['Both values', 'steady']]
+    ? [['Iq, makes torque', iq.toFixed(2) + ' A'],
+       ['Id, makes only heat', id.toFixed(2) + ' A'],
+       ['Torque', (iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m'],
+       ['Torque kept', (100 * kept).toFixed(0) + ' %']]
     : [['Phase current peak', peak.toFixed(2) + ' A'],
        ['Electrical frequency', (rpm / 60 * P.pole_pairs).toFixed(1) + ' Hz'],
-       ['Each phase', 'never settles'], ['Torque', (o.iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m']]
+       ['Back-EMF to estimate from', backEmf.toFixed(2) + ' V'],
+       ['Torque', (iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m']]
   ).map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  if (Math.abs(degrees) >= 1) angleMessage(degrees, kept, iq, id);
   requestAnimationFrame(focFrame);
+}
+
+// What an angle error costs, in the operator's language.
+function angleMessage(degrees, kept, iq, id) {
+  const head = $('foc-headline'), body = $('foc-explain');
+  if (Math.abs(degrees) >= 80) {
+    head.textContent = 'Almost no torque left';
+    head.className = 'verdict bad';
+    body.textContent = `The current is pushed almost entirely into the magnets: ${id.toFixed(1)} A making heat and only ${iq.toFixed(2)} A making torque. Past 90 degrees the torque reverses and the drive loses control of the motor.`;
+  } else if (Math.abs(degrees) >= 25) {
+    head.textContent = `Losing ${(100 - 100 * kept).toFixed(0)} % of the torque`;
+    head.className = 'verdict warn';
+    body.textContent = `Being ${Math.abs(degrees)} degrees out means ${id.toFixed(1)} A is wasted as heat. To keep the same torque the drive must pull more current, which heats the motor further.`;
+  } else {
+    head.textContent = `Slightly out: ${(100 * kept).toFixed(0)} % of the torque kept`;
+    head.className = 'verdict ok';
+    body.textContent = `A small error costs little torque, because cos of a small angle is close to one. This is the region a working sensorless estimator has to stay inside.`;
+  }
 }
 
 function setFrame(next) {
@@ -340,7 +379,8 @@ async function start() {
     t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
-  for (const id of ['foc-speed', 'foc-load', 'foc-rate']) $(id).addEventListener('input', touched);
+  for (const id of ['foc-speed', 'foc-load', 'foc-rate', 'foc-err']) $(id).addEventListener('input', touched);
+  $('foc-err').addEventListener('input', () => { if (Number($('foc-err').value) === 0) setFrame(rotorFrame); });
   setFrame(false);
   requestAnimationFrame(focFrame);
   document.addEventListener('pointerdown', touched);
