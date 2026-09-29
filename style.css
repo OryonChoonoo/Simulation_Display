@@ -97,3 +97,30 @@ body[data-mode=kiosk] .partbar button{font-size:15.5px;padding:8px 16px}
 #boot-warning h2{margin:0 0 10px;color:#f0b429;font-size:20px}
 #boot-warning code{background:#0d1117;padding:2px 7px;border-radius:5px;color:#e8eaed}
 #boot-warning a{color:#34d399}
+
+/* Source chooser on the rig tab */
+.choice-q{margin:0 0 4px;color:#e8eaed;font:600 15px system-ui}
+.primary-btn.ghost{background:#1b2430;border-color:#3d4c60;color:#cfd6df}
+.primary-btn.ghost:hover{border-color:#f0b429;color:#e8eaed}
+
+/* The four-step story above the FOC exhibit */
+#why{border-bottom:1px solid #26303c;padding-bottom:14px;margin-bottom:16px}
+.why-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.why-steps button{background:#1b2430;color:#9aa5b1;border:1px solid #2f3a48;border-radius:999px;
+  padding:5px 13px;font:500 13px system-ui;cursor:pointer}
+.why-steps button.active{background:#1f3a30;border-color:#34d399;color:#e8eaed}
+.why-head{margin:0 0 6px;font:600 20px/1.3 system-ui;color:#e8eaed}
+.why-text{margin:0 0 8px;color:#cfd6df;font:400 15.5px/1.6 system-ui;max-width:78ch}
+.why-text.advanced{color:#9aa5b1;font-size:14.5px;border-left:2px solid #2f3a48;padding-left:12px}
+.why-nav{display:flex;gap:8px;margin-top:10px}
+.why-nav button{background:#1b2430;color:#cfd6df;border:1px solid #33404f;border-radius:8px;
+  padding:7px 16px;font:600 14px system-ui;cursor:pointer}
+.why-nav button:disabled{opacity:.35;cursor:default}
+body[data-mode=kiosk] .why-head{font-size:23px}
+body[data-mode=kiosk] .why-text{font-size:17.5px}
+
+/* Which feedback source the exhibit is showing */
+.source-note{margin:0 0 12px;padding:10px 14px;border-radius:10px;font:400 14px/1.5 system-ui;
+  border:1px solid #2f3a48;background:#161d27;color:#cfd6df}
+.source-note.sensored{border-color:#34d399}
+.source-note.sensorless{border-color:#f0b429}

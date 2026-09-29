@@ -49,6 +49,12 @@
       <p class="explain" id="d3-text">Two motors joined by a chain, each driven by its own controller from
         one battery. The left motor is the one under test; the right one acts as the brake that loads it.</p>
     </div>
+    <div class="controls" id="source-choice" hidden>
+      <p class="choice-q">How should this motor know where its rotor is?</p>
+      <button id="pick-sensored" class="primary-btn">Sensored &mdash; measure it with the encoder</button>
+      <button id="pick-sensorless" class="primary-btn ghost">Sensorless &mdash; estimate it instead</button>
+      <p class="hint">Either one opens the explanation of what the controller then does with that angle.</p>
+    </div>
     <div class="controls">
       <button id="d3-rig" class="primary-btn">Show the whole rig</button>
       <button id="d3-inside" class="primary-btn">Look inside the motor</button>
@@ -129,6 +135,16 @@
 
 <main id="tab-foc" hidden>
   <section class="plot-card">
+    <div id="why">
+      <div class="why-steps" id="why-steps"></div>
+      <h2 class="why-head" id="why-head"></h2>
+      <p class="why-text" id="why-text"></p>
+      <p class="why-text advanced" id="why-tech"></p>
+      <div class="why-nav">
+        <button id="why-back">Back</button>
+        <button id="why-next" class="primary-btn">Next</button>
+      </div>
+    </div>
     <div class="foc-grid">
       <div>
         <h2 class="panel-title">The motor, seen from outside</h2>
@@ -147,6 +163,7 @@
   </section>
 
   <section class="side">
+    <p id="foc-source" class="source-note"></p>
     <div class="verdict-card">
       <p class="verdict ok" id="foc-headline">Three changing currents</p>
       <p class="explain" id="foc-explain">Press the button below to ride along with the rotor.</p>

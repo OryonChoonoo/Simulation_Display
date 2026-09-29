@@ -347,6 +347,87 @@ function setFrame(next) {
     : 'Three sine waves, endlessly changing. A controller cannot hold a steady value against a moving target like this.';
 }
 
+// ---- why field-oriented control, in four steps ---------------------------------
+// Everyone gets the same four steps. The plain text carries the argument on its own,
+// and presenter mode adds the technical line underneath rather than replacing it.
+const STORY = [
+  { tab: 'A motor is a push',
+    head: 'A motor makes torque by pushing across the magnets',
+    plain: 'Magnets ride on the spinning rotor. The controller makes a magnetic field in the windings that pushes them round. Push straight across the magnets and you get the most turning force for the current you spend.',
+    tech: 'Torque is T = 1.5\u00b7p\u00b7\u03bb\u00b7Iq. Only the part of the stator current at right angles to the rotor flux does work; the part lined up with it does nothing useful.',
+    err: null, frame: false },
+  { tab: 'The wrong angle',
+    head: 'Push at the wrong angle and most of it becomes heat',
+    plain: 'If the controller believes the rotor is somewhere it is not, it pushes at the wrong angle. Some of the current still turns the motor. The rest is spent squeezing the magnets, which only makes heat. Sixty degrees out and half the torque is gone.',
+    tech: 'Torque falls as cos \u03b5 while copper loss follows the total current, so holding a given torque needs current rising as 1/cos \u03b5 and dissipates as 1/cos\u00b2 \u03b5. Past 90\u00b0 the torque reverses and the drive loses control of the motor.',
+    err: 60, frame: false },
+  { tab: 'The trick',
+    head: 'So the controller rides along with the rotor',
+    plain: 'Seen from the wires, the currents are three sine waves that never sit still, and nothing can be held steady against them. Seen from the spinning rotor, the same currents become two steady numbers: one that makes torque, one that must be kept at zero. Nothing about the motor changed, only the point of view.',
+    tech: 'The Clarke and Park transforms rotate the measured phase currents into the rotor frame to give Id and Iq. Two PI loops hold Id at zero and Iq at the torque demand, and the inverse Park transform maps the result back onto the three windings.',
+    err: null, frame: true },
+  { tab: 'Where the angle comes from',
+    head: 'Which leaves one question: how do you know the angle?',
+    plain: 'An encoder measures it directly. That is the sensored case, and it is the reference this investigation compares against. A sensorless drive estimates it instead, from the voltage the spinning magnets generate \u2014 and that voltage shrinks as the motor slows: about 11 V at 1500 rpm, but only 0.4 V at 50 rpm. That is why the comparison is measured as a map of speed and load.',
+    tech: 'ODrive starts sensorless operation with an open-loop ramp and hands over to its estimator once there is enough back-EMF to work from. That handover is the fragile part, and it is where this project\u2019s sensorless simulation currently stands: no sensorless result exists yet, so anything shown for it here is illustrative.',
+    err: null, frame: true },
+];
+let step = 0;
+
+function buildStory() {
+  $('why-steps').innerHTML = STORY.map((s, i) => `<button data-step="${i}">${i + 1} &middot; ${s.tab}</button>`).join('');
+  for (const b of $('why-steps').querySelectorAll('button'))
+    b.addEventListener('click', () => { touched(); showStep(Number(b.dataset.step)); });
+}
+
+function showStep(i) {
+  step = Math.max(0, Math.min(STORY.length - 1, i));
+  const s = STORY[step];
+  $('why-head').textContent = s.head;
+  $('why-text').textContent = s.plain;
+  $('why-tech').textContent = s.tech;
+  $('why-back').disabled = step === 0;
+  $('why-next').disabled = step === STORY.length - 1;
+  for (const b of $('why-steps').querySelectorAll('button'))
+    b.classList.toggle('active', Number(b.dataset.step) === step);
+  // The story drives the exhibit below it, so the picture always matches the words.
+  $('foc-err').value = String(s.err === null ? sourceError() : s.err);
+  setFrame(s.frame);
+}
+
+// ---- sensored or sensorless ----------------------------------------------------
+let source = 'sensored';
+
+// The error a sensorless estimator would carry at this speed. It is the same
+// illustrative shape used in the 3D view, NOT a simulated result: the sensorless
+// simulation does not exist yet.
+function sourceError() {
+  if (source !== 'sensorless') return 0;
+  const rpm = Number($('foc-speed').value);
+  return Math.round(Math.min(85, 2500 / Math.max(rpm, 25)));
+}
+
+function setSource(next) {
+  source = next;
+  const note = $('foc-source');
+  if (next === 'sensorless') {
+    note.className = 'source-note sensorless';
+    note.innerHTML = '<b>Sensorless</b> \u2014 the angle is estimated from the back-EMF. The error shown '
+      + 'follows the speed as an <b>illustration only</b>: the sensorless simulation is not built yet.';
+  } else {
+    note.className = 'source-note sensored';
+    note.innerHTML = '<b>Sensored</b> \u2014 the encoder measures the angle directly, so the error is '
+      + 'essentially zero. This is the reference the investigation compares against.';
+  }
+  $('foc-err').value = String(sourceError());
+}
+
+function chooseSource(next) {
+  setSource(next);
+  setTab('foc');
+  showStep(0);
+}
+
 // ---- exhibit 3: what am I looking at? -------------------------------------------
 const RIG_PARTS = {
   battery: ['One battery, two controllers',
@@ -374,6 +455,7 @@ function showPart(key) {
   $('d3-title').textContent = part[0];
   $('d3-text').textContent = part[1];
   for (const b of document.querySelectorAll('#partbar button')) b.classList.toggle('active', b.dataset.part === key);
+  $('source-choice').hidden = !(key === 'motor1' || key === 'motor2');
   if (rig3d) { rig3d.setView('rig'); rig3d.highlight(key); }
 }
 
@@ -473,6 +555,15 @@ async function start() {
   for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
   setInterval(() => { if (!$('tab-3d').hidden) update3d(); }, 250);
   buildPartBar();
+  buildStory();
+  setSource('sensored');
+  showStep(0);
+  $('pick-sensored').addEventListener('click', () => { touched(); chooseSource('sensored'); });
+  $('pick-sensorless').addEventListener('click', () => { touched(); chooseSource('sensorless'); });
+  $('why-next').addEventListener('click', () => { touched(); showStep(step + 1); });
+  $('why-back').addEventListener('click', () => { touched(); showStep(step - 1); });
+  // In sensorless mode the error is a function of speed, so it must follow the slider.
+  $('foc-speed').addEventListener('input', () => { if (source === 'sensorless') $('foc-err').value = String(sourceError()); });
   for (const id of ['foc-speed', 'foc-load', 'foc-rate', 'foc-err']) $(id).addEventListener('input', touched);
   $('foc-err').addEventListener('input', () => { if (Number($('foc-err').value) === 0) setFrame(rotorFrame); });
   setFrame(false);
