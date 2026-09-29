@@ -19,7 +19,13 @@
   <div class="mode-badge"><span id="mode-name">Presenter mode</span><small>press K to switch</small></div>
 </header>
 
-<main>
+<nav class="tabs" role="tablist">
+  <button class="tab" data-tab="envelope" role="tab" aria-selected="true">Operating envelope</button>
+  <button class="tab" data-tab="foc" role="tab" aria-selected="false">How the control works</button>
+  <button class="tab" data-tab="soon" role="tab" aria-selected="false" disabled title="Added once the sensorless simulation exists">Sensorless comparison &middot; coming</button>
+</nav>
+
+<main id="tab-envelope">
   <section class="plot-card">
     <canvas id="envelope" aria-label="Operating envelope: torque against speed"></canvas>
     <p id="scenario" class="scenario"></p>
@@ -66,10 +72,62 @@
   </section>
 </main>
 
+<main id="tab-foc" hidden>
+  <section class="plot-card">
+    <div class="foc-grid">
+      <div>
+        <h2 class="panel-title">The motor, seen from outside</h2>
+        <canvas id="rotor" aria-label="Rotor with magnet axis and the stator current vector"></canvas>
+        <p class="caption">The rotor's magnets spin. The current in the three windings must always push
+          at right angles to them &mdash; that is what makes torque. The controller has to know where the
+          rotor is to do this, and an encoder tells it.</p>
+      </div>
+      <div>
+        <h2 class="panel-title" id="scope-title">What the three winding currents look like</h2>
+        <canvas id="scope" aria-label="Phase currents, or the same currents seen from the rotor"></canvas>
+        <p class="caption" id="scope-caption">Three sine waves, endlessly changing. A controller cannot
+          hold a steady value against a moving target like this.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="side">
+    <div class="verdict-card">
+      <p class="verdict ok" id="foc-headline">Three changing currents</p>
+      <p class="explain" id="foc-explain">Press the button below to ride along with the rotor.</p>
+    </div>
+    <div class="controls">
+      <button id="frame-toggle" class="primary-btn">Ride along with the rotor</button>
+      <label>Speed <b id="foc-speed-out">400 rpm</b>
+        <input id="foc-speed" type="range" min="30" max="2000" step="10" value="400">
+      </label>
+      <label>Load torque <b id="foc-load-out">0.50 N·m</b>
+        <input id="foc-load" type="range" min="0" max="2.6" step="0.05" value="0.5">
+      </label>
+      <label class="advanced">Animation speed <b id="foc-rate-out">1&times;</b>
+        <input id="foc-rate" type="range" min="0.05" max="1" step="0.05" value="0.35">
+      </label>
+    </div>
+    <div class="numbers-card">
+      <h2>In this frame</h2>
+      <div id="foc-numbers" class="numbers"></div>
+    </div>
+    <div class="numbers-card advanced">
+      <h2>Why this matters</h2>
+      <p class="explain">Id is current pushed uselessly into the magnets: it makes heat, not torque, and
+        the controller holds it at zero. Iq is the torque-producing part. Both are steady numbers in the
+        rotor's frame, so a simple controller can hold them &mdash; which is the whole idea of
+        field-oriented control.</p>
+    </div>
+  </section>
+</main>
+
 <footer>
   <p class="advanced"><strong>Presenter keys:</strong> 1 no load &middot; 2 under load &middot; 3 voltage ceiling &middot;
     4 thermal corner &middot; 5 current limit &middot; R reset &middot; K switch mode</p>
   <p id="provenance" class="small"></p>
+  <p class="small">Sensored field-oriented control only: the rotor angle comes from an encoder. The
+    sensorless comparison is the next stage of the investigation and will be added as its own tab.</p>
   <p class="small">Simulation only, with provisional BM1109 parameters and an averaged inverter.
     It has not been validated against the physical rig, and the numbers are not measurements.</p>
 </footer>

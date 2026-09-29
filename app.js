@@ -179,6 +179,143 @@ function watchIdle() {
   }, 1000);
 }
 
+// ---- exhibit 2: the rotating frame ---------------------------------------------
+// Three phase currents are sinusoids no controller can track. Seen from the rotor they
+// become two steady numbers: Id (wasted, held at zero) and Iq (torque). Same currents,
+// different viewpoint. That is field-oriented control in one picture.
+let rotorFrame = false, focPhase = 0, focLast = 0;
+
+function focState() {
+  const rpm = Number($('foc-speed').value), torque = Number($('foc-load').value);
+  const o = operate(rpm, torque);
+  const peak = o.iq * Math.SQRT2;          // the sinusoids peak above the steady q-axis value
+  return { rpm, torque, o, peak };
+}
+
+function drawRotor(theta, peak) {
+  const c = $('rotor'), g = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.34;
+
+  g.strokeStyle = '#2b3646'; g.lineWidth = 2;
+  g.beginPath(); g.arc(cx, cy, r * 1.32, 0, 7); g.stroke();       // stator bore
+  for (let k = 0; k < 3; k++) {                                    // winding axes
+    const a = k * 2 * Math.PI / 3;
+    g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][k]; g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(cx + Math.cos(a) * r * 1.2, cy - Math.sin(a) * r * 1.2);
+    g.lineTo(cx + Math.cos(a) * r * 1.32, cy - Math.sin(a) * r * 1.32);
+    g.stroke();
+    g.fillStyle = ['#34d399', '#f0b429', '#7aa2f7'][k];
+    g.font = '13px system-ui'; g.textAlign = 'center';
+    g.fillText('ABC'[k], cx + Math.cos(a) * r * 1.5, cy - Math.sin(a) * r * 1.5 + 4);
+  }
+
+  g.save(); g.translate(cx, cy); g.rotate(-theta);                 // rotor
+  g.fillStyle = '#ef4444';
+  g.beginPath(); g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2); g.fill();
+  g.fillStyle = '#5b6b7f';
+  g.beginPath(); g.arc(0, 0, r, Math.PI / 2, 1.5 * Math.PI); g.fill();
+  g.restore();
+  // Pole labels drawn upright, so they stay readable as the rotor turns.
+  g.fillStyle = '#fff'; g.font = 'bold 16px system-ui'; g.textAlign = 'center';
+  g.fillText('N', cx + Math.cos(theta) * r * 0.55, cy - Math.sin(theta) * r * 0.55 + 5);
+  g.fillText('S', cx - Math.cos(theta) * r * 0.55, cy + Math.sin(theta) * r * 0.55 + 5);
+
+  const arrow = (angle, len, colour, label) => {
+    const x = cx + Math.cos(angle) * len, y = cy - Math.sin(angle) * len;
+    g.strokeStyle = colour; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+    g.fillStyle = colour; g.beginPath();
+    g.arc(x, y, 6, 0, 7); g.fill();
+    g.font = 'bold 13px system-ui'; g.textAlign = 'center';
+    g.fillText(label, cx + Math.cos(angle) * (len + 20), cy - Math.sin(angle) * (len + 20) + 4);
+  };
+  arrow(theta, r * 0.95, '#ef4444', 'magnets (d)');
+  if (peak > 0.05) arrow(theta + Math.PI / 2, r * 0.95, '#34d399', 'current (q)');
+}
+
+function drawScope(theta, peak, iq) {
+  const c = $('scope'), g = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const L = 46, R = w - 12, T = 14, B = h - 26, mid = (T + B) / 2;
+  const scale = (B - T) / 2 / Math.max(peak * 1.25, 1);
+  g.strokeStyle = '#2b3646'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke();
+  g.beginPath(); g.moveTo(L, T); g.lineTo(L, B); g.stroke();
+  g.fillStyle = '#9aa5b1'; g.font = '12px system-ui'; g.textAlign = 'right';
+  g.fillText('+' + Math.max(peak, 1).toFixed(1) + ' A', L - 6, T + 12);
+  g.fillText('0', L - 6, mid + 4);
+  g.fillText('-' + Math.max(peak, 1).toFixed(1) + ' A', L - 6, B);
+
+  const CYCLES = 2, N = 260;
+  const series = rotorFrame
+    ? [{ colour: '#34d399', label: 'Iq  torque', value: () => iq },
+       { colour: '#ef4444', label: 'Id  wasted', value: () => 0 }]
+    : [0, 1, 2].map(k => ({
+        colour: ['#34d399', '#f0b429', '#7aa2f7'][k], label: 'phase ' + 'ABC'[k],
+        value: a => peak * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2),
+      }));
+  for (const s of series) {
+    g.strokeStyle = s.colour; g.lineWidth = 2.5; g.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const frac = i / N, a = theta - (1 - frac) * CYCLES * 2 * Math.PI;
+      const x = L + frac * (R - L), y = mid - s.value(a) * scale;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+    const yEnd = mid - s.value(theta) * scale;
+    g.fillStyle = s.colour; g.beginPath(); g.arc(R - 1, yEnd, 4, 0, 7); g.fill();
+    g.textAlign = 'right'; g.font = 'bold 12px system-ui';
+    g.fillText(s.label, R - 8, yEnd - 10);
+  }
+  g.fillStyle = '#9aa5b1'; g.textAlign = 'center'; g.font = '12px system-ui';
+  g.fillText(rotorFrame ? 'riding with the rotor' : 'standing still, watching the wires', (L + R) / 2, B + 18);
+}
+
+function focFrame(now) {
+  if (document.getElementById('tab-foc').hidden) { focLast = now; return requestAnimationFrame(focFrame); }
+  const { rpm, o, peak } = focState();
+  const dt = Math.min((now - focLast) / 1000, 0.05); focLast = now;
+  focPhase += dt * (rpm * 2 * Math.PI / 60) * P.pole_pairs * Number($('foc-rate').value);
+  $('foc-speed-out').textContent = Math.round(rpm) + ' rpm';
+  $('foc-load-out').textContent = Number($('foc-load').value).toFixed(2) + ' N\u00b7m';
+  $('foc-rate-out').textContent = Number($('foc-rate').value).toFixed(2) + '\u00d7';
+  drawRotor(focPhase, peak); drawScope(focPhase, peak, o.iq);
+  $('foc-numbers').innerHTML = (rotorFrame
+    ? [['Iq, makes torque', o.iq.toFixed(2) + ' A'], ['Id, makes only heat', '0.00 A'],
+       ['Torque', (o.iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m'], ['Both values', 'steady']]
+    : [['Phase current peak', peak.toFixed(2) + ' A'],
+       ['Electrical frequency', (rpm / 60 * P.pole_pairs).toFixed(1) + ' Hz'],
+       ['Each phase', 'never settles'], ['Torque', (o.iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m']]
+  ).map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  requestAnimationFrame(focFrame);
+}
+
+function setFrame(next) {
+  rotorFrame = next;
+  $('frame-toggle').textContent = next ? 'Stand still again' : 'Ride along with the rotor';
+  $('foc-headline').textContent = next ? 'Two steady numbers' : 'Three changing currents';
+  $('foc-explain').textContent = next
+    ? 'Exactly the same currents, seen from the spinning rotor. Now they hold still, so an ordinary controller can keep Iq where it wants it and Id at zero.'
+    : 'Press the button below to ride along with the rotor.';
+  $('scope-title').textContent = next ? 'The same currents, seen from the rotor' : 'What the three winding currents look like';
+  $('scope-caption').textContent = next
+    ? 'Nothing about the motor changed. Only the point of view did, and the problem became easy.'
+    : 'Three sine waves, endlessly changing. A controller cannot hold a steady value against a moving target like this.';
+}
+
+// ---- tabs ----------------------------------------------------------------------
+function setTab(name) {
+  for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
+  $('tab-envelope').hidden = name !== 'envelope';
+  $('tab-foc').hidden = name !== 'foc';
+  if (name === 'envelope') render();
+}
+
 // ---- start --------------------------------------------------------------------
 async function start() {
   const data = await fetch('data/matrix.json').then(r => r.json());
@@ -195,8 +332,17 @@ async function start() {
     touched();
     if (e.key === 'k') setMode(mode === 'kiosk' ? 'presenter' : 'kiosk');
     if (e.key === 'r') reset();
-    if (SCENARIOS[e.key]) scenario(e.key);
+    if (e.key === 'e') setTab('envelope');
+    if (e.key === 'f') setTab('foc');
+    if (SCENARIOS[e.key] && !$('tab-envelope').hidden) scenario(e.key);
   });
+  for (const t of document.querySelectorAll('.tab')) {
+    t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });
+  }
+  $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
+  for (const id of ['foc-speed', 'foc-load', 'foc-rate']) $(id).addEventListener('input', touched);
+  setFrame(false);
+  requestAnimationFrame(focFrame);
   document.addEventListener('pointerdown', touched);
   window.addEventListener('resize', render);
   setMode(new URLSearchParams(location.search).get('mode') === 'kiosk' ? 'kiosk' : 'presenter');
