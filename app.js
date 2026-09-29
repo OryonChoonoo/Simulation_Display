@@ -376,12 +376,44 @@ function showPart(key) {
   for (const g of document.querySelectorAll('#rig .part')) g.classList.toggle('active', g.dataset.part === key);
 }
 
+// ---- the 3D view ---------------------------------------------------------------
+// Loaded on demand: if the three.js file is missing the rest of the page still works.
+let rig3d = null, rig3dFailed = false;
+async function ensure3d() {
+  if (rig3d || rig3dFailed) return rig3d;
+  try {
+    rig3d = await import('./rig3d.js');
+    rig3d.init($('stage3d'));
+    update3d();
+  } catch (err) {
+    rig3dFailed = true;
+    $('stage3d').innerHTML = '<p class="explain" style="padding:24px">The 3D view needs <code>vendor/three.module.js</code>, which is not in this copy. Everything else on the page works without it.</p>';
+  }
+  return rig3d;
+}
+function update3d() {
+  if (!rig3d) return;
+  const rpm = Number($('d3-speed').value), sensorless = $('d3-sensorless').checked;
+  rig3d.setOptions({ rpm, sensorless });
+  $('d3-speed-out').textContent = Math.round(rpm) + ' rpm';
+  const r = rig3d.readout();
+  const backEmf = (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb;
+  $('d3-numbers').innerHTML = [
+    ['Where the controller aims', sensorless ? 'estimated' : 'measured by encoder'],
+    ['Angle error', sensorless ? r.errorDeg.toFixed(0) + '\u00b0' : 'essentially none'],
+    ['Torque kept', (100 * r.torqueKept).toFixed(0) + ' %'],
+    ['Back-EMF to estimate from', backEmf.toFixed(2) + ' V'],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+
 // ---- tabs ----------------------------------------------------------------------
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
   $('tab-envelope').hidden = name !== 'envelope';
   $('tab-foc').hidden = name !== 'foc';
   $('tab-rig').hidden = name !== 'rig';
+  $('tab-3d').hidden = name !== '3d';
+  if (name === '3d') ensure3d();
   if (name === 'envelope') render();
 }
 
@@ -404,12 +436,21 @@ async function start() {
     if (e.key === 'e') setTab('envelope');
     if (e.key === 'f') setTab('foc');
     if (e.key === 'w') setTab('rig');
+    if (e.key === '3') setTab('3d');
     if (SCENARIOS[e.key] && !$('tab-envelope').hidden) scenario(e.key);
   });
   for (const t of document.querySelectorAll('.tab')) {
     t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
+  $('d3-rig').addEventListener('click', () => { touched(); rig3d && rig3d.setView('rig');
+    $('d3-title').textContent = 'The rig';
+    $('d3-text').textContent = 'Two motors joined by a chain, each driven by its own controller from one battery. The left motor is the one under test; the right one acts as the brake that loads it.'; });
+  $('d3-inside').addEventListener('click', () => { touched(); rig3d && rig3d.setView('inside');
+    $('d3-title').textContent = 'Inside the test motor';
+    $('d3-text').textContent = 'The housing is hidden. The rotor magnets spin, and the green arrow is the current the controller pushes into the windings: it has to stay at right angles to the magnets to make torque. That is field-oriented control, and it needs the rotor angle.'; });
+  for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
+  setInterval(() => { if (!$('tab-3d').hidden) update3d(); }, 250);
   for (const g of document.querySelectorAll('#rig .part')) {
     const pick = () => { touched(); showPart(g.dataset.part); };
     g.addEventListener('click', pick);
@@ -425,7 +466,7 @@ async function start() {
   const kiosk = new URLSearchParams(location.search).get('mode') === 'kiosk';
   setMode(kiosk ? 'kiosk' : 'presenter');
   // Unattended visitors need orientation before numbers, so the kiosk opens on the rig.
-  setTab(kiosk ? 'rig' : 'envelope');
+  setTab('3d');
   showPart('motor1');
   reset(); watchIdle(); touched();
 }

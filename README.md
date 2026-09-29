@@ -67,8 +67,27 @@ solves the same equations live.
 | `index.html` | Page structure, both modes |
 | `app.js` | Motor equations, envelope solver, drawing, mode handling |
 | `style.css` | Styling, including the visitor-mode overrides |
+| `rig3d.js` | The 3D rig view and the motor cutaway |
+| `vendor/three.module.js` | three.js r169 (MIT licence, Copyright 2010-2024 Three.js Authors), vendored so the page works offline |
 | `data/matrix.json` | Exported simulation results and model parameters |
 | `tools/export_matrix_json.m` | Regenerates the JSON from a matrix run |
+
+## The 3D view
+
+The first tab shows the rig in three dimensions, built from primitives at roughly rig
+scale. It is an **illustration of the setup, not CAD and not measured data**: no public
+CAD exists for the BM1109, and clean shapes read better on a screen than a borrowed model
+of a different motor.
+
+Two views: the whole rig, which opens with a slow fly-in and can be dragged around, and a
+cutaway of the test motor seen down the shaft, showing the rotor magnets, the stator coils
+and the current vector the controller holds at right angles to the magnets.
+
+The **"estimate the angle instead of measuring it"** switch adds a second arrow for where a
+sensorless controller *thinks* the rotor is. The gap between the arrows grows as the motor
+slows, because the back-EMF it estimates from shrinks with speed. **That growth is an
+illustrative shape, not simulated behaviour** — the sensorless model does not exist yet.
+When it does, this can be driven by measured estimation error.
 
 ## The physics in the page
 

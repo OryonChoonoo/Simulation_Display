@@ -20,13 +20,43 @@
 </header>
 
 <nav class="tabs" role="tablist">
-  <button class="tab" data-tab="envelope" role="tab" aria-selected="true">Operating envelope</button>
+  <button class="tab" data-tab="3d" role="tab" aria-selected="true">The rig in 3D</button>
+  <button class="tab" data-tab="envelope" role="tab" aria-selected="false">Operating envelope</button>
   <button class="tab" data-tab="rig" role="tab" aria-selected="false">What am I looking at?</button>
   <button class="tab" data-tab="foc" role="tab" aria-selected="false">How the control works</button>
   <button class="tab" data-tab="soon" role="tab" aria-selected="false" disabled title="Added once the sensorless simulation exists">Sensorless comparison &middot; coming</button>
 </nav>
 
-<main id="tab-envelope">
+<main id="tab-3d" hidden>
+  <section class="plot-card">
+    <div id="stage3d" class="stage3d"></div>
+    <p id="stage3d-note" class="caption">Drag to turn the rig around. Built from simple shapes at roughly
+      rig scale: an illustration of the setup, not a CAD model and not measured data.</p>
+  </section>
+  <section class="side">
+    <div class="verdict-card">
+      <p class="verdict ok" id="d3-title">The rig</p>
+      <p class="explain" id="d3-text">Two motors joined by a chain, each driven by its own controller from
+        one battery. The left motor is the one under test; the right one acts as the brake that loads it.</p>
+    </div>
+    <div class="controls">
+      <button id="d3-rig" class="primary-btn">Show the whole rig</button>
+      <button id="d3-inside" class="primary-btn">Look inside the motor</button>
+      <label>Speed <b id="d3-speed-out">400 rpm</b>
+        <input id="d3-speed" type="range" min="30" max="2000" step="10" value="400">
+      </label>
+      <label class="check"><input id="d3-sensorless" type="checkbox"> Estimate the angle instead of measuring it</label>
+      <p class="hint">Sensored uses the encoder. Sensorless has to work the angle out from the voltage the
+        magnets generate, which shrinks as the motor slows.</p>
+    </div>
+    <div class="numbers-card">
+      <h2>Rotor angle</h2>
+      <div id="d3-numbers" class="numbers"></div>
+    </div>
+  </section>
+</main>
+
+<main id="tab-envelope" hidden>
   <section class="plot-card">
     <canvas id="envelope" aria-label="Operating envelope: torque against speed"></canvas>
     <p id="scenario" class="scenario"></p>
@@ -247,6 +277,6 @@
     It has not been validated against the physical rig, and the numbers are not measurements.</p>
 </footer>
 
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
