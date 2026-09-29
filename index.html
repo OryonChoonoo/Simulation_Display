@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BM1109 drive envelope explorer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="presenter">
+
+<header>
+  <div>
+    <p class="eyebrow">FOURTH-YEAR INVESTIGATION &middot; SENSORED FIELD-ORIENTED CONTROL</p>
+    <h1>What can this motor actually do?</h1>
+    <p class="sub">Choose a speed and a load. The green area is what the drive can deliver on a
+      <span id="vdc-out">26.5 V</span> battery with a <span id="imax-out">25 A</span> limit.
+      White dots are full Simulink simulation runs; the shading is the same physics solved live in this page.</p>
+  </div>
+  <div class="mode-badge"><span id="mode-name">Presenter mode</span><small>press K to switch</small></div>
+</header>
+
+<main>
+  <section class="plot-card">
+    <canvas id="envelope" aria-label="Operating envelope: torque against speed"></canvas>
+    <p id="scenario" class="scenario"></p>
+  </section>
+
+  <section class="side">
+    <div class="verdict-card">
+      <p id="verdict" class="verdict ok">The motor can do this</p>
+      <p id="explain" class="explain"></p>
+    </div>
+
+    <div class="controls">
+      <label>Speed <b id="speed-out">400 rpm</b>
+        <input id="speed" type="range" min="0" max="2600" step="10" value="400">
+      </label>
+      <label>Load torque <b id="load-out">0.50 N·m</b>
+        <input id="load" type="range" min="0" max="3.2" step="0.05" value="0.5">
+      </label>
+      <div class="advanced">
+        <label>Battery voltage
+          <input id="vdc" type="range" min="12" max="48" step="0.5" value="26.5">
+        </label>
+        <label>Current limit
+          <input id="imax" type="range" min="5" max="40" step="1" value="25">
+        </label>
+      </div>
+      <button id="reset">Reset</button>
+    </div>
+
+    <div class="power">
+      <h2>Where the power goes</h2>
+      <div class="bar"><span class="fill out" id="bar-out"></span></div>
+      <p><span class="key out"></span>Useful mechanical output <b id="p-out">0 W</b></p>
+      <div class="bar"><span class="fill cu" id="bar-cu"></span></div>
+      <p><span class="key cu"></span>Heat in the windings <b id="p-cu">0 W</b></p>
+      <div class="bar"><span class="fill fric" id="bar-fric"></span></div>
+      <p><span class="key fric"></span>Friction <b id="p-fric">0 W</b></p>
+    </div>
+
+    <div class="numbers-card advanced">
+      <h2>Numbers</h2>
+      <div id="numbers" class="numbers"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="advanced"><strong>Presenter keys:</strong> 1 no load &middot; 2 under load &middot; 3 voltage ceiling &middot;
+    4 thermal corner &middot; 5 current limit &middot; R reset &middot; K switch mode</p>
+  <p id="provenance" class="small"></p>
+  <p class="small">Simulation only, with provisional BM1109 parameters and an averaged inverter.
+    It has not been validated against the physical rig, and the numbers are not measurements.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

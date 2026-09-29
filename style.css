@@ -1,0 +1,54 @@
+:root{
+  --bg:#0d1117; --panel:#161b24; --line:#263141; --text:#e8eaed; --muted:#9aa5b1;
+  --ok:#34d399; --warn:#f0b429; --bad:#ef4444; --out:#34d399; --cu:#f97362; --fric:#7aa2f7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
+  padding:26px 32px 18px;border-bottom:1px solid var(--line)}
+.eyebrow{margin:0;color:#6ee7a8;font-size:11px;letter-spacing:.16em;font-weight:700}
+h1{margin:6px 0 8px;font-size:32px;line-height:1.12;font-weight:650}
+.sub{margin:0;color:var(--muted);max-width:70ch}
+.mode-badge{flex-shrink:0;text-align:right;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.mode-badge span{display:block;font-weight:650;font-size:14px}
+.mode-badge small{color:var(--muted);font-size:11px}
+main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:22px;padding:22px 32px}
+.plot-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+#envelope{width:100%;height:520px;display:block}
+.scenario{margin:8px 4px 0;color:#6ee7a8;font-weight:600;min-height:1.4em}
+.side{display:flex;flex-direction:column;gap:16px}
+.verdict-card,.controls,.power,.numbers-card{background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:16px 18px}
+.verdict{margin:0 0 6px;font-size:22px;font-weight:700}
+.verdict.ok{color:var(--ok)} .verdict.warn{color:var(--warn)} .verdict.bad{color:var(--bad)}
+.explain{margin:0;color:var(--muted)}
+.controls label{display:block;margin:0 0 14px;font-weight:600}
+.controls label b{float:right;font-variant-numeric:tabular-nums;color:#6ee7a8}
+input[type=range]{width:100%;margin-top:8px;accent-color:#34d399;height:26px}
+button{background:#22304a;color:var(--text);border:1px solid var(--line);border-radius:8px;
+  padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+button:hover{border-color:#6ee7a8}
+h2{margin:0 0 10px;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.bar{height:12px;background:#0c1117;border-radius:6px;overflow:hidden;margin:6px 0 2px}
+.fill{display:block;height:100%;width:0;transition:width .12s linear}
+.fill.out{background:var(--out)} .fill.cu{background:var(--cu)} .fill.fric{background:var(--fric)}
+.power p{margin:0 0 10px;color:var(--muted);font-size:14px}
+.power p b{float:right;color:var(--text);font-variant-numeric:tabular-nums}
+.key{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
+.key.out{background:var(--out)} .key.cu{background:var(--cu)} .key.fric{background:var(--fric)}
+.numbers div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1d2531;font-size:14px}
+.numbers span{color:var(--muted)}
+.numbers b{font-variant-numeric:tabular-nums}
+footer{padding:6px 32px 30px;color:var(--muted)}
+.small{font-size:12px;max-width:100ch}
+/* Visitor mode: fewer controls, bigger everything, no jargon. */
+body[data-mode=kiosk] .advanced{display:none}
+body[data-mode=kiosk]{font-size:19px}
+body[data-mode=kiosk] h1{font-size:44px}
+body[data-mode=kiosk] .sub{font-size:19px}
+body[data-mode=kiosk] #envelope{height:600px}
+body[data-mode=kiosk] .verdict{font-size:30px}
+body[data-mode=kiosk] input[type=range]{height:46px}
+body[data-mode=kiosk] .controls label{font-size:21px;margin-bottom:22px}
+@media(max-width:1100px){main{grid-template-columns:1fr}#envelope{height:420px}}
