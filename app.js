@@ -196,58 +196,135 @@ function focState() {
   return { rpm, torque, o, peak, err, iq: o.iq * Math.cos(err), id: o.iq * Math.sin(err) };
 }
 
+// ---- the machine, drawn once and used by every exhibit --------------------------
+// One pole pair is drawn because everything here is in ELECTRICAL angle: the real
+// rotor has three, so the shaft turns a third as fast as this picture does.
+function drawMachine(g, cx, cy, r, o) {
+  const theta = o.theta, err = o.err || 0, peak = o.peak || 0;
+  const live = peak > 0.05;
+
+  // --- stator: back iron, slots, and the three phase windings ------------------
+  const iron = g.createRadialGradient(cx, cy, r * 1.3, cx, cy, r * 1.72);
+  iron.addColorStop(0, '#222b36'); iron.addColorStop(1, '#161c25');
+  g.fillStyle = iron;
+  g.beginPath(); g.arc(cx, cy, r * 1.72, 0, 7);
+  g.arc(cx, cy, r * 1.3, 0, 7, true); g.fill();
+  g.strokeStyle = '#2f3a48'; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(cx, cy, r * 1.72, 0, 7); g.stroke();
+  g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.stroke();
+
+  const PHASE = ['#34d399', '#f0b429', '#7aa2f7'];
+  for (let k = 0; k < 12; k++) {                       // slots, four per phase
+    const a = -k * Math.PI / 6 + Math.PI / 12;
+    g.save(); g.translate(cx, cy); g.rotate(-a);
+    g.fillStyle = '#121820';
+    g.beginPath(); g.ellipse(r * 1.5, 0, r * 0.13, r * 0.085, 0, 0, 7); g.fill();
+    g.fillStyle = PHASE[k % 3];
+    g.globalAlpha = live ? 0.85 : 0.35;
+    g.beginPath(); g.ellipse(r * 1.5, 0, r * 0.085, r * 0.05, 0, 0, 7); g.fill();
+    g.globalAlpha = 1;
+    g.restore();
+  }
+  for (let k = 0; k < 3; k++) {                        // phase axis labels
+    const a = k * 2 * Math.PI / 3;
+    g.fillStyle = PHASE[k];
+    g.font = 'bold 13px system-ui'; g.textAlign = 'center';
+    g.fillText('ABC'[k], cx + Math.cos(a) * r * 1.84, cy - Math.sin(a) * r * 1.84 + 4);
+  }
+
+  // --- air gap -----------------------------------------------------------------
+  g.fillStyle = '#0d1117';
+  g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.arc(cx, cy, r * 1.06, 0, 7, true); g.fill();
+
+  // --- rotor: two shaded magnet halves, a boundary and a shaft -----------------
+  g.save(); g.translate(cx, cy); g.rotate(-theta);
+  for (const [from, colour, dark] of [[-Math.PI / 2, '#ef4444', '#8f2420'], [Math.PI / 2, '#64748b', '#39434f']]) {
+    const grad = g.createLinearGradient(0, -r, 0, r);
+    grad.addColorStop(0, colour); grad.addColorStop(1, dark);
+    g.fillStyle = from < 0 ? grad : dark;
+    if (from >= 0) { const g2 = g.createLinearGradient(0, r, 0, -r); g2.addColorStop(0, '#7b8798'); g2.addColorStop(1, '#39434f'); g.fillStyle = g2; }
+    g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, r, from, from + Math.PI); g.fill();
+  }
+  g.strokeStyle = '#0d1117'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, -r); g.lineTo(0, r); g.stroke();
+  g.strokeStyle = '#1b2430'; g.lineWidth = 2;
+  g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke();
+  const hub = g.createRadialGradient(-r * 0.06, -r * 0.06, 1, 0, 0, r * 0.2);
+  hub.addColorStop(0, '#aab4c0'); hub.addColorStop(1, '#5b6b7f');
+  g.fillStyle = hub; g.beginPath(); g.arc(0, 0, r * 0.2, 0, 7); g.fill();
+  g.fillStyle = '#39434f'; g.fillRect(-r * 0.035, -r * 0.2, r * 0.07, r * 0.07);   // keyway
+  g.restore();
+
+  // Pole letters stay upright so they can be read while the rotor turns.
+  g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(r * 0.3) + 'px system-ui'; g.textAlign = 'center';
+  g.fillText('N', cx + Math.cos(theta) * r * 0.6, cy - Math.sin(theta) * r * 0.6 + r * 0.1);
+  g.fillText('S', cx - Math.cos(theta) * r * 0.6, cy + Math.sin(theta) * r * 0.6 + r * 0.1);
+
+  // --- the wasted wedge: the angle the current is away from where it should be --
+  if (live && Math.abs(err) > 0.02) {
+    const ideal = theta + Math.PI / 2;
+    g.save(); g.translate(cx, cy); g.scale(1, -1);
+    g.fillStyle = Math.abs(err) > Math.PI / 3 ? 'rgba(239,68,68,.20)' : 'rgba(240,180,41,.18)';
+    g.beginPath(); g.moveTo(0, 0);
+    g.arc(0, 0, r * 1.02, Math.min(ideal, ideal + err), Math.max(ideal, ideal + err)); g.fill();
+    g.restore();
+  }
+
+  // --- vectors ------------------------------------------------------------------
+  // Labels sit outside the stator, and are kept inside the panel they belong to
+  // so a vector pointing sideways cannot push its label off the edge.
+  const labelR = r * 2.1, bounds = o.bounds;
+  arrowOn(g, cx, cy, theta, r * 1.0, '#ef4444', 'magnets (d)', false, false, labelR, bounds);
+  if (live) {
+    const ideal = theta + Math.PI / 2;
+    if (Math.abs(err) < 0.01) {
+      arrowOn(g, cx, cy, ideal, r * 1.0, '#34d399', 'current (q)', false, true, labelR, bounds);
+    } else {
+      // Only name the ideal direction when there is room for the label to sit
+      // clear of the one next to it.
+      arrowOn(g, cx, cy, ideal, r * 1.0, '#3f6b57',
+        Math.abs(err) > 0.45 ? 'should be here' : '', true, false, labelR, bounds);
+      arrowOn(g, cx, cy, ideal + err, r * 1.0, Math.abs(err) > Math.PI / 3 ? '#ef4444' : '#f0b429',
+        'current', false, true, labelR, bounds);
+    }
+  }
+}
+
+// A vector with a real head, optionally dashed, optionally glowing.
+function arrowOn(g, cx, cy, angle, len, colour, label, dashed, glow, labelR, bounds) {
+  const x = cx + Math.cos(angle) * len, y = cy - Math.sin(angle) * len;
+  g.save();
+  if (glow) { g.shadowColor = colour; g.shadowBlur = 14; }
+  g.strokeStyle = colour; g.lineWidth = 4; g.lineCap = 'round';
+  if (dashed) g.setLineDash([7, 6]);
+  g.beginPath(); g.moveTo(cx, cy); g.lineTo(x - Math.cos(angle) * 11, y + Math.sin(angle) * 11); g.stroke();
+  g.setLineDash([]);
+  g.beginPath();                                        // head
+  g.moveTo(x, y);
+  g.lineTo(x - Math.cos(angle) * 15 - Math.sin(angle) * 7, y + Math.sin(angle) * 15 - Math.cos(angle) * 7);
+  g.lineTo(x - Math.cos(angle) * 15 + Math.sin(angle) * 7, y + Math.sin(angle) * 15 + Math.cos(angle) * 7);
+  g.closePath(); g.fillStyle = colour; g.fill();
+  g.restore();
+  if (label) {
+    const lr = labelR || len + 26;
+    let lx = cx + Math.cos(angle) * lr;
+    g.fillStyle = colour; g.font = 'bold 13px system-ui'; g.textAlign = 'center';
+    if (bounds) {
+      const half = g.measureText(label).width / 2;
+      lx = Math.min(Math.max(lx, bounds[0] + half), bounds[1] - half);
+    }
+    g.fillText(label, lx, cy - Math.sin(angle) * lr + 4);
+  }
+}
+
 function drawRotor(theta, peak, err) {
   const c = $('rotor'), g = c.getContext('2d');
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.34;
-
-  g.strokeStyle = '#2b3646'; g.lineWidth = 2;
-  g.beginPath(); g.arc(cx, cy, r * 1.32, 0, 7); g.stroke();       // stator bore
-  for (let k = 0; k < 3; k++) {                                    // winding axes
-    const a = k * 2 * Math.PI / 3;
-    g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][k]; g.lineWidth = 3;
-    g.beginPath();
-    g.moveTo(cx + Math.cos(a) * r * 1.2, cy - Math.sin(a) * r * 1.2);
-    g.lineTo(cx + Math.cos(a) * r * 1.32, cy - Math.sin(a) * r * 1.32);
-    g.stroke();
-    g.fillStyle = ['#34d399', '#f0b429', '#7aa2f7'][k];
-    g.font = '13px system-ui'; g.textAlign = 'center';
-    g.fillText('ABC'[k], cx + Math.cos(a) * r * 1.5, cy - Math.sin(a) * r * 1.5 + 4);
-  }
-
-  g.save(); g.translate(cx, cy); g.rotate(-theta);                 // rotor
-  g.fillStyle = '#ef4444';
-  g.beginPath(); g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2); g.fill();
-  g.fillStyle = '#5b6b7f';
-  g.beginPath(); g.arc(0, 0, r, Math.PI / 2, 1.5 * Math.PI); g.fill();
-  g.restore();
-  // Pole labels drawn upright, so they stay readable as the rotor turns.
-  g.fillStyle = '#fff'; g.font = 'bold 16px system-ui'; g.textAlign = 'center';
-  g.fillText('N', cx + Math.cos(theta) * r * 0.55, cy - Math.sin(theta) * r * 0.55 + 5);
-  g.fillText('S', cx - Math.cos(theta) * r * 0.55, cy + Math.sin(theta) * r * 0.55 + 5);
-
-  const arrow = (angle, len, colour, label) => {
-    const x = cx + Math.cos(angle) * len, y = cy - Math.sin(angle) * len;
-    g.strokeStyle = colour; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
-    g.fillStyle = colour; g.beginPath();
-    g.arc(x, y, 6, 0, 7); g.fill();
-    g.font = 'bold 13px system-ui'; g.textAlign = 'center';
-    g.fillText(label, cx + Math.cos(angle) * (len + 20), cy - Math.sin(angle) * (len + 20) + 4);
-  };
-  arrow(theta, r * 0.95, '#ef4444', 'magnets (d)');
-  if (peak > 0.05) {
-    if (Math.abs(err) < 0.01) {
-      arrow(theta + Math.PI / 2, r * 0.95, '#34d399', 'current (q)');
-    } else {
-      // Where the current actually points, versus where it should.
-      g.setLineDash([6, 5]);
-      arrow(theta + Math.PI / 2, r * 0.95, '#3f6b57', 'should be here');
-      g.setLineDash([]);
-      arrow(theta + Math.PI / 2 + err, r * 0.95, Math.abs(err) > Math.PI / 3 ? '#ef4444' : '#f0b429', 'current');
-    }
-  }
+  drawMachine(g, w / 2, h / 2, Math.min(w, h) * 0.215, { theta, peak, err, bounds: [6, w - 6] });
+  g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'center';
+  g.fillText('drawn in electrical angle: one pole pair of the three', w / 2, h - 8);
 }
 
 function drawScope(theta, peak, iq, id) {
@@ -544,45 +621,44 @@ function drawSbs(theta, s) {
 }
 
 function panel(g, cx, h, theta, side, name, sub, colour, s) {
-  const r = Math.min(h * .27, 110), cy = h * .42;
+  const r = Math.min(h * .17, 80), cy = h * .44;
   g.fillStyle = '#e8eaed'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
   g.fillText(name, cx, 26);
   g.fillStyle = '#9aa5b1'; g.font = '13px system-ui';
   g.fillText(sub, cx, 45);
 
-  g.strokeStyle = '#2b3646'; g.lineWidth = 2;
-  g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.stroke();
-  g.save(); g.translate(cx, cy); g.rotate(-theta);
-  g.fillStyle = '#ef4444'; g.beginPath(); g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2); g.fill();
-  g.fillStyle = '#5b6b7f'; g.beginPath(); g.arc(0, 0, r, Math.PI / 2, 1.5 * Math.PI); g.fill();
-  g.restore();
-  g.fillStyle = '#fff'; g.font = 'bold 15px system-ui';
-  g.fillText('N', cx + Math.cos(theta) * r * .55, cy - Math.sin(theta) * r * .55 + 5);
-  g.fillText('S', cx - Math.cos(theta) * r * .55, cy + Math.sin(theta) * r * .55 + 5);
-
-  const arrow = (a, len, col, dash) => {
-    g.setLineDash(dash ? [6, 5] : []);
-    g.strokeStyle = col; g.lineWidth = 4;
-    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * len, cy - Math.sin(a) * len); g.stroke();
-    g.setLineDash([]);
-  };
-  arrow(theta, r * .92, '#ef4444');                       // the magnets
-  if (side.err > .01) arrow(theta + Math.PI / 2, r * .92, '#3f6b57', true);   // where it should push
-  arrow(theta + Math.PI / 2 + side.err, r * .92, side.err > Math.PI / 3 ? '#ef4444' : colour);
+  const halfPanel = g.canvas.clientWidth / 4;
+  drawMachine(g, cx, cy, r, { theta, err: side.err, peak: Math.max(side.current, 0.06),
+    bounds: [cx - halfPanel + 8, cx + halfPanel - 8] });
 
   // A heat bar: visitors understand "it gets hot" faster than "efficiency falls".
-  const bw = Math.min(190, r * 1.9), bx = cx - bw / 2, by = cy + r * 1.55;
+  const bw = Math.min(210, r * 2.4), bx = cx - bw / 2, by = cy + r * 2.2;
   const full = 40, frac = Math.min(side.loss / full, 1);
-  g.fillStyle = '#1b2430'; g.fillRect(bx, by, bw, 14);
-  g.fillStyle = frac > .75 ? '#ef4444' : frac > .4 ? '#f0b429' : '#34d399';
-  g.fillRect(bx, by, bw * frac, 14);
-  g.strokeStyle = '#33404f'; g.lineWidth = 1; g.strokeRect(bx, by, bw, 14);
-  g.fillStyle = '#cfd6df'; g.font = '13px system-ui';
-  g.fillText(`heat in the windings: ${side.loss.toFixed(1)} W`, cx, by + 32);
+  g.fillStyle = '#121820'; roundRect(g, bx, by, bw, 15, 7); g.fill();
+  const bar = g.createLinearGradient(bx, 0, bx + bw, 0);
+  bar.addColorStop(0, '#34d399'); bar.addColorStop(0.55, '#f0b429'); bar.addColorStop(1, '#ef4444');
+  g.save(); roundRect(g, bx, by, Math.max(bw * frac, 6), 15, 7); g.clip();
+  g.fillStyle = bar; g.fillRect(bx, by, bw, 15); g.restore();
+  g.strokeStyle = '#33404f'; g.lineWidth = 1; roundRect(g, bx, by, bw, 15, 7); g.stroke();
+  g.fillStyle = '#cfd6df'; g.font = '13px system-ui'; g.textAlign = 'center';
+  g.fillText(`${side.loss.toFixed(1)} W of heat in the windings`, cx, by + 34);
+  g.fillStyle = '#9aa5b1'; g.font = '12.5px system-ui';
+  g.fillText(`${side.current.toFixed(1)} A drawn \u00b7 ${aimText(side.err)}`, cx, by + 54);
   if (side.limited) {
     g.fillStyle = '#ef4444'; g.font = 'bold 14px system-ui';
-    g.fillText('at the current limit \u2014 cannot hold the torque', cx, by + 52);
+    g.fillText('at the current limit \u2014 cannot hold the torque', cx, by + 76);
   }
+}
+
+function aimText(err) {
+  const d = Math.round(Math.abs(err) * 180 / Math.PI);
+  return d === 0 ? 'pushing on target' : 'pushing ' + d + '\u00b0 off';
+}
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
 }
 
 function sbsFrame(now) {
