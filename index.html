@@ -19,12 +19,12 @@
 
 <header>
   <div>
-    <p class="eyebrow">FOURTH-YEAR INVESTIGATION &middot; SENSORED FIELD-ORIENTED CONTROL</p>
+    <p class="eyebrow">FOURTH-YEAR INVESTIGATION &middot; ENCODER-BASED AND SENSORLESS FIELD-ORIENTED CONTROL</p>
     <h1>Let&rsquo;s Torque Control</h1>
     <p class="tagline">What can this motor actually do &mdash; and does it need to know where its rotor is?</p>
-    <p class="sub">Choose a speed and a load. The green area is what the drive can deliver on a
-      <span id="vdc-out">26.5 V</span> battery with a <span id="imax-out">25 A</span> limit.
-      White dots are full Simulink simulation runs; the shading is the same physics solved live in this page.</p>
+    <p class="sub" id="standfirst">The rig that produces the measurements: two motors joined by a chain,
+      each with its own controller. Tap any part to see what it does.</p>
+    <p class="sub hidden-readouts"><span id="vdc-out">26.5 V</span><span id="imax-out">25 A</span></p>
   </div>
   <div class="mode-badge"><span id="mode-name">Presenter mode</span><small>press K to switch</small></div>
 </header>
@@ -34,6 +34,7 @@
   <button class="tab" data-tab="envelope" role="tab" aria-selected="false">Operating envelope</button>
   <button class="tab" data-tab="foc" role="tab" aria-selected="false">How the control works</button>
   <button class="tab" data-tab="sbs" role="tab" aria-selected="false">Side by side</button>
+  <button class="tab" data-tab="method" role="tab" aria-selected="false">Method and limits</button>
 </nav>
 
 <main id="tab-3d" hidden>
@@ -127,6 +128,88 @@
         which falls in proportion to speed: about 11 V at 1500 rpm and 0.4 V at 50 rpm on these parameters.
         That is the physical reason a low-speed limit exists at all, and finding where it sits on this motor
         is the investigation's question.</p>
+    </div>
+  </section>
+</main>
+
+<main id="tab-method" hidden>
+  <section class="plot-card method">
+    <h2 class="panel-title">What is actually being modelled</h2>
+    <p class="method-lede">One BM1109 motor, one controller, one prescribed load torque. The chain below is
+      the whole signal path, and every block in it exists in the Simulink model you can see on the rig tab.</p>
+    <ol class="chain">
+      <li><b>Speed command</b><span>a profile in rpm, stepped and held</span></li>
+      <li><b>Speed PI</b><span>runs every 500 &micro;s, output clamped to the 25 A current limit</span></li>
+      <li><b>Clarke and Park</b><span>three phase currents become two numbers in the rotor frame</span></li>
+      <li><b>Id and Iq PI</b><span>every 50 &micro;s; Id held at 0, Iq follows the torque demand</span></li>
+      <li><b>Inverse Park and SVM</b><span>back to three phases, centred modulation, duty = 0.5&middot;m + 0.5</span></li>
+      <li><b>Averaged inverter</b><span>ideal, lossless, stiff DC bus</span></li>
+      <li><b>PMSM and load</b><span>surface-mount model with a prescribed load torque</span></li>
+    </ol>
+    <p class="caption">Fixed-step discrete solver at 25 &micro;s. The current loop is the fastest thing in the
+      model, and the solver runs twice per current-loop update so the loop is properly resolved.</p>
+
+    <h2 class="panel-title">Every parameter, and where it came from</h2>
+    <div id="method-params"></div>
+    <p class="caption">All motor values are <b>provisional</b>. None has been measured on this motor.</p>
+
+    <h2 class="panel-title">What has been run</h2>
+    <div id="method-runs"></div>
+  </section>
+
+  <section class="side">
+    <div class="verdict-card">
+      <p class="verdict warn">Nothing here is validated against hardware</p>
+      <p class="explain">Every number on this site comes from a simulation whose parameters are provisional
+        and which has never been compared against the physical rig. It is a model of what should happen,
+        not a measurement of what does.</p>
+    </div>
+
+    <div class="numbers-card">
+      <h2>Sensorless: where it stands</h2>
+      <p class="explain">The sensorless model exists and works structurally. It aligns the rotor, accelerates
+        it open loop, and hands over to its own angle estimate without the encoder ever entering the control
+        path. What it cannot yet do is hold that angle accurately enough to be useful.</p>
+      <div class="timeline">
+        <div><b>0 &ndash; 0.30 s</b><span>fixed-field alignment, Id = 2 A, rotor pulled to a known angle</span></div>
+        <div><b>0.30 &ndash; 0.80 s</b><span>open-loop pull-in, Iq = 2.5 A, generated field ramps to 300 rpm</span></div>
+        <div><b>0.800 s</b><span>observer passes its validity gates; angle and current begin to blend</span></div>
+        <div><b>1.050 s</b><span>blend complete, fully sensorless closed loop, no abort</span></div>
+      </div>
+      <div id="method-sensorless" class="numbers"></div>
+      <p class="explain">That angle error is far too large for a usable drive. The handover sequence is
+        sound; the estimator behind it is a simple voltage model and is the component that must be replaced
+        before a sensorless speed&ndash;load envelope can be measured at all.</p>
+    </div>
+
+    <div class="numbers-card advanced">
+      <h2>Does the instrumentation disturb the result?</h2>
+      <p class="explain">Both models were run, then rebuilt with a shared measurement subsystem, then run
+        again, and the two runs compared signal by signal. Across <b>16</b> logged signals in the sensored
+        model and <b>34</b> in the sensorless model, the largest absolute difference was <b>exactly zero</b>,
+        and all 64 summary metrics were unchanged. The measurement path is inert.</p>
+    </div>
+
+    <div class="numbers-card">
+      <h2>What this work does not show</h2>
+      <ul class="limits">
+        <li><b>No torque was measured.</b> The rig has no torque transducer. Torque is inferred as
+          <i>T = Kt&middot;Iq</i>, and the drive's own torque estimate uses the same constant, so it is not an
+          independent check.</li>
+        <li><b>Kt is provisional.</b> It comes from a manufacturer test point (3745.6 rpm at 48.059 V), which
+          is weaker evidence than a direct back-EMF test. Six different maximum-speed figures for this motor
+          are in circulation, from 3100 to 4200 rpm.</li>
+        <li><b>The battery is idealised.</b> 26.5 V nominal is confirmed; charged voltage, cut-off voltage and
+          BMS ratings are not. The model uses a perfectly stiff bus that neither rises when charged nor sags
+          under load.</li>
+        <li><b>The inverter is averaged.</b> No switching, no dead time, no device losses. Current and torque
+          variation seen here is not PWM ripple.</li>
+        <li><b>No iron loss, no temperature.</b> Efficiency figures are model-based and optimistic.</li>
+        <li><b>This is not ODrive.</b> The sensorless estimator here is a generic back-EMF observer written
+          for this study. ODrive's own estimator is a different algorithm and nothing here predicts it.</li>
+        <li><b>The motor itself is uncertain.</b> The exact BM1109 variant is unconfirmed and the datasheet
+          never states the back-EMF waveform, so whether it is strictly a PMSM or a BLDC is unknown.</li>
+      </ul>
     </div>
   </section>
 </main>

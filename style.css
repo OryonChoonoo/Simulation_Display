@@ -133,3 +133,30 @@ body[data-mode=kiosk] #sbs{height:580px}
 /* Project title and its tagline */
 .tagline{margin:2px 0 8px;color:#9aa5b1;font:400 17px/1.4 system-ui}
 body[data-mode=kiosk] .tagline{font-size:19px}
+
+/* Method and limits */
+.hidden-readouts{position:absolute;left:-9999px}
+.method .panel-title{margin-top:26px}
+.method .panel-title:first-child{margin-top:0}
+.method-lede{color:#cfd6df;font:400 15.5px/1.6 system-ui;max-width:76ch;margin:0 0 14px}
+.chain{list-style:none;counter-reset:step;padding:0;margin:0 0 10px;display:grid;gap:7px}
+.chain li{counter-increment:step;display:grid;grid-template-columns:30px 190px 1fr;align-items:baseline;
+  gap:10px;padding:9px 12px;background:#161d27;border:1px solid #26303c;border-radius:8px}
+.chain li::before{content:counter(step);color:#34d399;font:700 14px system-ui}
+.chain li b{color:#e8eaed;font-size:14.5px}
+.chain li span{color:#9aa5b1;font-size:13.5px}
+.ptable{width:100%;border-collapse:collapse;font:400 14px/1.45 system-ui;margin-bottom:6px}
+.ptable th{text-align:left;color:#9aa5b1;font-weight:600;font-size:12.5px;text-transform:uppercase;
+  letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid #2f3a48}
+.ptable td{padding:7px 10px;border-bottom:1px solid #1e2732;color:#cfd6df;vertical-align:top}
+.ptable td:nth-child(2){white-space:nowrap;color:#e8eaed}
+.ptable td:nth-child(3){color:#9aa5b1;font-size:13.5px}
+.timeline{display:grid;gap:6px;margin:10px 0 14px}
+.timeline div{display:grid;grid-template-columns:118px 1fr;gap:10px;padding:7px 10px;background:#161d27;
+  border-left:2px solid #34d399;border-radius:0 6px 6px 0}
+.timeline b{color:#34d399;font:600 13px system-ui}
+.timeline span{color:#9aa5b1;font-size:13.5px}
+.limits{margin:4px 0 0;padding-left:18px;color:#9aa5b1;font:400 14px/1.6 system-ui}
+.limits li{margin-bottom:9px}
+.limits b{color:#cfd6df}
+body[data-mode=kiosk] .method-lede{font-size:17px}

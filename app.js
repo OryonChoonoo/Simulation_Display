@@ -398,9 +398,10 @@ function showStep(i) {
 // ---- sensored or sensorless ----------------------------------------------------
 let source = 'sensored';
 
-// The error a sensorless estimator would carry at this speed. It is the same
-// illustrative shape used in the 3D view, NOT a simulated result: the sensorless
-// simulation does not exist yet.
+// The error a sensorless estimator would carry at this speed. The sensorless
+// model exists and has measured error, but only at one operating point, so the
+// error-against-speed SHAPE used here is still illustrative rather than measured.
+// See the Method and limits tab for what is measured and what is not.
 function sourceError() {
   if (source !== 'sensorless') return 0;
   const rpm = Number($('foc-speed').value);
@@ -412,8 +413,9 @@ function setSource(next) {
   const note = $('foc-source');
   if (next === 'sensorless') {
     note.className = 'source-note sensorless';
-    note.innerHTML = '<b>Sensorless</b> \u2014 the angle is estimated from the back-EMF. The error shown '
-      + 'follows the speed as an <b>illustration only</b>: the sensorless simulation is not built yet.';
+    note.innerHTML = '<b>Sensorless</b> \u2014 the angle is estimated from the back-EMF. The sensorless '
+      + 'model exists and hands over without an encoder, but it has been measured at <b>one</b> operating '
+      + 'point only, so how the error grows as the motor slows is still an <b>illustration</b>.';
   } else {
     note.className = 'source-note sensored';
     note.innerHTML = '<b>Sensored</b> \u2014 the encoder measures the angle directly, so the error is '
@@ -629,15 +631,79 @@ function sbsVerdict(s, extra) {
   }
 }
 
+// ---- exhibit 6: method, parameters and limits ------------------------------------
+// Built from data/matrix.json so the parameter table cannot drift away from the
+// parameters the simulation actually ran with.
+let methodBuilt = false, DATA = null;
+
+function renderMethod() {
+  if (methodBuilt) return;
+  methodBuilt = true;
+
+  const ratedTorque = P.Kt_NmPerA * P.iq_limit_A;
+  const rows = [
+    ['Battery, nominal', P.vdc_V.toFixed(1) + ' V', 'Stated by the team; charged and cut-off voltages still unconfirmed'],
+    ['Current limit', P.iq_limit_A.toFixed(0) + ' A', 'Iq reference clamp in the speed controller'],
+    ['Torque constant Kt', P.Kt_NmPerA.toFixed(4) + ' N\u00b7m/A', 'Derived from a manufacturer test point, not measured here'],
+    ['Pole pairs', String(P.pole_pairs), 'Electrical angle turns ' + P.pole_pairs + ' times per shaft revolution'],
+    ['Magnet flux \u03bb', P.flux_Wb.toFixed(5) + ' Wb', 'Derived as (2/3)\u00b7Kt/p'],
+    ['Stator resistance Rs', P.Rs_ohm.toFixed(3) + ' \u03a9', 'Provisional; sets the copper loss'],
+    ['Inductance Ld, Lq', (P.Ld_H * 1e6).toFixed(0) + ', ' + (P.Lq_H * 1e6).toFixed(0) + ' \u00b5H', 'Equal, so no reluctance torque is modelled'],
+    ['Inertia J', P.J_kgm2.toFixed(4) + ' kg\u00b7m\u00b2', 'Provisional; sets how fast speed can change'],
+    ['Viscous friction B', P.B_Nms.toExponential(2) + ' N\u00b7m\u00b7s', 'The only loss in the mechanical model'],
+    ['Voltage utilisation', (100 * P.voltage_utilisation).toFixed(0) + ' %', 'Headroom left below the modulation limit'],
+    ['Torque at the limit', ratedTorque.toFixed(2) + ' N\u00b7m', 'Kt \u00d7 current limit: the most this drive can ask for'],
+    ['Back-EMF at 1500 rpm', (1500 * 2 * Math.PI / 60 * P.pole_pairs * P.flux_Wb).toFixed(1) + ' V',
+      'Falls in proportion to speed, which is why sensorless fails slowly'],
+  ];
+  $('method-params').innerHTML = '<table class="ptable"><thead><tr><th>Quantity</th><th>Value</th>'
+    + '<th>What it means here</th></tr></thead><tbody>'
+    + rows.map(([a, b, c]) => `<tr><td>${a}</td><td><b>${b}</b></td><td>${c}</td></tr>`).join('')
+    + '</tbody></table>';
+
+  const speeds = [...new Set(CASES.map(c => Math.round(c.rpm)))].sort((a, b) => a - b);
+  const loads = [...new Set(CASES.map(c => c.load_Nm))].sort((a, b) => a - b);
+  $('method-runs').innerHTML = '<table class="ptable"><tbody>'
+    + [['Sensored speed\u2013load matrix', CASES.length + ' cases, all completed'],
+       ['Speeds tested', speeds.join(', ') + ' rpm'],
+       ['Loads tested', loads.map(l => l.toFixed(1)).join(', ') + ' N\u00b7m'],
+       ['Settling windows', 'unloaded 0.90\u20131.15 s, loaded 1.40\u20131.65 s'],
+       ['Worst duty cycle seen', '0.896, at 1500 rpm and 2.0 N\u00b7m \u2014 no saturation anywhere'],
+       ['Sensorless', 'one startup run, handover verified, closed-loop quality failed'],
+       ['Sensored run', DATA.source.run + ' (' + DATA.source.date + ')'],
+      ].map(([a, b]) => `<tr><td>${a}</td><td><b>${b}</b></td></tr>`).join('')
+    + '</tbody></table>';
+
+  // Measured on the v0.6 run, not modelled here: stated with their window so they
+  // cannot be confused with the whole-run figures logged by the same model.
+  $('method-sensorless').innerHTML = [
+    ['Angle error, settled window', '67.44\u00b0 RMS'],
+    ['Speed variation, settled', '207.42 rpm peak to peak'],
+    ['Mean speed held', '276.87 rpm against 300 rpm asked'],
+    ['Handover', '0.800 s to 1.050 s, no abort'],
+    ['Peak current during startup', '5.29 A'],
+    ['Encoder in the control path', 'none, at any point'],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+
 // ---- tabs ----------------------------------------------------------------------
+// Each tab says what it is. One fixed standfirst described the envelope while
+// the page opened on the rig, which was the first thing a visitor read.
+const STANDFIRST = {
+  '3d': 'The rig that produces the measurements: two motors joined by a chain, each with its own controller. Tap any part to see what it does.',
+  envelope: 'Choose a speed and a load. The green area is what the drive can deliver on the configured battery and current limit. White dots are full Simulink runs; the shading is the same physics solved live in this page.',
+  foc: 'Why a motor controller has to know where the rotor is, and what it does with that angle once it has it.',
+  sbs: 'The same motor twice, under the same load, differing only in where the rotor angle comes from.',
+  method: 'What is modelled, what every parameter is, which results exist, and what this work does not yet show.',
+};
+
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
-  $('tab-envelope').hidden = name !== 'envelope';
-  $('tab-foc').hidden = name !== 'foc';
-  $('tab-3d').hidden = name !== '3d';
-  $('tab-sbs').hidden = name !== 'sbs';
+  for (const id of ['envelope', 'foc', '3d', 'sbs', 'method']) $('tab-' + id).hidden = name !== id;
+  if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
   if (name === 'envelope') render();
+  if (name === 'method') renderMethod();
 }
 
 // ---- start --------------------------------------------------------------------
@@ -645,7 +711,7 @@ async function start() {
   const warning = document.getElementById('boot-warning');
   if (warning) warning.remove();            // the scripts clearly did run
   const data = await fetch('data/matrix.json').then(r => r.json());
-  P = { ...data.parameters }; CASES = data.cases;
+  P = { ...data.parameters }; CASES = data.cases; DATA = data;
   $('provenance').textContent = `${data.source.cases} simulated cases from ${data.source.run} (${data.source.date}). ${data.source.note}`;
   for (const id of ['speed', 'load', 'vdc', 'imax']) {
     $(id).addEventListener('input', () => {
@@ -656,13 +722,16 @@ async function start() {
   $('reset').addEventListener('click', () => { touched(); reset(); });
   document.addEventListener('keydown', e => {
     touched();
+    // Scenarios own the number keys. Tabs are letters, so pressing 3 on the
+    // envelope runs the voltage-ceiling scenario instead of jumping away from it.
+    if (SCENARIOS[e.key] && !$('tab-envelope').hidden) { scenario(e.key); return; }
     if (e.key === 'k') setMode(mode === 'kiosk' ? 'presenter' : 'kiosk');
     if (e.key === 'r') reset();
     if (e.key === 'e') setTab('envelope');
     if (e.key === 'f') setTab('foc');
-    if (e.key === '3') setTab('3d');
+    if (e.key === 'w') setTab('3d');
     if (e.key === 's') setTab('sbs');
-    if (SCENARIOS[e.key] && !$('tab-envelope').hidden) scenario(e.key);
+    if (e.key === 'm') setTab('method');
   });
   for (const t of document.querySelectorAll('.tab')) {
     t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });

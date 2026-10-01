@@ -33,8 +33,9 @@ which limit stops it:
 Visitor mode hides the advanced controls, enlarges everything, resets to defaults after
 45 seconds of no interaction, and then sweeps the operating point to catch the eye.
 
-**Presenter keys:** `1` no load · `2` under load · `3` voltage ceiling · `4` thermal corner ·
-`5` current limit · `R` reset · `K` switch mode · `E` envelope · `F` control · `3` rig.
+**Presenter keys.** Numbers run scenarios on the envelope tab: `1` no load · `2` under load ·
+`3` voltage ceiling · `4` thermal corner · `5` current limit. Letters switch tabs: `W` rig ·
+`E` envelope · `F` control · `S` side by side · `M` method. Also `R` reset and `K` switch mode.
 
 ## Running it
 
@@ -92,9 +93,14 @@ instead of about the rig.
 
 The **"estimate the angle instead of measuring it"** switch adds a second arrow for where a
 sensorless controller *thinks* the rotor is. The gap between the arrows grows as the motor
-slows, because the back-EMF it estimates from shrinks with speed. **That growth is an
-illustrative shape, not simulated behaviour** — the sensorless model does not exist yet.
-When it does, this can be driven by measured estimation error.
+slows, because the back-EMF it estimates from shrinks with speed.
+
+**What is measured and what is not.** The sensorless model exists (v0.6): it aligns, pulls in
+open loop, and hands over to its own angle estimate at 1.050 s with no encoder in the control
+path, and its settled angle error there is 67.44 deg RMS. What has *not* been measured is how
+that error varies with speed and load, because no sensorless speed-load matrix has been run.
+So the error-against-speed **shape** used in this page is still illustrative, and it should be
+replaced once that matrix exists.
 
 ## Side by side
 
@@ -108,6 +114,15 @@ show why a low-speed limit exists.
 **Both sides are the real model. The estimator's error is not.** How wrong a sensorless
 estimate gets is a stand-in shape, stated as such on the tab, and it should be replaced by
 the sensorless simulation's own error once that simulation works.
+
+## Method and limits
+
+The last tab is the one to send an examiner at. It is built from `data/matrix.json`, so the
+parameter table cannot drift away from the parameters the simulation actually ran with: every
+motor, inverter and limit value with what it means and where it came from, the full signal
+chain from speed command to shaft, which runs exist, where the sensorless model stands with its
+measured numbers, the check that the measurement instrumentation changes no control result, and
+a plain list of what this work does **not** show.
 
 ## The physics in the page
 
