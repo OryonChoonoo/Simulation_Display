@@ -82,9 +82,10 @@ function drawScreen(t) {
   const c = screenCanvas, g = c.getContext('2d'), W = c.width, H = c.height;
   const rpm = opts.rpm, err = opts.sensorless ? estimateError(rpm, t) : 0;
   const kept = Math.cos(err);
-  const iq = 9.5 / Math.max(kept, .2);                 // current for a held torque
+  const iq = 9.5 / Math.max(kept, .2);
   const backEmf = rpm * 2 * Math.PI / 60 * 3 * 0.0236;
   const duty = Math.min(.5 + .5 * backEmf / 15.3, .99);
+  const pOut = 1.0 * rpm * 2 * Math.PI / 60, pCu = 1.5 * 0.05 * iq * iq, pFr = 0.00049 * (rpm * 2 * Math.PI / 60) ** 2;
 
   speedHistory.push(rpm * (1 - 0.04 * Math.sin(t * 3.1) * (opts.sensorless ? 4 : 1)));
   if (speedHistory.length > 150) speedHistory.shift();
@@ -92,26 +93,28 @@ function drawScreen(t) {
   g.fillStyle = '#0d1117'; g.fillRect(0, 0, W, H);
 
   // ---- title bar --------------------------------------------------------------
-  g.fillStyle = '#161d27'; g.fillRect(0, 0, W, 50);
-  g.fillStyle = '#34d399'; g.font = 'bold 22px system-ui'; g.textAlign = 'left';
-  g.fillText("LET'S TORQUE CONTROL", 20, 33);
-  g.fillStyle = '#2a323d'; g.fillRect(292, 13, 1, 24);
-  g.fillStyle = opts.sensorless ? '#f0b429' : '#9aa5b1'; g.font = '16px system-ui';
+  g.fillStyle = '#161d27'; g.fillRect(0, 0, W, 46);
+  g.fillStyle = '#34d399'; g.font = 'bold 21px system-ui'; g.textAlign = 'left';
+  g.fillText("LET'S TORQUE CONTROL", 18, 31);
+  g.fillStyle = '#2a323d'; g.fillRect(286, 11, 1, 24);
+  g.fillStyle = opts.sensorless ? '#f0b429' : '#9aa5b1'; g.font = '15px system-ui';
   g.fillText(opts.sensorless ? 'SENSORLESS \u00b7 angle estimated from back-EMF'
-                             : 'SENSORED \u00b7 encoder feedback', 312, 32);
-  const blink = (t % 2) < 1.4;
-  g.fillStyle = blink ? '#34d399' : '#1f3a30';
-  g.beginPath(); g.arc(W - 30, 25, 7, 0, 7); g.fill();
-  g.fillStyle = '#6b7684'; g.font = '14px system-ui'; g.textAlign = 'right';
-  g.fillText('recording', W - 46, 31);
+                             : 'SENSORED \u00b7 encoder feedback', 304, 30);
+  g.fillStyle = '#6b7684'; g.font = '13px system-ui'; g.textAlign = 'right';
+  const mm = String(Math.floor(t / 60)).padStart(2, '0'), ss = String(Math.floor(t % 60)).padStart(2, '0');
+  g.fillText('elapsed ' + mm + ':' + ss, W - 86, 29);
+  g.fillStyle = (t % 2) < 1.4 ? '#34d399' : '#1f3a30';
+  g.beginPath(); g.arc(W - 62, 23, 6, 0, 7); g.fill();
+  g.fillStyle = '#6b7684'; g.fillText('REC', W - 20, 28);
 
-  // ---- left column: angle dial and checks -------------------------------------
-  const LX = 16, LW = 236;
-  panelBox(g, LX, 62, LW, 196, 'ROTOR AND CURRENT');
-  const dx = LX + LW / 2, dy = 168, dr = 62;
+  const LX = 14, LW = 224, RX = LX + LW + 12, RW = W - RX - 14;
+
+  // ---- rotor dial ---------------------------------------------------------------
+  panelBox(g, LX, 54, LW, 176, 'ROTOR AND CURRENT');
+  const dx = LX + LW / 2, dy = 150, dr = 56;
   g.strokeStyle = '#2b3646'; g.lineWidth = 1.5;
   g.beginPath(); g.arc(dx, dy, dr, 0, 7); g.stroke();
-  for (let k = 0; k < 12; k++) {                        // dial ticks
+  for (let k = 0; k < 12; k++) {
     const a = k * Math.PI / 6;
     g.beginPath();
     g.moveTo(dx + Math.cos(a) * dr, dy - Math.sin(a) * dr);
@@ -123,56 +126,73 @@ function drawScreen(t) {
     g.strokeStyle = colour; g.lineWidth = width; g.lineCap = 'round';
     g.beginPath(); g.moveTo(dx, dy); g.lineTo(dx + Math.cos(a) * len, dy - Math.sin(a) * len); g.stroke();
   };
-  vec(theta, dr - 12, '#ef4444', 5);                    // magnet axis
+  if (err > .02) {                                      // the wasted angle, shaded
+    g.fillStyle = 'rgba(240,180,41,.18)';
+    g.beginPath(); g.moveTo(dx, dy);
+    g.arc(dx, dy, dr - 10, -(theta + Math.PI / 2 + err), -(theta + Math.PI / 2)); g.fill();
+  }
+  vec(theta, dr - 12, '#ef4444', 5);
   if (err > .02) vec(theta + Math.PI / 2, dr - 12, '#3f6b57', 3);
   vec(theta + Math.PI / 2 + err, dr - 12, err > .02 ? '#f0b429' : '#34d399', 5);
   g.fillStyle = '#5b6b7f'; g.beginPath(); g.arc(dx, dy, 6, 0, 7); g.fill();
-  g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'center';
-  g.fillText('d (magnets)', dx - 64, dy + 84); g.fillStyle = '#34d399';
-  g.fillText('q (current)', dx + 64, dy + 84);
+  g.fillStyle = '#ef4444'; g.font = '11px system-ui'; g.textAlign = 'center';
+  g.fillText('d', dx - dr - 8, dy + 4);
+  g.fillStyle = '#34d399'; g.fillText('q', dx, dy - dr - 8);
 
-  panelBox(g, LX, 270, LW, 176, 'CHECKS');
+  // ---- checks -------------------------------------------------------------------
+  panelBox(g, LX, 238, LW, 146, 'CHECKS');
   const checks = [
     ['Id held at zero', true],
     ['Duty below saturation', duty < .98],
     ['Current within 25 A', iq < 25],
-    ['Bus within range', true],
     [opts.sensorless ? 'Observer valid' : 'Encoder healthy', !opts.sensorless || rpm > 150],
     ['No fault latched', true],
   ];
   checks.forEach(([label, ok], k) => {
-    const y = 300 + k * 24;
-    g.fillStyle = ok ? '#34d399' : '#ef4444';
-    g.font = 'bold 14px system-ui'; g.textAlign = 'left';
-    g.fillText(ok ? '\u2713' : '\u2715', LX + 14, y);
-    g.fillStyle = ok ? '#9aa5b1' : '#ef4444'; g.font = '14px system-ui';
-    g.fillText(label, LX + 34, y);
+    const y = 266 + k * 23;
+    g.textAlign = 'left';
+    g.fillStyle = ok ? '#34d399' : '#ef4444'; g.font = 'bold 13px system-ui';
+    g.fillText(ok ? '\u2713' : '\u2715', LX + 13, y);
+    g.fillStyle = ok ? '#9aa5b1' : '#ef4444'; g.font = '13px system-ui';
+    g.fillText(label, LX + 32, y);
   });
 
-  // ---- right column: two plots -------------------------------------------------
-  const RX = LX + LW + 16, RW = W - RX - 16;
+  // ---- the matrix that has actually been run ------------------------------------
+  panelBox(g, LX, 392, LW, 118, 'SENSORED MATRIX   24 / 24');
+  const speedsLabel = ['50', '100', '200', '400', '800', '1500'];
+  for (let col = 0; col < 6; col++) {
+    for (let row = 0; row < 4; row++) {
+      const x = LX + 18 + col * 32, y = 414 + row * 17;
+      g.fillStyle = '#1f3a30'; g.fillRect(x, y, 26, 13);
+      g.fillStyle = '#34d399'; g.fillRect(x, y, 26, 13);
+      g.globalAlpha = .25 + .12 * row; g.fillStyle = '#0d1117'; g.fillRect(x, y, 26, 13);
+      g.globalAlpha = 1;
+    }
+    g.fillStyle = '#5b6b7f'; g.font = '9px system-ui'; g.textAlign = 'center';
+    g.fillText(speedsLabel[col], LX + 31 + col * 32, 496);
+  }
+  g.fillStyle = '#5b6b7f'; g.font = '9px system-ui'; g.textAlign = 'right';
+  ['0', '0.5', '1.0', '2.0'].forEach((l, row) => g.fillText(l, LX + 15, 424 + row * 17));
+  g.textAlign = 'left'; g.fillText('N\u00b7m', LX + 6, 412);
+  g.textAlign = 'center'; g.fillText('rpm', LX + LW / 2, 507);
+
+  // ---- plots ---------------------------------------------------------------------
   const plot = (y, h, title, draw) => {
     panelBox(g, RX, y, RW, h, title);
-    const L = RX + 14, R = RX + RW - 14, T = y + 30, B = y + h - 14;
+    const L = RX + 12, R = RX + RW - 12, T = y + 26, B = y + h - 12;
     g.save(); g.beginPath(); g.rect(L, T, R - L, B - T); g.clip();
     g.strokeStyle = '#1b2430'; g.lineWidth = 1;
-    for (let k = 1; k < 4; k++) {
-      const gy = T + (B - T) * k / 4;
-      g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke();
-    }
-    for (let k = 1; k < 12; k++) {
-      const gx = L + (R - L) * k / 12;
-      g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke();
-    }
+    for (let k = 1; k < 4; k++) { const gy = T + (B - T) * k / 4; g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke(); }
+    for (let k = 1; k < 12; k++) { const gx = L + (R - L) * k / 12; g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke(); }
     draw(L, R, T, B);
     g.restore();
-    g.strokeStyle = '#2b3646'; g.strokeRect(RX + 14.5, T + .5, R - L - 1, B - T - 1);
+    g.strokeStyle = '#2b3646'; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
   };
 
-  plot(62, 196, 'PHASE CURRENTS   A   B   C', (L, R, T, B) => {
-    const mid = (T + B) / 2, amp = (B - T) * .38 * (0.35 + 0.65 * Math.min(rpm / 1200, 1));
+  plot(54, 150, 'PHASE CURRENTS   A   B   C', (L, R, T, B) => {
+    const mid = (T + B) / 2, amp = (B - T) * .4 * (0.35 + 0.65 * Math.min(rpm / 1200, 1));
     for (let ph = 0; ph < 3; ph++) {
-      g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][ph]; g.lineWidth = 2.4;
+      g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][ph]; g.lineWidth = 2.2;
       g.beginPath();
       for (let px = 0; px <= R - L; px += 3) {
         const a = px / 78 + t * 2.4 - ph * 2 * Math.PI / 3;
@@ -181,69 +201,116 @@ function drawScreen(t) {
       }
       g.stroke();
     }
-    g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'right';
-    g.fillText('+' + iq.toFixed(1) + ' A', R - 6, T + 14);
-    g.fillText('-' + iq.toFixed(1) + ' A', R - 6, B - 6);
+    g.strokeStyle = '#2b3646'; g.setLineDash([3, 4]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#6b7684'; g.font = '11px system-ui'; g.textAlign = 'right';
+    g.fillText('+' + (iq * 1.41).toFixed(1) + ' A', R - 5, T + 13);
+    g.fillText('0', R - 5, mid - 3);
+    g.fillText('-' + (iq * 1.41).toFixed(1) + ' A', R - 5, B - 5);
   });
 
-  plot(270, 176, 'SHAFT SPEED   reference and measured', (L, R, T, B) => {
+  plot(212, 138, 'SHAFT SPEED   reference and measured', (L, R, T, B) => {
     const top = Math.max(...speedHistory, rpm) * 1.25 + 50;
     const yFor = v => B - (B - T) * Math.min(v / top, 1);
     g.strokeStyle = '#5b6b7f'; g.setLineDash([6, 5]); g.lineWidth = 2;
-    g.beginPath(); g.moveTo(L, yFor(rpm)); g.lineTo(R, yFor(rpm)); g.stroke();
-    g.setLineDash([]);
-    g.strokeStyle = '#34d399'; g.lineWidth = 2.6; g.beginPath();
+    g.beginPath(); g.moveTo(L, yFor(rpm)); g.lineTo(R, yFor(rpm)); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = '#34d399'; g.lineWidth = 2.4; g.beginPath();
     speedHistory.forEach((v, k) => {
       const x = L + (R - L) * k / Math.max(speedHistory.length - 1, 1);
       k ? g.lineTo(x, yFor(v)) : g.moveTo(x, yFor(v));
     });
     g.stroke();
-    g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'right';
-    g.fillText(Math.round(top) + ' rpm', R - 6, T + 14);
+    g.fillStyle = '#6b7684'; g.font = '11px system-ui'; g.textAlign = 'right';
+    g.fillText(Math.round(top) + ' rpm', R - 5, T + 13);
+    g.fillText('0', R - 5, B - 5);
   });
 
-  // ---- bottom tiles -------------------------------------------------------------
+  // ---- bars and event log --------------------------------------------------------
+  panelBox(g, RX, 358, RW / 2 - 6, 152, 'LIMITS');
+  const bars = [
+    ['Iq against 25 A', Math.min(iq / 25, 1), iq < 20 ? '#34d399' : '#f0b429'],
+    ['Maximum duty', duty, duty < .95 ? '#34d399' : '#f0b429'],
+    ['Torque kept', kept, kept > .97 ? '#34d399' : kept > .8 ? '#f0b429' : '#ef4444'],
+    ['Copper loss share', Math.min(pCu / Math.max(pOut + pCu + pFr, .001), 1), '#7aa2f7'],
+  ];
+  bars.forEach(([label, frac, col], k) => {
+    const y = 388 + k * 30, bw = RW / 2 - 36;
+    g.fillStyle = '#9aa5b1'; g.font = '12px system-ui'; g.textAlign = 'left';
+    g.fillText(label, RX + 12, y);
+    g.fillStyle = '#0b0f15'; g.fillRect(RX + 12, y + 6, bw, 9);
+    g.fillStyle = col; g.fillRect(RX + 12, y + 6, Math.max(bw * frac, 2), 9);
+    g.fillStyle = '#6b7684'; g.textAlign = 'right';
+    g.fillText((100 * frac).toFixed(0) + '%', RX + 12 + bw, y);
+  });
+
+  const EX = RX + RW / 2 + 6, EW = RW / 2 - 6;
+  panelBox(g, EX, 358, EW, 152, 'EVENT LOG');
+  const log = opts.sensorless
+    ? [['0.000', 'bus 26.5 V, drive enabled', '#9aa5b1'],
+       ['0.300', 'alignment complete', '#9aa5b1'],
+       ['0.800', 'observer valid, handover started', '#34d399'],
+       ['1.050', 'closed loop on estimated angle', '#34d399'],
+       ['1.050', 'angle error above target', '#f0b429']]
+    : [['0.000', 'bus 26.5 V, drive enabled', '#9aa5b1'],
+       ['0.050', 'encoder index found', '#34d399'],
+       ['0.500', 'speed reference ' + Math.round(rpm) + ' rpm', '#9aa5b1'],
+       ['1.200', 'load applied 1.00 N\u00b7m', '#9aa5b1'],
+       ['1.400', 'steady state, logging', '#34d399']];
+  log.forEach(([time, text, col], k) => {
+    const y = 386 + k * 24;
+    g.fillStyle = '#4a545f'; g.font = '12px ui-monospace, monospace'; g.textAlign = 'left';
+    g.fillText(time, EX + 12, y);
+    g.fillStyle = col; g.font = '12px system-ui';
+    g.fillText(text, EX + 58, y);
+  });
+
+  // ---- tiles ---------------------------------------------------------------------
   const tiles = [
     ['SPEED', Math.round(rpm) + ' rpm', '#e8eaed'],
     ['Iq', iq.toFixed(1) + ' A', iq < 20 ? '#e8eaed' : '#f0b429'],
     ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#34d399' : kept > .8 ? '#f0b429' : '#ef4444'],
     ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#34d399' : '#f0b429'],
     ['BACK-EMF', backEmf.toFixed(2) + ' V', '#7aa2f7'],
-    ['MAX DUTY', duty.toFixed(3), duty < .95 ? '#9aa5b1' : '#f0b429'],
+    ['COPPER LOSS', pCu.toFixed(1) + ' W', '#9aa5b1'],
   ];
-  const tw = (W - 32 - 5 * 8) / 6;
+  // One line each, so the strip stays readable at the size it is seen on screen.
+  const tw = (W - 28 - 5 * 7) / 6;
   tiles.forEach(([k, v, col], idx) => {
-    const x = 16 + idx * (tw + 8), y = 458;
-    panelBox(g, x, y, tw, 50);
-    g.fillStyle = '#6b7684'; g.font = '600 11px system-ui'; g.textAlign = 'left';
-    g.fillText(k, x + 10, y + 18);
-    g.fillStyle = col; g.font = 'bold 20px system-ui';
-    g.fillText(v, x + 10, y + 41);
+    const x = 14 + idx * (tw + 7), y = 508;
+    g.fillStyle = '#121923'; g.fillRect(x, y, tw, 20);
+    g.strokeStyle = '#212a36'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, tw - 1, 19);
+    g.fillStyle = '#6b7684'; g.font = '600 10px system-ui'; g.textAlign = 'left';
+    g.fillText(k, x + 8, y + 14);
+    g.fillStyle = col; g.font = 'bold 13px system-ui'; g.textAlign = 'right';
+    g.fillText(v, x + tw - 8, y + 14);
   });
 
-  g.fillStyle = '#4a545f'; g.font = '12px system-ui'; g.textAlign = 'right';
-  g.fillText('simulation, not measured', W - 18, H - 4);
+  // The screen is convincing enough now that this line has to stay on it.
+  g.fillStyle = '#4a545f'; g.font = '11px system-ui'; g.textAlign = 'right';
+  g.fillText('simulation, not measured', W - 14, 537);
 }
 
 function buildRig() {
-  // The rig stands in a timber frame, not on a steel bench: five planks across,
-  // posts at the corners and a back board carrying the wiring.
-  const TIMBER = [0x6b543c, 0x735c42, 0x634d37];
-  for (let k = 0; k < 5; k++) {
-    const plank = box(1.05, .028, .086, TIMBER[k % 3], 0, -.078, -.18 + k * .09);
-    plank.material.roughness = .95; plank.material.metalness = .02;
+  // A steel workbench: a plate top with a folded lip, square-tube legs with
+  // stretchers and levelling feet, and a lower shelf.
+  const steelTop = box(1.08, .014, .48, 0x58626f, 0, -.071, 0);
+  steelTop.material.metalness = .62; steelTop.material.roughness = .52;
+  for (const ez of [-.236, .236]) box(1.08, .03, .012, 0x6a7482, 0, -.084, ez);   // folded lip
+  for (const ex of [-.534, .534]) box(.012, .03, .48, 0x6a7482, ex, -.084, 0);
+  for (const lx of [-.49, .49]) for (const lz of [-.20, .20]) {      // square-tube legs
+    const leg = box(.032, .20, .032, 0x5c6672, lx, -.185, lz);
+    leg.material.metalness = .8; leg.material.roughness = .4;
+    cyl(.018, .008, 0x2a323d, lx, -.287, lz, null, 12);              // levelling foot
+    bolt(lx, -.064, lz, .005, .005, 0x8d97a4);                       // top fixing
   }
-  for (const lx of [-.47, .47]) for (const lz of [-.19, .19]) {      // corner posts
-    const post = box(.045, .19, .045, 0x5b4733, lx, -.19, lz);
-    post.material.roughness = .95; post.material.metalness = .02;
-    bolt(lx, -.062, lz, .006, .006, 0x8d97a4);                       // coach screw
-  }
-  for (const lz of [-.19, .19]) box(.92, .05, .022, 0x5b4733, 0, -.24, lz);   // side rails
-  box(.022, .05, .36, 0x5b4733, -.47, -.24, 0);
-  box(.022, .05, .36, 0x5b4733, .47, -.24, 0);
-  const backBoard = box(1.05, .17, .022, 0x634d37, 0, .0, -.265);    // back board
-  backBoard.material.roughness = .95; backBoard.material.metalness = .02;
-  for (const bx2 of [-.42, -.14, .14, .42]) bolt(bx2, .06, -.252, .005, .006, 0x8d97a4);
+  for (const lz of [-.20, .20]) box(.95, .022, .022, 0x5c6672, 0, -.255, lz);     // stretchers
+  box(.022, .022, .38, 0x5c6672, -.49, -.255, 0);
+  box(.022, .022, .38, 0x5c6672, .49, -.255, 0);
+  const lowerShelf = box(.95, .008, .36, 0x4b5562, 0, -.243, 0);     // lower shelf
+  lowerShelf.material.metalness = .6; lowerShelf.material.roughness = .55;
+  const backPanel = box(1.08, .17, .014, 0x5c6672, 0, .0, -.262);    // back panel
+  backPanel.material.metalness = .8; backPanel.material.roughness = .42;
+  for (const bx2 of [-.44, -.15, .15, .44]) bolt(bx2, .06, -.25, .005, .006, 0xc0c6cf);
   for (const [i, x] of [-.26, .26].entries()) {
     tagging = i ? 'motor2' : 'motor1';
     const body = cyl(.05, .13, COLOUR.steel, x, .06, 0);             // motor body
@@ -407,12 +474,13 @@ function buildRig() {
   // A shelf across the back of the frame carries the screen above the rig, where
   // an operator can watch it while standing at the bench.
   for (const ux of [-.30, .30]) {
-    const upright = box(.028, .24, .028, 0x5b4733, ux, .058, -.12);
-    upright.material.roughness = .95; upright.material.metalness = .02;
-    bolt(ux, -.056, -.12, .006, .006, 0x8d97a4);
+    const upright = box(.026, .24, .026, 0x5c6672, ux, .058, -.12);
+    upright.material.metalness = .8; upright.material.roughness = .4;
+    bolt(ux, -.056, -.12, .006, .006, 0xc0c6cf);
   }
-  const shelf = box(.72, .022, .10, 0x6b543c, 0, .168, -.12);
-  shelf.material.roughness = .95; shelf.material.metalness = .02;
+  const shelf = box(.72, .012, .10, 0x58626f, 0, .173, -.12);
+  shelf.material.metalness = .62; shelf.material.roughness = .52;
+  box(.72, .022, .010, 0x6a7482, 0, .162, -.072);                    // shelf lip
   for (const sx of [-.30, .30]) bolt(sx, .181, -.12, .005, .005, 0x8d97a4);
 
   const monitor = new THREE.Group();
