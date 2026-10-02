@@ -326,6 +326,26 @@ function buildRig() {
       const a = Math.PI / 4 + b / 4 * Math.PI * 2;
       cyl(.004, .006, 0x4e5866, x + Math.cos(a) * .04, .06 + Math.sin(a) * .04, .072, null, 8);
     }
+    // Rear cowl with cooling slots, a lifting eye, a direction arrow and a lid on
+    // the terminal box: the things that are on every industrial motor.
+    cyl(.047, .022, 0x6c7787, x, .06, -.086, null, 24);              // fan cowl
+    for (let v2 = 0; v2 < 10; v2++) {
+      const a2 = v2 / 10 * Math.PI * 2;
+      const slot = box(.006, .018, .004, 0x1b2430,
+        x + Math.cos(a2) * .032, .06 + Math.sin(a2) * .032, -.0975);
+      slot.rotation.z = a2;
+    }
+    const eye = new THREE.Mesh(new THREE.TorusGeometry(.008, .0028, 8, 16),
+      new THREE.MeshStandardMaterial({ color: 0x8d97a4, roughness: .5, metalness: .7 }));
+    eye.position.set(x, .122, -.02); eye.rotation.y = Math.PI / 2; scene.add(eye); tag(eye);
+    const arrow = box(.012, .003, .012, 0xd7dde5, x + .024, .1105, .012);
+    arrow.rotation.y = Math.PI / 4;                                  // rotation arrow sticker
+    box(.034, .005, .034, 0x2a323d, x, .014, .03);                   // terminal box lid
+    for (const s4 of [-1, 1]) for (const s5 of [-1, 1])
+      cyl(.0025, .003, 0x8d97a4, x + s4 * .012, .017, .03 + s5 * .012, null, 6);
+    tube([[x - .012, .03, .012], [x - .018, .02, .022], [x - .012, .012, .028]], .0015, 0x7aa2f7);
+    for (const s6 of [-1, 1])                                        // slotted foot holes
+      box(.022, .004, .012, 0x11151b, x + s6 * .05, -.0335, 0);
     cyl(.008, .07, COLOUR.steel, x, .06, .10);                       // shaft
     cyl(.013, .012, 0x6c7787, x, .06, .112, null, 16);               // shaft collar
     box(.03, .022, .03, 0x20262f, x, .002, .03);                     // terminal box
@@ -441,21 +461,33 @@ function buildRig() {
     tagging = 'encoder';
     tube([[x, .06, -.092], [x + .075, .01, -.02], [x + .04, .076, .15]], .002, COLOUR.signal);
   }
+  // The battery is the heaviest thing here, so it lives on the lower shelf with
+  // its isolator and fuse beside it, and feeds both controllers up the back.
   tagging = 'battery';
-  box(.16, .09, .08, 0x243040, 0, .035, -.22);                       // battery
-  box(.16, .01, .08, 0x3a4a5e, 0, .085, -.22);
-  box(.05, .004, .022, 0xd7dde5, 0, .081, -.185);                    // battery label
-  for (const s2 of [-1, 1]) box(.012, .012, .012, s2 > 0 ? 0xef4444 : 0x1b2430, s2 * .045, .088, -.2);
-  box(.024, .014, .016, 0x15191f, 0, .09, -.25);                     // BMS / connector block
-  for (const bz2 of [-.245, -.195]) box(.168, .094, .006, 0x11151b, 0, .035, bz2);  // retaining straps
-  label(.03, .016, 0, .0355, -.181, 0xf0b429);                       // warning label
-  box(.02, .013, .013, 0xf0b429, .03, .092, -.185);                  // XT90-style connector
-  cyl(.007, .03, 0x39414d, -.09, .06, -.2, null, 12);                // inline fuse holder
-  box(.02, .016, .02, 0x2a323d, -.12, .03, -.2);                     // isolator switch
-  box(.008, .012, .008, 0xc0392b, -.12, .044, -.2);                  // its red lever
-  for (let b = 0; b < 4; b++) tieWrap(-.28 + b * .18, .02, -.14);    // ties along the supply run
-  tube([[-.322, .06, .155], [-.40, .02, .04], [-.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
-  tube([[.198, .06, .155], [.40, .02, .04], [.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
+  const batY = -.192, batZ = -.03;
+  box(.17, .092, .085, 0x243040, -.02, batY, batZ);                  // pack
+  box(.17, .010, .085, 0x3a4a5e, -.02, batY + .051, batZ);           // lid
+  box(.058, .004, .026, 0xd7dde5, -.02, batY + .058, batZ + .028);   // label
+  label(.034, .018, -.02, batY + .058, batZ - .03, 0xf0b429);        // warning label
+  for (const s2 of [-1, 1])                                          // terminals
+    box(.013, .013, .013, s2 > 0 ? 0xef4444 : 0x1b2430, -.02 + s2 * .048, batY + .062, batZ - .01);
+  for (const bz2 of [batZ - .028, batZ + .028])                      // retaining straps
+    box(.178, .096, .007, 0x11151b, -.02, batY, bz2);
+  box(.028, .016, .018, 0x15191f, .085, batY + .03, batZ);           // BMS
+  for (let l = 0; l < 4; l++)                                        // balance leads
+    tube([[.062, batY + .05, batZ - .012 + l * .008], [.075, batY + .046, batZ - .006 + l * .006],
+          [.082, batY + .036, batZ]], .0012, [0xef4444, 0xf0b429, 0x7aa2f7, 0xe8eaed][l]);
+  box(.022, .014, .014, 0xf0b429, .02, batY + .062, batZ - .01);     // XT90
+  cyl(.008, .034, 0x39414d, .14, batY + .02, batZ, null, 12);        // inline fuse
+  box(.026, .022, .026, 0x2a323d, .20, batY + .012, batZ);           // isolator
+  box(.01, .016, .01, 0xc0392b, .20, batY + .03, batZ);              // its red lever
+  box(.034, .004, .034, 0x11151b, .20, batY - .001, batZ);           // isolator base
+
+  // Supply up the back of the bench to each controller, tied as it goes.
+  tube([[-.322, .06, .155], [-.44, .0, .08], [-.47, -.14, -.05], [-.17, -.168, batZ]], .005, COLOUR.power);
+  tube([[.198, .06, .155], [.46, .0, .08], [.47, -.14, -.05], [.26, -.17, batZ]], .005, COLOUR.power);
+  for (const [tx, ty, tz] of [[-.45, -.06, .01], [-.3, -.172, -.03], [.47, -.06, .01], [.3, -.174, -.03]])
+    tieWrap(tx, ty, tz);
   // A loom run along the back board, tied down, as any bench build ends up with.
   tagging = null;
   tube([[-.44, -.03, -.248], [0, -.035, -.248], [.44, -.03, -.248]], .006, 0x1b222c);
@@ -565,15 +597,23 @@ function buildRig() {
       }
       link.userData.rotates = true;
     } else {
-      link = cyl(.005, .015, 0xc8d0da, 0, 0, 0, null, 12);           // roller
-      link.rotation.z = Math.PI / 2;
-      link.material.metalness = .75; link.material.roughness = .3;
+      // An inner link: the roller plus the two narrower plates that carry it.
+      link = new THREE.Group(); scene.add(link);
+      const roller = cyl(.005, .015, 0xc8d0da, 0, 0, 0, link, 12);
+      roller.rotation.z = Math.PI / 2;
+      roller.material.metalness = .75; roller.material.roughness = .3;
+      for (const pz of [-.0042, .0042]) {
+        const inner = box(.014, .0075, .0022, 0x7c8694, 0, 0, pz, link);
+        inner.material.metalness = .7; inner.material.roughness = .4;
+      }
+      link.userData.rotates = true;
     }
     chainLinks.push(link);
   }
   // The master link, which is the one you actually undo to fit the chain.
-  chainLinks[0].material.color.setHex(0xe0a23a);
-  chainLinks[1].traverse(m => { if (m.material) m.material.color.setHex(0xe0a23a); });
+  // Both kinds of link are groups now, so colour whatever is inside them.
+  for (const masterLink of [chainLinks[0], chainLinks[1]])
+    masterLink.traverse(m => { if (m.material) m.material.color.setHex(0xe0a23a); });
   positionChain(0, R, span);
   tagging = null;
 }
@@ -587,6 +627,11 @@ function positionChain(offset, R = .05, span = .52) {
     else if (s < straight + arc) { const a = (s - straight) / R; x = span / 2 + Math.sin(a) * R; y = Math.cos(a) * R; angle = -a; }
     else if (s < 2 * straight + arc) { const d = s - straight - arc; x = span / 2 - d; y = -R; angle = Math.PI; }
     else { const a = (s - 2 * straight - arc) / R; x = -span / 2 - Math.sin(a) * R; y = -Math.cos(a) * R; angle = Math.PI - a; }
+    // The slack side of a chain hangs. Only the lower straight droops, most at
+    // its middle, which is what gives a chain drive its look.
+    if (y < 0 && Math.abs(x) < span / 2) {
+      y -= .006 * Math.cos(Math.PI * x / span);
+    }
     link.position.set(x, y + .06, .125);
     if (link.userData.rotates) link.rotation.z = angle;
   });
