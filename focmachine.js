@@ -130,7 +130,7 @@ function arrow(THREE, colour, length = .07) {
 }
 
 export function buildFocMachine(THREE, opts = {}) {
-  const { withLabels = true, labelScale = 1 } = opts;
+  const { withLabels = true, labelScale = 1, detailed = false } = opts;
   const group = new THREE.Group();
 
   const rotorGroup = new THREE.Group();
@@ -281,10 +281,79 @@ export function buildFocMachine(THREE, opts = {}) {
     thetaTag.position.set(.098, -.012, 0); angleGroup.add(thetaTag);
   }
 
+  if (detailed) {
+    // The housing comes off forward, so the stator is seen to live inside it.
+    const housing = new THREE.Group();
+    housing.userData.explode = .17;
+    group.add(housing);
+    const shell = ringAt(.056, .132, 0x8b97a6, 0, housing, 44,
+      { transparent: true, opacity: .20, side: THREE.DoubleSide });
+    shell.material.metalness = .6;
+    for (let f = 0; f < 18; f++) {                                   // cooling fins
+      const a = f / 18 * Math.PI * 2;
+      const fin = boxAt(.006, .012, .12, 0x7d8896,
+        Math.cos(a) * .059, Math.sin(a) * .059, 0, housing,
+        { transparent: true, opacity: .45 });
+      fin.rotation.z = a;
+    }
+    if (withLabels) {
+      const tag = labelSprite(THREE, 'housing', '#8b97a6', .05 * labelScale);
+      tag.position.set(0, .075, 0); housing.add(tag);
+    }
+
+    // The front cap and its bearing boss come off further forward still.
+    const frontCap = new THREE.Group();
+    frontCap.userData.explode = .25;
+    group.add(frontCap);
+    ringAt(.052, .012, 0x6c7787, 0, frontCap, 32);
+    cylAt(.052, .010, 0x7d8896, -.004, frontCap, 32);
+    cylAt(.021, .016, 0x6c7787, .012, frontCap, 20);                 // bearing boss
+    cylAt(.0115, .018, 0x0d1117, .013, frontCap, 16);                // shaft hole
+    for (let b = 0; b < 4; b++) {
+      const a = Math.PI / 4 + b / 4 * Math.PI * 2;
+      cylAt(.004, .006, 0x4e5866,
+        .009, frontCap, 8).position.set(Math.cos(a) * .042, Math.sin(a) * .042, .009);
+    }
+    if (withLabels) {
+      const tag = labelSprite(THREE, 'front cap and bearing', '#9aa5b1', .085 * labelScale);
+      tag.position.set(0, .068, .012); frontCap.add(tag);
+    }
+
+    // A dashed centreline, the way an exploded drawing is always set out: it says
+    // these pieces go back together along one axis, in this order.
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, -.30), new THREE.Vector3(0, 0, .34)]),
+      new THREE.LineDashedMaterial({ color: 0x4a545f, dashSize: .012, gapSize: .01,
+        transparent: true, opacity: .8 }));
+    line.computeLineDistances();
+    group.add(line);
+
+    // N and S on the magnets, so the poles can be named while they turn.
+    if (withLabels) {
+      const north = labelSprite(THREE, 'N', '#ffffff', .03 * labelScale);
+      north.position.set(0, .021, .052); rotorGroup.add(north);
+      const south = labelSprite(THREE, 'S', '#ffffff', .03 * labelScale);
+      south.position.set(0, -.021, .052); rotorGroup.add(south);
+
+      // The air gap: a millimetre or so of nothing, and the reason the whole
+      // machine has to be built accurately.
+      const gap = labelSprite(THREE, 'air gap', '#6b7684', .05 * labelScale);
+      gap.position.set(.058, .030, .048); statorGroup.add(gap);
+      statorGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(.0335, .0335, .048), new THREE.Vector3(.050, .026, .048)]),
+        new THREE.LineBasicMaterial({ color: 0x6b7684, transparent: true, opacity: .7 })));
+    }
+  }
+
   // ---- behaviour -----------------------------------------------------------------
   function setExplode(factor) {
-    rotorGroup.position.z = rotorGroup.userData.explode * factor;
-    statorGroup.position.z = statorGroup.userData.explode * factor;
+    for (const child of group.children) {
+      if (child.userData && child.userData.explode !== undefined) {
+        child.position.z = child.userData.explode * factor;
+      }
+    }
   }
 
   function update(state) {

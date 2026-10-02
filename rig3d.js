@@ -652,7 +652,7 @@ let machine = null, explode = 0;
 function buildMotorInside() {
   const centre = new THREE.Vector3(-.26, .06, 0);
 
-  machine = buildFocMachine(THREE, { labelScale: 1 });
+  machine = buildFocMachine(THREE, { labelScale: 1, detailed: true });
   machine.group.position.copy(centre);
   scene.add(machine.group);
   rotorGroup = machine.rotorGroup;

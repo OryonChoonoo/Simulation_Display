@@ -717,7 +717,10 @@ function drawGraphs(canvasId, hist) {
   history = hist;
   const c = $(canvasId); if (!c) return;
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  if (!w) return;
+  // On the frame a hidden canvas is first shown, layout has not run yet, so the
+  // canvas is reported far narrower than it will be. Three panels need room; if
+  // there is not enough, the panel maths goes negative. Wait for the next frame.
+  if (w < 330 || h < 70) return;
   c.width = w * dpr; c.height = h * dpr;
   const g = c.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -763,6 +766,7 @@ function drawDqGraph(g, x, y, w, h) {
   const { L, R, T, B } = graphFrame(g, x, y, w, h, 'CURRENT VECTOR   Id across, Iq up');
   const cx = (L + R) / 2, cy = (T + B) / 2;
   const scale = Math.min((R - L) / 2, (B - T) / 2) / (P.iq_limit_A * 1.05);
+  if (scale <= 0) return;                       // nothing sensible to draw into
 
   g.strokeStyle = '#1b2430'; g.lineWidth = 1;
   for (const amps of [10, 20]) {                               // current rings
