@@ -2,10 +2,11 @@
    the motor. Geometry is built from primitives at roughly rig scale: it is an
    illustration of the setup, not a CAD model, and not measured data. */
 import * as THREE from './vendor/three.module.js';
+import { buildFocMachine, labelSprite } from './focmachine.js';
 
 const V = THREE.MathUtils;
 let renderer, scene, camera, clock, host;
-let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, currentArrow, trueArrow, encoderDisc, housing;
+let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, encoderDisc, housing;
 let insideKeep = [];
 let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null, zoom: 1 };
 let opts = { rpm: 400, sensorless: false, slow: 0.04 };
@@ -646,191 +647,42 @@ function positionChain(offset, R = .05, span = .52) {
 // actually commands. Each coil lights by how much current it is carrying, so the
 // lit pattern IS the stator field, and you can watch it run 90 electrical degrees
 // ahead of the magnets, which is the whole of field-oriented control.
-let statorGroup, coils = [], fieldArrow, dAxisArrow, quadMarker, angleArc, explode = 0;
-const PHASE_COLOUR = [0x34d399, 0xf0b429, 0x7aa2f7];
-const PHASE_NAME = ['A', 'B', 'C'];
-
-function labelSprite(text, colour, width) {
-  // The canvas is sized to the text, so a long label is not squashed into the
-  // same 256 pixels as a short one and cut off at both ends.
-  const c = document.createElement('canvas');
-  const font = 'bold 44px system-ui';
-  const measure = c.getContext('2d');
-  measure.font = font;
-  c.width = Math.ceil(measure.measureText(text).width) + 28;
-  c.height = 72;
-  const g = c.getContext('2d');
-  g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 7; g.strokeStyle = 'rgba(8,11,16,.92)'; g.strokeText(text, c.width / 2, 38);
-  g.fillStyle = colour; g.fillText(text, c.width / 2, 38);
-  const texture = new THREE.CanvasTexture(c);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: texture, transparent: true, depthTest: false, depthWrite: false }));
-  sprite.scale.set(width, width * c.height / c.width, 1);
-  sprite.renderOrder = 10;
-  return sprite;
-}
-
-function arcLine(radius, from, to, colour, z) {
-  const points = [];
-  const steps = Math.max(8, Math.round(Math.abs(to - from) * 24));
-  for (let k = 0; k <= steps; k++) {
-    const a = from + (to - from) * k / steps;
-    points.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, z));
-  }
-  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
-    new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: .9 }));
-}
+let machine = null, explode = 0;
 
 function buildMotorInside() {
   const centre = new THREE.Vector3(-.26, .06, 0);
 
-  // ---- rotor ---------------------------------------------------------------
-  rotorGroup = new THREE.Group();
-  rotorGroup.position.copy(centre);
-  rotorGroup.userData.explode = new THREE.Vector3(0, 0, .055);
-  scene.add(rotorGroup);
-  cyl(.014, .17, 0x6c7787, 0, 0, 0, rotorGroup, 20);                  // shaft
-  cyl(.028, .1, 0x39414d, 0, 0, 0, rotorGroup, 30);                   // back iron
-  for (const [k, colour] of [[0, COLOUR.magnetN], [1, COLOUR.magnetS]]) {
-    const magnet = new THREE.Mesh(
-      new THREE.CylinderGeometry(.032, .032, .096, 24, 1, false, k * Math.PI + .05, Math.PI - .1),
-      new THREE.MeshStandardMaterial({ color: colour, roughness: .45 }));
-    magnet.rotation.x = Math.PI / 2; rotorGroup.add(magnet);
-  }
-  const sleeve = ring(.0325, .0335, .098, 0x9aa5b1, 0, 0, 0, rotorGroup, 36);
-  sleeve.material.transparent = true; sleeve.material.opacity = .3;
-  for (const bz of [-.054, .054]) {
-    cyl(.0105, .011, 0x8d97a4, 0, 0, bz, rotorGroup, 20);
-    ring(.016, .019, .011, 0x8d97a4, 0, 0, bz, rotorGroup, 24);
-    for (let b = 0; b < 9; b++) {
-      const a = b / 9 * Math.PI * 2;
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(.0035, 10, 8),
-        new THREE.MeshStandardMaterial({ color: 0xd7dde5, roughness: .25, metalness: .85 }));
-      ball.position.set(Math.cos(a) * .0145, Math.sin(a) * .0145, bz);
-      rotorGroup.add(ball);
-    }
-  }
-  const rotorTag = labelSprite('rotor', '#ef4444', .042);
-  rotorTag.position.set(0, .05, .052); rotorGroup.add(rotorTag);
+  machine = buildFocMachine(THREE, { labelScale: 1 });
+  machine.group.position.copy(centre);
+  scene.add(machine.group);
+  rotorGroup = machine.rotorGroup;
 
-  // ---- stator: six coils, two per phase ------------------------------------
-  statorGroup = new THREE.Group();
-  statorGroup.position.copy(centre);
-  statorGroup.userData.explode = new THREE.Vector3(0, 0, -.075);
-  scene.add(statorGroup);
-  ring(.044, .050, .09, 0x4e5866, 0, 0, 0, statorGroup, 48);           // back iron
-  coils = [];
-  for (let k = 0; k < 6; k++) {
-    // A at 0 degrees, B at 120, C at 240, each with its return 180 degrees away.
-    const phase = k % 3, sign = k < 3 ? 1 : -1;
-    const a = phase * 2 * Math.PI / 3 + (sign > 0 ? 0 : Math.PI);
-    const tooth = box(.016, .020, .088, 0x707b89, Math.cos(a) * .036, Math.sin(a) * .036, 0, statorGroup);
-    tooth.rotation.z = a;
-    const coil = box(.020, .030, .070, PHASE_COLOUR[phase],
-      Math.cos(a) * .0415, Math.sin(a) * .0415, 0, statorGroup);
-    coil.rotation.z = a;
-    coil.material.emissive = new THREE.Color(PHASE_COLOUR[phase]);
-    coil.material.emissiveIntensity = 0;
-    coil.material.metalness = .25; coil.material.roughness = .5;
-    coils.push({ mesh: coil, phase, sign, angle: a });
-    const tag = labelSprite(PHASE_NAME[phase] + (sign > 0 ? '+' : '\u2212'),
-      '#' + PHASE_COLOUR[phase].toString(16).padStart(6, '0'), .028);
-    tag.position.set(Math.cos(a) * .064, Math.sin(a) * .064, .046);
-    statorGroup.add(tag);
-  }
-  for (const ez of [-.048, .048])
-    ring(.038, .0455, .012, 0xb87333, 0, 0, ez, statorGroup, 32);     // end windings
-  const statorTag = labelSprite('stator', '#9aa5b1', .048);
-  statorTag.position.set(0, -.068, 0); statorGroup.add(statorTag);
-
-  // ---- end cap and encoder, pulled off the back ----------------------------
+  // The encoder and the cap it sits behind, pulled furthest off the back.
   const rearGroup = new THREE.Group();
   rearGroup.position.copy(centre);
-  rearGroup.userData.explode = new THREE.Vector3(0, 0, -.185);
+  rearGroup.userData.explodeZ = -.185;
   scene.add(rearGroup);
-  cyl(.050, .012, 0x6c7787, 0, 0, -.06, rearGroup, 28);               // end cap
-  encoderDisc = cyl(.026, .005, 0x7aa2f7, 0, 0, -.072, rearGroup);    // encoder disc
-  for (let k = 0; k < 36; k++) {                                      // its slots
+  cyl(.050, .012, 0x6c7787, 0, 0, -.06, rearGroup, 28);
+  encoderDisc = cyl(.026, .005, 0x7aa2f7, 0, 0, -.072, rearGroup);
+  for (let k = 0; k < 36; k++) {
     const a = k / 36 * Math.PI * 2;
     box(.0022, .006, .0022, 0x0d1117, Math.cos(a) * .021, Math.sin(a) * .021, -.0745, rearGroup);
   }
-  const encoderTag = labelSprite('encoder', '#7aa2f7', .05);
+  for (let b = 0; b < 3; b++) {
+    const a = b / 3 * Math.PI * 2 + .4;
+    cyl(.002, .004, 0x8d97a4, Math.cos(a) * .034, Math.sin(a) * .034, -.06, rearGroup, 6);
+  }
+  const encoderTag = labelSprite(THREE, 'encoder', '#7aa2f7', .05);
   encoderTag.position.set(0, .046, -.072); rearGroup.add(encoderTag);
 
-  // ---- the vectors that carry the explanation ------------------------------
-  const vectors = new THREE.Group();
-  vectors.position.copy(centre);
-  vectors.position.z += .062;
-  scene.add(vectors);
-
-  dAxisArrow = makeArrow(COLOUR.magnetN);                             // where the magnets point
-  fieldArrow = makeArrow(COLOUR.current);                             // where the stator pushes
-  trueArrow = makeArrow(COLOUR.estimate);                             // where an estimate thinks
-  for (const a of [dAxisArrow, fieldArrow, trueArrow]) vectors.add(a);
-  currentArrow = fieldArrow;                                          // kept for the old readout
-  trueArrow.visible = false;
-
-  const dTag = labelSprite('d · magnets', '#ef4444', .062);
-  dTag.position.set(0, .118, 0); dAxisArrow.add(dTag);
-  const qTag = labelSprite('q · stator field', '#34d399', .072);
-  qTag.position.set(0, .118, 0); fieldArrow.add(qTag);
-
-  // The right angle between them, drawn as an arc that follows the rotor.
-  quadMarker = new THREE.Group(); vectors.add(quadMarker);
-  quadMarker.add(arcLine(.072, 0, Math.PI / 2, 0x34d399, 0));
-  const quadTag = labelSprite('90\u00b0', '#34d399', .036);
-  quadTag.position.set(.055, .055, 0); quadMarker.add(quadTag);
-
-  // The electrical angle itself, measured from phase A's axis to the magnets.
-  angleArc = new THREE.Group(); vectors.add(angleArc);
-  const refLine = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(.085, 0, 0)]),
-    new THREE.LineBasicMaterial({ color: 0x5b6b7f }));
-  angleArc.add(refLine);
-  const thetaTag = labelSprite('\u03b8e', '#f0b429', .03);
-  thetaTag.position.set(.098, -.012, 0); angleArc.add(thetaTag);
-
-  const poleNote = labelSprite('one pole pair shown \u00b7 the motor has three', '#6b7684', .19);
+  const poleNote = labelSprite(THREE,
+    'one pole pair shown · the motor has three', '#6b7684', .19);
   poleNote.position.set(-.26, -.085, .02); scene.add(poleNote);
 
   housing = motors[0];
-  insideKeep = [rotorGroup, statorGroup, rearGroup, vectors, poleNote];
+  insideKeep = [machine.group, rearGroup, poleNote];
 }
 
-// The currents the controller commands for maximum torque: a field 90 electrical
-// degrees ahead of the magnets, made by three phase currents. Each coil lights by
-// the current it is carrying, so the lit pattern is the field.
-function energiseCoils(fieldAngle, amplitude) {
-  for (const coil of coils) {
-    const phaseAxis = coil.phase * 2 * Math.PI / 3;
-    const current = Math.cos(fieldAngle - phaseAxis) * amplitude;
-    const lit = Math.max(0, coil.sign * current);
-    coil.mesh.material.emissiveIntensity = lit * 1.6;
-  }
-}
-
-// The electrical-angle arc changes length every frame, so it is rebuilt rather
-// than rotated. It is a handful of points: cheap enough to redraw.
-let thetaArcLine = null;
-function rebuildAngleArc(electrical) {
-  if (!angleArc) return;
-  if (thetaArcLine) { angleArc.remove(thetaArcLine); thetaArcLine.geometry.dispose(); }
-  const wrapped = ((electrical % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-  thetaArcLine = arcLine(.062, 0, wrapped, 0xf0b429, 0);
-  angleArc.add(thetaArcLine);
-}
-
-function makeArrow(colour) {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: colour, emissive: colour, emissiveIntensity: .35, roughness: .4 });
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.0045, .0045, .07, 10), mat);
-  shaft.position.y = .035; g.add(shaft);
-  const head = new THREE.Mesh(new THREE.ConeGeometry(.014, .028, 14), mat);
-  head.position.y = .084; g.add(head);
-  return g;
-}
 
 // The angle a sensorless estimator gets wrong: back-EMF shrinks with speed, so the
 // error grows as the motor slows. Illustrative shape, not measured behaviour.
@@ -951,12 +803,10 @@ export function setView(next) {
     child.visible = inside ? insideKeep.includes(child) : !insideKeep.includes(child);
   }
   housing.visible = !inside; housing.userData.cap.visible = !inside;
-  trueArrow.visible = inside && opts.sensorless;
 }
 
 export function setOptions(next) {
   Object.assign(opts, next);
-  trueArrow.visible = view === 'inside' && opts.sensorless;
   return opts;
 }
 
@@ -976,24 +826,23 @@ function frame() {
   }
   spin += dt * (opts.rpm * 2 * Math.PI / 60) * opts.slow;
   for (const s of sprockets) s.rotation.z = spin;
-  rotorGroup.rotation.z = spin; encoderDisc.rotation.y = spin;
-  // Slide the assembly apart on entering the inside view, and back when leaving.
+  machine.rotorGroup.rotation.z = spin; encoderDisc.rotation.y = spin;
+  // Slide the assembly apart on entering the inside view, back when leaving.
   explode += ((view === 'inside' ? 1 : 0) - explode) * Math.min(dt * 1.6, 1);
+  machine.setExplode(explode);
   for (const child of scene.children) {
-    if (!child.userData || !child.userData.explode) continue;
-    child.position.z = (child === rotorGroup ? 0 : 0) + child.userData.explode.z * explode;
+    if (!child.userData || child.userData.explodeZ === undefined) continue;
+    child.position.z = child.userData.explodeZ * explode;
   }
   positionChain(spin * .05);
 
   const err = opts.sensorless ? estimateError(opts.rpm, clock.elapsedTime) : 0;
   // One pole pair is drawn, so the electrical angle is the angle you can see.
-  const electrical = spin;
-  dAxisArrow.rotation.z = electrical;
-  fieldArrow.rotation.z = electrical + Math.PI / 2 + err;
-  trueArrow.rotation.z = electrical + Math.PI / 2;
-  quadMarker.rotation.z = electrical;
-  energiseCoils(electrical + Math.PI / 2 + err, .55 + .45 * Math.min(opts.rpm / 900, 1));
-  rebuildAngleArc(electrical);
+  machine.update({
+    theta: spin, err,
+    amplitude: .55 + .45 * Math.min(opts.rpm / 900, 1),
+    showEstimate: view === 'inside' && opts.sensorless,
+  });
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .05, 0);

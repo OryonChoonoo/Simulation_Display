@@ -68,7 +68,9 @@ solves the same equations live.
 | `index.html` | Page structure, both modes |
 | `app.js` | Motor equations, envelope solver, drawing, mode handling |
 | `style.css` | Styling, including the visitor-mode overrides |
-| `rig3d.js` | The 3D rig view and the motor cutaway |
+| `rig3d.js` | The 3D rig view and the exploded motor |
+| `focmachine.js` | The teaching machine both 3D exhibits are built from |
+| `compare3d.js` | The two machines on the side-by-side tab |
 | `vendor/three.module.js` | three.js r169 (MIT licence, Copyright 2010-2024 Three.js Authors), vendored so the page works offline |
 | `data/matrix.json` | Exported simulation results and model parameters |
 | `tools/export_matrix_json.m` | Regenerates the JSON from a matrix run |

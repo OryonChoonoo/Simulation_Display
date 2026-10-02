@@ -100,9 +100,14 @@
       26.5 V bus and 25 A limit as every other page here. What is <b>not</b> measured is how wrong the
       estimate gets &mdash; that shape is a stand-in, and it will be replaced by the sensorless
       simulation's own error once that simulation works.</p>
-    <canvas id="sbs" aria-label="Two rotors under the same load: one fed by an encoder, one by an estimate"></canvas>
+    <div id="sbs-stage" class="stage3d" aria-label="Two machines under the same load: one fed by an encoder, one by an estimate"></div>
+    <div class="heat-row">
+      <div><span>Encoder</span><div class="heat"><i id="heat-sensored"></i></div><b id="heat-sensored-text">&nbsp;</b></div>
+      <div><span>Estimate</span><div class="heat"><i id="heat-sensorless"></i></div><b id="heat-sensorless-text">&nbsp;</b></div>
+    </div>
     <p class="caption">Same motor, same speed, same load demanded of both. The only difference is where the
-      controller gets the rotor angle from.</p>
+      controller gets the rotor angle from. Each coil lights by the current its own controller is commanding,
+      so the lit pattern is the stator field: watch the right-hand machine energise the wrong coils.</p>
   </section>
 
   <section class="side">

@@ -619,7 +619,7 @@ function update3d() {
 // ---- exhibit 5: side by side, measured angle against estimated angle -------------
 // Both sides are the same motor model under the same demand. Only the angle differs,
 // and the angle error shape is illustrative: see the banner on the tab.
-let sbsPhase = 0, sbsLast = 0, sbsSweep = null;
+let sbsLast = 0, sbsSweep = null;
 
 function sbsState() {
   const rpm = Number($('sbs-speed').value), torque = Number($('sbs-load').value);
@@ -639,57 +639,9 @@ function sbsState() {
 }
 function V_deg(d) { return d * Math.PI / 180; }
 
-function drawSbs(theta, s) {
-  const c = $('sbs'), g = c.getContext('2d');
-  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.clearRect(0, 0, w, h);
-  panel(g, w / 4, h, theta, s.sensored, 'Encoder', 'measured', '#34d399', s);
-  g.strokeStyle = '#26303c'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(w / 2, 20); g.lineTo(w / 2, h - 20); g.stroke();
-  panel(g, 3 * w / 4, h, theta, s.sensorless, 'Estimate', 'worked out from the back-EMF', '#f0b429', s);
-}
 
-function panel(g, cx, h, theta, side, name, sub, colour, s) {
-  const r = Math.min(h * .17, 80), cy = h * .44;
-  g.fillStyle = '#e8eaed'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
-  g.fillText(name, cx, 26);
-  g.fillStyle = '#9aa5b1'; g.font = '13px system-ui';
-  g.fillText(sub, cx, 45);
 
-  const halfPanel = g.canvas.clientWidth / 4;
-  drawMachine(g, cx, cy, r, { theta, err: side.err, peak: Math.max(side.current, 0.06),
-    bounds: [cx - halfPanel + 8, cx + halfPanel - 8] });
 
-  // A heat bar: visitors understand "it gets hot" faster than "efficiency falls".
-  const bw = Math.min(210, r * 2.4), bx = cx - bw / 2, by = cy + r * 2.2;
-  const full = 40, frac = Math.min(side.loss / full, 1);
-  g.fillStyle = '#121820'; roundRect(g, bx, by, bw, 15, 7); g.fill();
-  const bar = g.createLinearGradient(bx, 0, bx + bw, 0);
-  bar.addColorStop(0, '#34d399'); bar.addColorStop(0.55, '#f0b429'); bar.addColorStop(1, '#ef4444');
-  g.save(); roundRect(g, bx, by, Math.max(bw * frac, 6), 15, 7); g.clip();
-  g.fillStyle = bar; g.fillRect(bx, by, bw, 15); g.restore();
-  g.strokeStyle = '#33404f'; g.lineWidth = 1; roundRect(g, bx, by, bw, 15, 7); g.stroke();
-  g.fillStyle = '#cfd6df'; g.font = '13px system-ui'; g.textAlign = 'center';
-  g.fillText(`${side.loss.toFixed(1)} W of heat in the windings`, cx, by + 34);
-  g.fillStyle = '#9aa5b1'; g.font = '12.5px system-ui';
-  g.fillText(`${side.current.toFixed(1)} A drawn \u00b7 ${aimText(side.err)}`, cx, by + 54);
-  if (side.limited) {
-    g.fillStyle = '#ef4444'; g.font = 'bold 14px system-ui';
-    g.fillText('at the current limit \u2014 cannot hold the torque', cx, by + 76);
-  }
-}
-
-function aimText(err) {
-  const d = Math.round(Math.abs(err) * 180 / Math.PI);
-  return d === 0 ? 'pushing on target' : 'pushing ' + d + '\u00b0 off';
-}
-
-function roundRect(g, x, y, w, h, r) {
-  g.beginPath();
-  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
-  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
-}
 
 function sbsFrame(now) {
   if ($('tab-sbs').hidden) { sbsLast = now; return requestAnimationFrame(sbsFrame); }
@@ -701,10 +653,15 @@ function sbsFrame(now) {
     if (sbsSweep <= 0) { sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; }
   }
   const s = sbsState();
-  sbsPhase += dt * (s.rpm * 2 * Math.PI / 60) * P.pole_pairs * .08;
   $('sbs-speed-out').textContent = Math.round(s.rpm) + ' rpm';
   $('sbs-load-out').textContent = s.torque.toFixed(2) + ' N\u00b7m';
-  drawSbs(sbsPhase, s);
+  if (compare3d) compare3d.update({
+    rpm: s.rpm, err: s.err,
+    amplitude: Math.min(s.sensorless.current / Math.max(P.iq_limit_A * .6, 1), 1),
+    limited: s.sensorless.limited,
+  });
+  showHeat('sensored', s.sensored.loss);
+  showHeat('sensorless', s.sensorless.loss);
   const extra = s.sensorless.loss - s.sensored.loss;
   $('sbs-numbers').innerHTML = [
     ['Angle error', '0\u00b0 \u00b7 ' + Math.round(s.err * 180 / Math.PI) + '\u00b0'],
@@ -735,6 +692,50 @@ function sbsVerdict(s, extra) {
     head.className = 'verdict ok';
     body.textContent = `At ${Math.round(s.rpm)} rpm there is plenty of back-EMF (${s.backEmf.toFixed(1)} V) to estimate from, so the two are within ${deg} degree${deg === 1 ? '' : 's'} of each other and cost almost the same. This is the easy end of the range \u2014 drag the speed down.`;
   }
+}
+
+// The side-by-side machines are the same model as the exploded view, loaded on
+// demand so the envelope and control tabs do not pay for three.js.
+let compare3d = null, compare3dFailed = false;
+async function ensureCompare3d() {
+  if (compare3d || compare3dFailed) return compare3d;
+  let module;
+  try {
+    module = await import('./compare3d.js');
+  } catch (err) {
+    return failCompare('The comparison could not load its library', err, true);
+  }
+  try {
+    module.init($('sbs-stage'));
+    compare3d = module;
+  } catch (err) {
+    return failCompare('The comparison failed while building its scene', err, false);
+  }
+  return compare3d;
+}
+
+function failCompare(headline, err, libraryMissing) {
+  compare3dFailed = true;
+  console.error(headline, err);
+  const where = ((err && err.stack) || '').split(/\r?\n/).slice(1, 3).map(l => l.trim()).filter(Boolean);
+  const advice = libraryMissing
+    ? 'Check that <code>vendor/three.module.js</code> is there, and that the page is served over http.'
+    : 'Everything else on this page still works. The full stack is in the browser console.';
+  $('sbs-stage').innerHTML = `<div class="stage3d-error">
+    <p class="err-head">${headline}</p>
+    <p class="err-msg">${escapeHtml((err && err.message) || String(err))}</p>
+    ${where.map(l => `<p class="err-at">${escapeHtml(l)}</p>`).join('')}
+    <p class="err-advice">${advice}</p>
+  </div>`;
+  return null;
+}
+
+// The heat bars moved out of the canvas into the page, so they stay readable
+// whatever the 3D view is doing.
+function showHeat(which, watts) {
+  const full = 40;
+  $('heat-' + which).style.width = Math.min(100 * watts / full, 100).toFixed(1) + '%';
+  $('heat-' + which + '-text').textContent = watts.toFixed(1) + ' W';
 }
 
 // ---- exhibit 6: method, parameters and limits ------------------------------------
@@ -808,6 +809,7 @@ function setTab(name) {
   for (const id of ['envelope', 'foc', '3d', 'sbs', 'method']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
+  if (name === 'sbs') ensureCompare3d();
   if (name === 'envelope') render();
   if (name === 'method') renderMethod();
 }
