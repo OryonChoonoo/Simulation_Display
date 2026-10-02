@@ -167,3 +167,12 @@ body[data-mode=kiosk] .method-lede{font-size:17px}
   border-radius:8px;padding:7px 0;font:600 17px system-ui;cursor:pointer}
 .zoom-row button.wide{flex:1;font-size:14px}
 .zoom-row button:hover{border-color:#34d399;color:#e8eaed}
+
+/* When the 3D view cannot start, say what actually happened */
+.stage3d-error{padding:26px 28px;max-width:70ch}
+.err-head{margin:0 0 10px;color:#f0b429;font:600 17px system-ui}
+.err-msg{margin:0 0 6px;color:#e8eaed;font:400 14px/1.5 ui-monospace,monospace;
+  background:#0b0f15;border:1px solid #2f3a48;border-radius:6px;padding:9px 12px}
+.err-at{margin:0 0 4px;color:#6b7684;font:400 12.5px/1.4 ui-monospace,monospace}
+.err-advice{margin:12px 0 0;color:#9aa5b1;font:400 14px/1.55 system-ui}
+.err-advice code{background:#0d1117;padding:2px 6px;border-radius:4px;color:#cfd6df}

@@ -557,8 +557,15 @@ const PART_LABEL = {
 let rig3d = null, rig3dFailed = false;
 async function ensure3d() {
   if (rig3d || rig3dFailed) return rig3d;
+  // Loading the module and building the scene fail for different reasons, and
+  // saying the library is missing when the scene code threw sends you looking in
+  // the wrong place. They are reported separately, with the real error.
   try {
     rig3d = await import('./rig3d.js');
+  } catch (err) {
+    return fail3d('The 3D view could not load its library', err, true);
+  }
+  try {
     rig3d.init($('stage3d'));
     rig3d.setPickHandler(key => { touched(); showPart(key); });
     // the selection was made before the scene existed, so light it up now
@@ -566,10 +573,33 @@ async function ensure3d() {
     if (active) rig3d.highlight(active.dataset.part);
     update3d();
   } catch (err) {
-    rig3dFailed = true;
-    $('stage3d').innerHTML = '<p class="explain" style="padding:24px">The 3D view needs <code>vendor/three.module.js</code>, which is not in this copy. Everything else on the page works without it.</p>';
+    rig3d = null;
+    return fail3d('The 3D view failed while building the scene', err, false);
   }
   return rig3d;
+}
+
+function fail3d(headline, err, libraryMissing) {
+  rig3dFailed = true;
+  console.error(headline, err);
+  const message = (err && err.message) || String(err);
+  const where = ((err && err.stack) || '').split(/\r?\n/).slice(1, 3)
+    .map(line => line.trim()).filter(Boolean);
+  const advice = libraryMissing
+    ? 'Check that <code>vendor/three.module.js</code> is there, and that the page is being served over http rather than opened as a file.'
+    : 'Everything else on this page still works. The full stack is in the browser console.';
+  $('stage3d').innerHTML = `<div class="stage3d-error">
+    <p class="err-head">${headline}</p>
+    <p class="err-msg">${escapeHtml(message)}</p>
+    ${where.map(line => `<p class="err-at">${escapeHtml(line)}</p>`).join('')}
+    <p class="err-advice">${advice}</p>
+  </div>`;
+  return null;
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 }
 function update3d() {
   if (!rig3d) return;
