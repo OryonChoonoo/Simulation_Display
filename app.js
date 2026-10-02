@@ -524,7 +524,7 @@ const RIG_PARTS = {
   encoder: ['How the controller knows where the rotor is',
     'The encoder reports rotor angle directly, which is what "sensored" means. Field-oriented control needs that angle to aim the current correctly. Its type, mounting and resolution are still to be confirmed for this rig.'],
   laptop: ['The operator, and the record',
-    'A laptop connected to both controllers over USB, through isolators that stop the two boards forming a ground loop. It configures the drives, runs the test matrix and records the data. It never replaces the safety systems.'],
+    'A desktop machine connected to both controllers over USB, through isolators that stop the two boards forming a ground loop. It configures the drives, runs the test matrix and records the data. It never replaces the safety systems: it can ask the drives to stop, but it cannot brake the motors.'],
   estop: ['The stop that actually stops it',
     'A physical emergency stop, independent of any software. The software stop only removes the driving torque and lets the motors coast: it cannot brake them, and it cannot help if the computer has stopped responding. That is why the physical one exists.'],
 };
@@ -549,7 +549,7 @@ function buildPartBar() {
 
 const PART_LABEL = {
   battery: 'Battery', odrive1: 'Controller 1', odrive2: 'Controller 2', motor1: 'Test motor',
-  motor2: 'Load motor', chain: 'Chain drive', encoder: 'Encoder', laptop: 'Laptop', estop: 'Emergency stop',
+  motor2: 'Load motor', chain: 'Chain drive', encoder: 'Encoder', laptop: 'Computer', estop: 'Emergency stop',
 };
 
 // ---- the 3D view ---------------------------------------------------------------

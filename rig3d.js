@@ -155,6 +155,22 @@ function buildRig() {
     for (let k = 0; k < 4; k++)                                      // yellow bullet connectors
       box(.018, .007, .007, 0xf0b429, bx - .053, by - .016 + k * .011, bz + .004);
     box(.012, .007, .006, 0x15191f, bx + .03, by + .016, bz + .004); // encoder header
+    box(.01, .006, .005, 0xe8eaed, bx + .03, by + .005, bz + .004);  // CAN connector
+    box(.013, .013, .0025, 0x0e1116, bx - .002, by + .004, bz + .003);  // gate driver
+    box(.009, .009, .002, 0x0e1116, bx + .016, by - .003, bz + .003);   // microcontroller
+    box(.006, .011, .0025, 0x2b3340, bx - .02, by + .004, bz + .003);   // current sense
+    for (let tp = 0; tp < 6; tp++)                                   // test points
+      cyl(.0012, .0015, 0xd9a441, bx - .024 + tp * .009, by - .0225, bz + .003, null, 6);
+    for (const [dx, col] of [[-.028, 0xef4444], [-.021, 0x7aa2f7]]) {  // status LEDs
+      const d = box(.0035, .0035, .002, col, bx + dx, by - .018, bz + .004);
+      d.material.emissive = new THREE.Color(col); d.material.emissiveIntensity = 1.1;
+    }
+    for (let sc = 0; sc < 4; sc++)                                   // terminal screws
+      cyl(.0022, .002, 0xc0c6cf, bx - .039, by - .016 + sc * .011, bz + .011, null, 8);
+    for (let k2 = 0; k2 < 4; k2++)                                   // crimp ferrules
+      box(.006, .0075, .0075, 0xb9c2cd, bx - .0455, by - .016 + k2 * .011, bz + .004);
+    const silk = box(.078, .058, .0012, 0x2f8f5b, bx, by, bz - .002); // board edge
+    silk.material.roughness = .9;
     const led = box(.004, .004, .003, 0x34d399, bx + .012, by - .018, bz + .004);
     led.material.emissive = new THREE.Color(0x34d399); led.material.emissiveIntensity = 1.4;
     for (let c = 0; c < 4; c++)                                      // bus capacitors
@@ -210,22 +226,62 @@ function buildRig() {
     tube([[ex + .06, -.034, .02], [ex + .12, -.06, -.06], [ex + .1, -.055, -.16]], .0022, 0x4caf50);
     box(.012, .004, .008, 0xf0b429, ex + .06, -.03, .02);            // cable tag
   }
+  // A desktop on the bench and its tower standing on the floor beside the frame.
   tagging = 'laptop';
-  const lidBase = box(.13, .008, .09, 0x1b2430, 0, .196, -.05);      // laptop
-  const lid = box(.13, .085, .006, 0x222b36, 0, .238, -.095);
-  lid.rotation.x = .28;
-  const lidScreen = box(.118, .073, .002, 0x0d1117, 0, .238, -.09);
-  lidScreen.rotation.x = .28; lidScreen.material.emissive = new THREE.Color(0x11303f);
-  lidScreen.material.emissiveIntensity = .7;
-  box(.1, .0015, .038, 0x2a323d, 0, .2005, -.036);                   // keyboard area
-  for (let kr = 0; kr < 4; kr++)                                     // key rows
-    box(.096, .0012, .0055, 0x39414d, 0, .2015, -.05 + kr * .009);
-  box(.03, .0012, .018, 0x333c49, 0, .2015, -.012);                  // trackpad
-  for (const fx of [-.055, .055]) for (const fz of [-.085, -.015])   // feet
-    cyl(.004, .003, 0x11151b, fx, .191, fz, null, 8);
-  label(.02, .008, 0, .2375, -.128, 0x3d4c60).rotation.x = .28;      // lid badge
-  tube([[-.23, .076, .156], [-.26, .17, .02], [-.05, .2, -.05]], .0022, 0x5b6b7f);   // USB
-  tube([[.29, .076, .156], [.26, .17, .02], [.05, .2, -.05]], .0022, 0x5b6b7f);
+  const deskX = -.44, benchTop = -.062;
+  const monitor = new THREE.Group();
+  monitor.position.set(deskX, benchTop, -.02);
+  monitor.rotation.y = .62;                                         // angled toward the rig
+  scene.add(monitor);
+  box(.13, .007, .085, 0x1b2430, 0, .004, 0, monitor);               // stand foot
+  box(.022, .075, .022, 0x222b36, 0, .042, 0, monitor);              // column
+  const panel = box(.25, .15, .009, 0x1b2430, 0, .145, -.004, monitor);
+  panel.rotation.x = -.06;
+  const screen = box(.236, .136, .002, 0x0d1117, 0, .145, .003, monitor);
+  screen.rotation.x = -.06;
+  screen.material.emissive = new THREE.Color(0x12384a);
+  screen.material.emissiveIntensity = .85;
+  for (let rowIndex = 0; rowIndex < 6; rowIndex++) {                 // plot lines on screen
+    const line = box(.19, .0025, .001, rowIndex % 2 ? 0x34d399 : 0x7aa2f7,
+      -.012, .19 - rowIndex * .018, .005, monitor);
+    line.rotation.x = -.06;
+    line.material.emissive = new THREE.Color(rowIndex % 2 ? 0x34d399 : 0x7aa2f7);
+    line.material.emissiveIntensity = .7;
+  }
+  const dot = box(.004, .004, .002, 0x34d399, .105, .085, .005, monitor);
+  dot.material.emissive = new THREE.Color(0x34d399); dot.material.emissiveIntensity = 1.2;
+
+  const desk = new THREE.Group();
+  desk.position.set(deskX + .03, benchTop, .12);
+  desk.rotation.y = .62; scene.add(desk);
+  box(.17, .008, .055, 0x222b36, 0, .004, 0, desk);                  // keyboard
+  for (let kr = 0; kr < 5; kr++)
+    box(.158, .0015, .0075, 0x39414d, 0, .009, -.019 + kr * .0095, desk);
+  const mouse = box(.024, .012, .038, 0x222b36, .115, .006, .004, desk);
+  mouse.material.roughness = .45;
+
+  // Tower on the floor, with its own cables up to the bench.
+  const tower = new THREE.Group(); tower.position.set(-.60, -.115, .02); scene.add(tower);
+  box(.10, .33, .28, 0x1b2430, 0, 0, 0, tower);                      // case
+  box(.004, .33, .28, 0x262f3b, .052, 0, 0, tower);                  // side panel
+  box(.085, .30, .004, 0x151a22, 0, 0, .142, tower);                 // front bezel
+  for (let v = 0; v < 9; v++)                                        // front vents
+    box(.06, .006, .003, 0x0d1117, 0, .11 - v * .016, .145, tower);
+  const power = cyl(.008, .004, 0x34d399, 0, -.055, .146, tower, 14);
+  power.material.emissive = new THREE.Color(0x34d399); power.material.emissiveIntensity = 1.3;
+  box(.05, .01, .003, 0x39414d, 0, -.085, .145, tower);              // front port strip
+  for (const fz of [-.11, .11]) for (const fx of [-.04, .04])        // feet
+    box(.02, .012, .02, 0x11151b, fx, -.171, fz, tower);
+  box(.05, .05, .004, 0x2a323d, 0, .08, -.141, tower);               // rear fan grille
+  for (let f2 = 0; f2 < 6; f2++) {
+    const blade = box(.004, .022, .002, 0x39414d, 0, .08, -.144, tower);
+    blade.rotation.z = f2 / 6 * Math.PI;
+  }
+
+  tube([[-.60, .06, .04], [-.53, .0, .0], [-.47, -.04, -.02]], .0035, 0x2a323d);  // monitor lead
+  tube([[-.60, -.27, .06], [-.5, -.275, .16], [-.3, -.275, .2]], .004, 0x11151b);    // mains
+  tube([[-.23, .076, .156], [-.38, .02, .1], [-.52, -.03, -.02], [-.56, -.02, -.06]], .0022, 0x5b6b7f);
+  tube([[.29, .076, .156], [.1, .04, .2], [-.4, -.02, .16], [-.56, -.02, -.04]], .0022, 0x5b6b7f);
   // emergency stop on its own post
   tagging = 'estop';
   cyl(.012, .06, 0x39414d, .46, .0, -.12);
@@ -245,14 +301,27 @@ function buildRig() {
   // chain: alternating roller and side-plate links around both sprockets
   const R = .05, span = .52;
   for (let i = 0; i < 72; i++) {
-    const link = i % 2
-      ? box(.014, .010, .014, 0x8d97a4, 0, 0, 0)                     // side plate
-      : cyl(.005, .016, 0xc8d0da, 0, 0, 0, null, 10);                // roller
-    if (i % 2 === 0) link.rotation.z = Math.PI / 2;
+    let link;
+    if (i % 2) {
+      // An outer link: two side plates with the pin heads showing through them.
+      link = new THREE.Group(); scene.add(link);
+      for (const pz of [-.0065, .0065]) {
+        const plate = box(.016, .009, .0025, 0x8d97a4, 0, 0, pz, link);
+        plate.material.metalness = .7; plate.material.roughness = .35;
+        for (const px of [-.005, .005])
+          cyl(.0022, .0008, 0xd7dde5, px, 0, pz + Math.sign(pz) * .0016, link, 8);
+      }
+      link.userData.rotates = true;
+    } else {
+      link = cyl(.005, .015, 0xc8d0da, 0, 0, 0, null, 12);           // roller
+      link.rotation.z = Math.PI / 2;
+      link.material.metalness = .75; link.material.roughness = .3;
+    }
     chainLinks.push(link);
   }
-  chainLinks[0].material.color.setHex(0xe0a23a);                     // master link, as fitted
-  chainLinks[1].material.color.setHex(0xe0a23a);
+  // The master link, which is the one you actually undo to fit the chain.
+  chainLinks[0].material.color.setHex(0xe0a23a);
+  chainLinks[1].traverse(m => { if (m.material) m.material.color.setHex(0xe0a23a); });
   positionChain(0, R, span);
   tagging = null;
 }
@@ -267,7 +336,7 @@ function positionChain(offset, R = .05, span = .52) {
     else if (s < 2 * straight + arc) { const d = s - straight - arc; x = span / 2 - d; y = -R; angle = Math.PI; }
     else { const a = (s - 2 * straight - arc) / R; x = -span / 2 - Math.sin(a) * R; y = -Math.cos(a) * R; angle = Math.PI - a; }
     link.position.set(x, y + .06, .125);
-    if (link.geometry.type === 'BoxGeometry') link.rotation.z = angle;
+    if (link.userData.rotates) link.rotation.z = angle;
   });
 }
 
@@ -464,7 +533,7 @@ function frame() {
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .05, 0);
-  const wanted = view === 'inside' ? .25 : .78;
+  const wanted = view === 'inside' ? .25 : .88;
   const ease = Math.min(intro / 3.5, 1);
   const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease));
   if (intro < 8 && !orbit.drag && view === 'rig') orbit.yaw += dt * .12;
