@@ -53,6 +53,19 @@ renders a blank tab with nothing in the console to explain it.
 Then open <http://127.0.0.1:8790/>. For the Open Day laptop, open visitor mode in
 full screen: <http://127.0.0.1:8790/?mode=kiosk>
 
+## Putting it on the web
+
+`netlify.toml` is already here: nothing to build, publish the folder as it is, with
+the code and page served `no-cache` so a stale module can never meet a fresh page.
+
+The quickest route is Netlify Drop (drag the folder onto <https://app.netlify.com/drop>).
+The better one is connecting this GitHub repository to a Netlify site, because then
+every push redeploys it.
+
+Remember what goes public with it: provisional parameters, an unvalidated model, and
+a sensorless comparison that is an illustration rather than a result. The page says
+so, and it needs to keep saying so.
+
 ## Regenerating the data
 
 After a new matrix run, in MATLAB from `tools/`:

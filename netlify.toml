@@ -1,0 +1,31 @@
+# Netlify settings for this page.
+#
+# There is nothing to build: it is plain HTML, CSS and ES modules, served as they
+# are. The headers matter though. Browsers cache ES modules hard, and a stale
+# app.js against a fresh index.html renders a blank tab with nothing in the
+# console to explain it, so the code and the page are served no-cache. The
+# three.js file never changes, so it is allowed to cache for a year.
+
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
