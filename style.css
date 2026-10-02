@@ -194,3 +194,7 @@ body[data-mode=kiosk] #sbs-stage{height:500px}
 #sbs-graphs{width:100%;height:220px;display:block;margin-top:12px}
 body[data-mode=kiosk] #sbs-graphs{height:250px}
 @media(max-width:1100px){#sbs-graphs{height:190px}}
+
+#rig-graphs{width:100%;height:200px;display:block;margin-top:12px}
+body[data-mode=kiosk] #rig-graphs{height:230px}
+@media(max-width:1100px){#rig-graphs{height:175px}}

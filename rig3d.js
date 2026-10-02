@@ -801,6 +801,9 @@ function resize() {
 
 // Zoom is a multiplier on the framing each view asks for, so switching view
 // still frames properly and the viewer keeps control afterwards.
+// The graphs under the view plot the same angle the machine is turning at.
+export function angle() { return spin; }
+
 export function zoomBy(factor) {
   orbit.zoom = V.clamp(orbit.zoom * factor, .35, 2.6);
   intro = 99;                       // the viewer has taken over from the fly-in

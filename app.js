@@ -535,7 +535,7 @@ function showPart(key) {
   $('d3-text').textContent = part[1];
   for (const b of document.querySelectorAll('#partbar button')) b.classList.toggle('active', b.dataset.part === key);
   $('source-choice').hidden = !(key === 'motor1' || key === 'motor2');
-  if (rig3d) { rig3d.setView('rig'); rig3d.highlight(key); }
+  if (rig3d) { rigView = 'rig'; rig3d.setView('rig'); rig3d.highlight(key); }
 }
 
 // A row of buttons beside the 3D view: the parts are small on a screen, and a
@@ -662,8 +662,8 @@ function sbsFrame(now) {
   });
   showHeat('sensored', s.sensored.loss);
   showHeat('sensorless', s.sensorless.loss);
-  recordHistory(s, compare3d ? compare3d.angle() : 0);
-  drawSbsGraphs(s);
+  recordHistory(sbsHistory, s, compare3d ? compare3d.angle() : 0);
+  drawGraphs('sbs-graphs', sbsHistory);
   const extra = s.sensorless.loss - s.sensored.loss;
   $('sbs-numbers').innerHTML = [
     ['Angle error', '0\u00b0 \u00b7 ' + Math.round(s.err * 180 / Math.PI) + '\u00b0'],
@@ -680,10 +680,15 @@ function sbsFrame(now) {
 // They plot the same vectors the 3D machines are showing, from the same angle,
 // so a visitor can move between the picture and the trace and see one thing.
 // Live from the model equations, not replayed from a simulation log.
-const history = { t: [], theta: [], err: [], kept: [], sensoredDq: [], sensorlessDq: [] };
 const HISTORY = 260;
+function makeHistory() {
+  return { t: [], theta: [], err: [], kept: [], sensoredDq: [], sensorlessDq: [] };
+}
+const sbsHistory = makeHistory(), rigHistory = makeHistory();
+let history = sbsHistory;              // whichever exhibit is being drawn
 
-function recordHistory(s, theta) {
+function recordHistory(hist, s, theta) {
+  history = hist;
   const kept = Math.cos(s.err);
   history.t.push(performance.now() / 1000);
   history.theta.push(((theta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
@@ -708,8 +713,9 @@ function graphFrame(g, x, y, w, h, title) {
   return { L: x + 34, R: x + w - 10, T: y + 26, B: y + h - 18 };
 }
 
-function drawSbsGraphs(s) {
-  const c = $('sbs-graphs'); if (!c) return;
+function drawGraphs(canvasId, hist) {
+  history = hist;
+  const c = $(canvasId); if (!c) return;
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   if (!w) return;
   c.width = w * dpr; c.height = h * dpr;
@@ -902,6 +908,36 @@ function showHeat(which, watts) {
   $('heat-' + which + '-text').textContent = watts.toFixed(1) + ' W';
 }
 
+// The exploded view gets the same three graphs. It has no load slider, so they
+// are drawn at a stated 1.0 N m: enough to make the current vector meaningful.
+const RIG_GRAPH_TORQUE = 1.0;
+let rigView = 'rig';
+
+function rigState() {
+  const rpm = Number($('d3-speed').value);
+  const o = operate(rpm, RIG_GRAPH_TORQUE);
+  // Take the error straight from the 3D view, so the graph and the arrow in the
+  // picture can never disagree: it already returns zero when the encoder is on.
+  const err = V_deg(rig3d ? rig3d.readout().errorDeg : 0);
+  const wanted = o.iq / Math.max(Math.cos(err), .05);
+  return {
+    rpm, err,
+    sensored: { current: o.iq },
+    sensorless: { current: Math.min(wanted, P.iq_limit_A) },
+  };
+}
+
+function rigGraphFrame() {
+  requestAnimationFrame(rigGraphFrame);
+  const showing = !$('tab-3d').hidden && rigView === 'inside';
+  $('rig-graphs').hidden = !showing;
+  $('rig-graphs-note').hidden = !showing;
+  if (!showing || !rig3d || !P) return;
+  const s = rigState();
+  recordHistory(rigHistory, s, rig3d.angle());
+  drawGraphs('rig-graphs', rigHistory);
+}
+
 // ---- exhibit 6: method, parameters and limits ------------------------------------
 // Built from data/matrix.json so the parameter table cannot drift away from the
 // parameters the simulation actually ran with.
@@ -1009,12 +1045,13 @@ async function start() {
     t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
-  $('d3-rig').addEventListener('click', () => { touched(); rig3d && rig3d.setView('rig');
+  requestAnimationFrame(rigGraphFrame);
+  $('d3-rig').addEventListener('click', () => { touched(); rigView = 'rig'; rig3d && rig3d.setView('rig');
     rig3d && rig3d.highlight(null);
     for (const b of document.querySelectorAll('#partbar button')) b.classList.remove('active');
     $('d3-title').textContent = 'The rig';
     $('d3-text').textContent = 'Two motors joined by a chain, each driven by its own controller from one battery. The left motor is the one under test; the right one acts as the brake that loads it. Tap any part to see what it does.'; });
-  $('d3-inside').addEventListener('click', () => { touched(); rig3d && rig3d.setView('inside');
+  $('d3-inside').addEventListener('click', () => { touched(); rigView = 'inside'; rig3d && rig3d.setView('inside');
     $('d3-title').textContent = 'Inside the test motor';
     $('d3-text').textContent = 'The motor is pulled apart: encoder, stator, rotor. Each coil lights by the current the controller is putting through it, so the lit pattern is the magnetic field the stator makes. Watch it stay 90 electrical degrees ahead of the red magnet arrow — that is the whole of field-oriented control, and it is only possible because the angle is known. One pole pair is drawn; the real motor has three, so one turn here is a third of a shaft turn.'; });
   for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
