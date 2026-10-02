@@ -506,33 +506,33 @@ function buildRig() {
 
   // A shelf across the back of the frame carries the screen above the rig, where
   // an operator can watch it while standing at the bench.
-  for (const ux of [-.30, .30]) {
-    const upright = box(.026, .24, .026, 0x5c6672, ux, .058, -.12);
+  for (const ux of [-.50, .50]) {
+    const upright = box(.034, .24, .034, 0x5c6672, ux, .058, -.12);
     upright.material.metalness = .8; upright.material.roughness = .4;
     bolt(ux, -.056, -.12, .006, .006, 0xc0c6cf);
   }
-  const shelf = box(.72, .012, .10, 0x58626f, 0, .173, -.12);
+  const shelf = box(1.16, .016, .20, 0x58626f, 0, .173, -.12);
   shelf.material.metalness = .62; shelf.material.roughness = .52;
-  box(.72, .022, .010, 0x6a7482, 0, .162, -.072);                    // shelf lip
-  for (const sx of [-.30, .30]) bolt(sx, .181, -.12, .005, .005, 0x8d97a4);
+  box(1.16, .024, .012, 0x6a7482, 0, .160, -.022);                   // shelf lip
+  for (const sx of [-.50, .50]) bolt(sx, .183, -.12, .005, .005, 0x8d97a4);
 
   const monitor = new THREE.Group();
   monitor.position.set(0, .179, -.125);
   scene.add(monitor);
-  box(.15, .008, .075, 0x1b2430, 0, .004, .01, monitor);             // stand foot
-  box(.024, .055, .024, 0x222b36, 0, .034, 0, monitor);              // column
-  const panel = box(.30, .185, .010, 0x161b22, 0, .145, -.004, monitor);
+  box(.38, .016, .17, 0x1b2430, 0, .008, .02, monitor);              // stand foot
+  box(.06, .15, .05, 0x222b36, 0, .085, 0, monitor);                 // column
+  const panel = box(1.09, .67, .018, 0x161b22, 0, .50, -.008, monitor);
   panel.rotation.x = -.07;
-  const bezelLight = box(.012, .004, .002, 0x34d399, .13, .055, .004, monitor);
+  const bezelLight = box(.026, .008, .003, 0x34d399, .48, .185, .008, monitor);
   bezelLight.material.emissive = new THREE.Color(0x34d399);
   bezelLight.material.emissiveIntensity = 1.1;
 
   // The screen is a drawn dashboard rather than a coloured rectangle, redrawn
   // while the rig view is on so the traces move with the speed slider.
   screenTexture = makeScreenTexture();
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(.282, .168),
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.03, .618),
     new THREE.MeshBasicMaterial({ map: screenTexture }));
-  screen.position.set(0, .145, .0025);
+  screen.position.set(0, .50, .005);
   screen.rotation.x = -.07;
   monitor.add(screen); tag(screen);
 
@@ -864,8 +864,8 @@ function frame() {
   });
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
-  const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .05, 0);
-  const wanted = view === 'inside' ? .44 : .88;
+  const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .26, 0);
+  const wanted = view === 'inside' ? .44 : 1.80;
   const ease = Math.min(intro / 3.5, 1);
   const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * orbit.zoom;
   if (intro < 8 && !orbit.drag && view === 'rig') orbit.yaw += dt * .12;
