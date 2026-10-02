@@ -52,15 +52,24 @@ function tieWrap(x, y, z) { return box(.008, .008, .003, 0x11151b, x, y, z); }
 function label(w, h, x, y, z, colour = 0xd7dde5) { return box(w, h, .0012, colour, x, y, z); }
 
 function buildRig() {
-  box(1.05, .035, .46, 0x171d27, 0, -.08, 0);                        // bench top
-  box(1.06, .006, .47, 0x232c38, 0, -.0615, 0);                      // bench surface trim
-  for (const lx of [-.47, .47]) for (const lz of [-.19, .19]) {      // legs
-    box(.035, .17, .035, 0x151a22, lx, -.185, lz);
-    bolt(lx, -.066, lz, .005, .005, 0x5b6b7f);                       // leg fixing
+  // The rig stands in a timber frame, not on a steel bench: five planks across,
+  // posts at the corners and a back board carrying the wiring.
+  const TIMBER = [0x6b543c, 0x735c42, 0x634d37];
+  for (let k = 0; k < 5; k++) {
+    const plank = box(1.05, .028, .086, TIMBER[k % 3], 0, -.078, -.18 + k * .09);
+    plank.material.roughness = .95; plank.material.metalness = .02;
   }
-  for (const lz of [-.19, .19]) box(.92, .018, .018, 0x151a22, 0, -.25, lz);   // cross rails
-  box(.018, .018, .36, 0x151a22, -.47, -.25, 0);
-  box(.018, .018, .36, 0x151a22, .47, -.25, 0);
+  for (const lx of [-.47, .47]) for (const lz of [-.19, .19]) {      // corner posts
+    const post = box(.045, .19, .045, 0x5b4733, lx, -.19, lz);
+    post.material.roughness = .95; post.material.metalness = .02;
+    bolt(lx, -.062, lz, .006, .006, 0x8d97a4);                       // coach screw
+  }
+  for (const lz of [-.19, .19]) box(.92, .05, .022, 0x5b4733, 0, -.24, lz);   // side rails
+  box(.022, .05, .36, 0x5b4733, -.47, -.24, 0);
+  box(.022, .05, .36, 0x5b4733, .47, -.24, 0);
+  const backBoard = box(1.05, .17, .022, 0x634d37, 0, .0, -.265);    // back board
+  backBoard.material.roughness = .95; backBoard.material.metalness = .02;
+  for (const bx2 of [-.42, -.14, .14, .42]) bolt(bx2, .06, -.252, .005, .006, 0x8d97a4);
   for (const [i, x] of [-.26, .26].entries()) {
     tagging = i ? 'motor2' : 'motor1';
     const body = cyl(.05, .13, COLOUR.steel, x, .06, 0);             // motor body
@@ -190,6 +199,17 @@ function buildRig() {
   for (let b = 0; b < 4; b++) tieWrap(-.28 + b * .18, .02, -.14);    // ties along the supply run
   tube([[-.322, .06, .155], [-.40, .02, .04], [-.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
   tube([[.198, .06, .155], [.40, .02, .04], [.30, .03, -.16], [0, .085, -.2]], .005, COLOUR.power);
+  // A loom run along the back board, tied down, as any bench build ends up with.
+  tagging = null;
+  tube([[-.44, -.03, -.248], [0, -.035, -.248], [.44, -.03, -.248]], .006, 0x1b222c);
+  for (const tx of [-.34, -.1, .14, .38]) {
+    const tie = box(.006, .018, .006, 0x11151b, tx, -.03, -.248);
+    tie.material.roughness = .8;
+  }
+  for (const ex of [-.26, .26]) {                                    // earth straps
+    tube([[ex + .06, -.034, .02], [ex + .12, -.06, -.06], [ex + .1, -.055, -.16]], .0022, 0x4caf50);
+    box(.012, .004, .008, 0xf0b429, ex + .06, -.03, .02);            // cable tag
+  }
   tagging = 'laptop';
   const lidBase = box(.13, .008, .09, 0x1b2430, 0, .196, -.05);      // laptop
   const lid = box(.13, .085, .006, 0x222b36, 0, .238, -.095);
@@ -265,8 +285,20 @@ function buildMotorInside() {
       new THREE.MeshStandardMaterial({ color: k % 2 ? COLOUR.magnetS : COLOUR.magnetN, roughness: .45 }));
     magnet.rotation.x = Math.PI / 2; rotorGroup.add(magnet);
   }
-  for (const bz2 of [-.054, .054])                                    // bearings either end
-    cyl(.02, .009, 0x9aa5b1, 0, 0, bz2, rotorGroup, 20);
+  for (const bz2 of [-.054, .054]) {                                  // bearings either end
+    cyl(.0105, .011, 0x8d97a4, 0, 0, bz2, rotorGroup, 20);            // inner race
+    ring(.016, .019, .011, 0x8d97a4, 0, 0, bz2, rotorGroup, 24);      // outer race
+    for (let b = 0; b < 9; b++) {                                     // balls
+      const a = b / 9 * Math.PI * 2;
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(.0035, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0xd7dde5, roughness: .25, metalness: .85 }));
+      ball.position.set(Math.cos(a) * .0145, Math.sin(a) * .0145, bz2);
+      rotorGroup.add(ball);
+    }
+  }
+  // A thin sleeve over the magnets, which is what stops them leaving at speed.
+  const sleeve = ring(.0325, .0335, .098, 0x9aa5b1, 0, 0, 0, rotorGroup, 36);
+  sleeve.material.transparent = true; sleeve.material.opacity = .35;
   box(.004, .004, .02, 0x7d8896, 0, .015, .05, rotorGroup);           // shaft key
   encoderDisc = cyl(.026, .005, 0x7aa2f7, -.26, .06, -.072);   // encoders mount at the rear
   const stator = new THREE.Group(); stator.position.set(-.26, .06, 0); scene.add(stator);
@@ -285,6 +317,13 @@ function buildMotorInside() {
     }
     const wedge = box(.011, .004, .09, 0x39414d, Math.cos(a) * .0335, Math.sin(a) * .0335, 0, stator);
     wedge.rotation.z = a;                                            // slot wedge closing the slot
+    // Slot liner: the insulation between the copper and the iron it sits against.
+    for (const side2 of [-1, 1]) {
+      const b2 = a + side2 * .255;
+      const liner = box(.0025, .017, .092, 0xc8a06a, Math.cos(b2) * .0425, Math.sin(b2) * .0425, 0, stator);
+      liner.rotation.z = b2;
+      liner.material.roughness = .85; liner.material.metalness = .05;
+    }
   }
   for (const ez of [-.052, .052])                                    // end windings looping over
     ring(.038, .0455, .012, 0xb87333, 0, 0, ez, stator, 32);
