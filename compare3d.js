@@ -11,9 +11,9 @@
    coils at low speed, which is the thing the whole investigation is about. */
 
 import * as THREE from './vendor/three.module.js';
-import { buildFocMachine, labelSprite } from './focmachine.js';
+import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
-let renderer, scene, camera, clock, host, left, right;
+let renderer, scene, camera, clock, host, left, right, leftNote, rightNote;
 let state = { rpm: 400, err: 0, amplitude: 1, limited: false };
 let spin = 0;
 // Same controls as the rig view: drag to turn, scroll or pinch to zoom.
@@ -55,6 +55,18 @@ export function init(container) {
   const note = labelSprite(THREE,
     'one pole pair shown · the motor has three', '#5b6b7f', .20);
   note.position.set(0, -.175, .05); scene.add(note);
+
+  // One fixed note on the measured machine, one that rewrites itself on the
+  // estimating machine as the speed changes.
+  leftNote = calloutSprite(THREE,
+    'The encoder says where the rotor is, so the field sits exactly 90 degrees ahead.',
+    '#34d399', .175);
+  leftNote.position.set(-.245, -.045, .10);
+  scene.add(leftNote, leader(THREE, [-.245, -.045, .10], [-.175, -.02, .05], '#34d399'));
+
+  rightNote = calloutSprite(THREE, 'Working the angle out from the back-EMF.', '#f0b429', .175);
+  rightNote.position.set(.255, -.045, .10);
+  scene.add(rightNote, leader(THREE, [.255, -.045, .10], [.19, -.02, .05], '#f0b429'));
 
   let pressed = null;
   const pointer = e => {
@@ -110,6 +122,14 @@ function frame() {
   left.update({ theta: spin, err: 0, amplitude: 1 });
   right.update({ theta: spin, err: state.err, amplitude: Math.min(state.amplitude, 1), showEstimate: true });
 
+  const degrees = Math.round(Math.abs(state.err) * 180 / Math.PI);
+  rightNote.userData.setText(
+    state.limited
+      ? degrees + ' degrees out, and now at the current limit: it cannot hold the torque at all.'
+      : degrees < 5
+        ? 'Plenty of back-EMF to work from at this speed, so its guess is nearly right.'
+        : degrees + ' degrees out: it is lighting the wrong coils, and needs more current for the same torque.');
+
   const dist = .62 * orbit.zoom;
   camera.position.set(
     Math.sin(orbit.yaw) * Math.cos(orbit.pitch) * dist,
@@ -117,7 +137,6 @@ function frame() {
     Math.cos(orbit.yaw) * Math.cos(orbit.pitch) * dist);
   camera.lookAt(0, -.01, 0);
   renderer.render(scene, camera);
-  raf = 1;
 }
 
 export function zoomBy(factor) {

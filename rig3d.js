@@ -2,7 +2,7 @@
    the motor. Geometry is built from primitives at roughly rig scale: it is an
    illustration of the setup, not a CAD model, and not measured data. */
 import * as THREE from './vendor/three.module.js';
-import { buildFocMachine, labelSprite } from './focmachine.js';
+import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
 const V = THREE.MathUtils;
 let renderer, scene, camera, clock, host;
@@ -679,8 +679,24 @@ function buildMotorInside() {
     'one pole pair shown · the motor has three', '#6b7684', .19);
   poleNote.position.set(-.26, -.085, .02); scene.add(poleNote);
 
+  // Floating notes, each with a line back to the part it is about, so the view
+  // explains itself to someone standing in front of it with nobody talking.
+  const notes = new THREE.Group(); scene.add(notes);
+  const note = (text, colour, at, pointsAt, width) => {
+    const sprite = calloutSprite(THREE, text, colour, width);
+    sprite.position.set(at[0], at[1], at[2]);
+    notes.add(sprite);
+    notes.add(leader(THREE, at, pointsAt, colour));
+  };
+  note('Each coil lights with the current sent to it. The lit pattern is the stator field.',
+    '#34d399', [-.50, .125, -.02], [-.30, .062, -.05], .145);
+  note('That field is held 90 electrical degrees ahead of the magnets: the most torque per amp.',
+    '#f0b429', [-.035, .135, .07], [-.215, .085, .065], .145);
+  note('The encoder measures this angle. Sensorless has to work it out from the back-EMF.',
+    '#7aa2f7', [-.025, -.085, -.17], [-.255, -.01, -.165], .145);
+
   housing = motors[0];
-  insideKeep = [machine.group, rearGroup, poleNote];
+  insideKeep = [machine.group, rearGroup, poleNote, notes];
 }
 
 
@@ -846,7 +862,7 @@ function frame() {
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .05, 0);
-  const wanted = view === 'inside' ? .34 : .88;
+  const wanted = view === 'inside' ? .44 : .88;
   const ease = Math.min(intro / 3.5, 1);
   const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * orbit.zoom;
   if (intro < 8 && !orbit.drag && view === 'rig') orbit.yaw += dt * .12;

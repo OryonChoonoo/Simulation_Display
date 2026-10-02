@@ -34,6 +34,79 @@ export function labelSprite(THREE, text, colour, width) {
   return sprite;
 }
 
+// A floating note: wrapped text on a panel, with a thin leader line back to the
+// thing it is talking about. Returns setText so a note can change as the state
+// changes without rebuilding the scene.
+export function calloutSprite(THREE, text, colour, width, opts = {}) {
+  const { maxChars = 34, align = 'left' } = opts;
+  const canvas = document.createElement('canvas');
+  const font = '30px system-ui';
+  const lineHeight = 38, pad = 18;
+
+  function paint(message) {
+    const measure = canvas.getContext('2d');
+    measure.font = font;
+    const words = String(message).split(' ');
+    const lines = [];
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? line + ' ' + word : word;
+      if (candidate.length > maxChars && line) { lines.push(line); line = word; }
+      else line = candidate;
+    }
+    if (line) lines.push(line);
+    const widest = Math.max(...lines.map(l => measure.measureText(l).width));
+    canvas.width = Math.ceil(widest) + pad * 2;
+    canvas.height = lines.length * lineHeight + pad * 2;
+    const g = canvas.getContext('2d');
+    g.fillStyle = 'rgba(13,17,23,.82)';
+    g.strokeStyle = colour; g.lineWidth = 3;
+    const r = 14, w = canvas.width, h = canvas.height;
+    g.beginPath();
+    g.moveTo(r, 1.5); g.arcTo(w - 1.5, 1.5, w - 1.5, h - 1.5, r);
+    g.arcTo(w - 1.5, h - 1.5, 1.5, h - 1.5, r); g.arcTo(1.5, h - 1.5, 1.5, 1.5, r);
+    g.arcTo(1.5, 1.5, w - 1.5, 1.5, r); g.closePath();
+    g.fill(); g.stroke();
+    g.font = font; g.textBaseline = 'middle'; g.fillStyle = '#e8eaed';
+    g.textAlign = align === 'center' ? 'center' : 'left';
+    lines.forEach((l, k) => {
+      g.fillText(l, align === 'center' ? w / 2 : pad, pad + lineHeight * (k + .5));
+    });
+    return lines.length;
+  }
+
+  paint(text);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture, transparent: true, depthTest: false, depthWrite: false }));
+  sprite.renderOrder = 11;
+  const fit = () => sprite.scale.set(width, width * canvas.height / canvas.width, 1);
+  fit();
+
+  let current = text;
+  sprite.userData.setText = message => {
+    if (message === current) return;
+    current = message;
+    paint(message);
+    texture.dispose();
+    const next = new THREE.CanvasTexture(canvas);
+    next.colorSpace = THREE.SRGBColorSpace;
+    sprite.material.map = next;
+    sprite.material.needsUpdate = true;
+    fit();
+  };
+  return sprite;
+}
+
+// A thin line from a note back to the part it describes.
+export function leader(THREE, from, to, colour) {
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(...from), new THREE.Vector3(...to)]),
+    new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: .55 }));
+}
+
 function arcLine(THREE, radius, from, to, colour, z) {
   const points = [];
   const steps = Math.max(8, Math.round(Math.abs(to - from) * 24));
