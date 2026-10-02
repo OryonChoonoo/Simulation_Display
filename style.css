@@ -160,3 +160,10 @@ body[data-mode=kiosk] .tagline{font-size:19px}
 .limits li{margin-bottom:9px}
 .limits b{color:#cfd6df}
 body[data-mode=kiosk] .method-lede{font-size:17px}
+
+/* Zoom controls under the 3D view buttons */
+.zoom-row{display:flex;gap:6px}
+.zoom-row button{flex:0 0 46px;background:#1b2430;color:#cfd6df;border:1px solid #33404f;
+  border-radius:8px;padding:7px 0;font:600 17px system-ui;cursor:pointer}
+.zoom-row button.wide{flex:1;font-size:14px}
+.zoom-row button:hover{border-color:#34d399;color:#e8eaed}

@@ -7,7 +7,7 @@ const V = THREE.MathUtils;
 let renderer, scene, camera, clock, host;
 let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, currentArrow, trueArrow, encoderDisc, housing;
 let insideKeep = [];
-let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null };
+let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null, zoom: 1 };
 let opts = { rpm: 400, sensorless: false, slow: 0.04 };
 
 const COLOUR = { steel: 0x8b97a6, dark: 0x2a323d, pcb: 0x1f6b45, magnetN: 0xef4444, magnetS: 0x5b6b7f,
@@ -58,77 +58,171 @@ let screenTexture = null, screenCanvas = null, screenClock = 0;
 
 function makeScreenTexture() {
   screenCanvas = document.createElement('canvas');
-  screenCanvas.width = 760; screenCanvas.height = 452;
+  screenCanvas.width = 900; screenCanvas.height = 540;
   drawScreen(0);
   const t = new THREE.CanvasTexture(screenCanvas);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
   return t;
+}
+
+// A short rolling history so the speed trace has a past, not just a value.
+const speedHistory = [];
+
+function panelBox(g, x, y, w, h, title) {
+  g.fillStyle = '#121923'; g.fillRect(x, y, w, h);
+  g.strokeStyle = '#212a36'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  if (title) {
+    g.fillStyle = '#6b7684'; g.font = '600 13px system-ui'; g.textAlign = 'left';
+    g.fillText(title, x + 12, y + 21);
+  }
 }
 
 function drawScreen(t) {
   const c = screenCanvas, g = c.getContext('2d'), W = c.width, H = c.height;
   const rpm = opts.rpm, err = opts.sensorless ? estimateError(rpm, t) : 0;
   const kept = Math.cos(err);
+  const iq = 9.5 / Math.max(kept, .2);                 // current for a held torque
+  const backEmf = rpm * 2 * Math.PI / 60 * 3 * 0.0236;
+  const duty = Math.min(.5 + .5 * backEmf / 15.3, .99);
+
+  speedHistory.push(rpm * (1 - 0.04 * Math.sin(t * 3.1) * (opts.sensorless ? 4 : 1)));
+  if (speedHistory.length > 150) speedHistory.shift();
 
   g.fillStyle = '#0d1117'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#161d27'; g.fillRect(0, 0, W, 46);                   // title bar
-  g.fillStyle = '#34d399'; g.font = 'bold 21px system-ui'; g.textAlign = 'left';
-  g.fillText("LET'S TORQUE CONTROL", 20, 31);
+
+  // ---- title bar --------------------------------------------------------------
+  g.fillStyle = '#161d27'; g.fillRect(0, 0, W, 50);
+  g.fillStyle = '#34d399'; g.font = 'bold 22px system-ui'; g.textAlign = 'left';
+  g.fillText("LET'S TORQUE CONTROL", 20, 33);
+  g.fillStyle = '#2a323d'; g.fillRect(292, 13, 1, 24);
   g.fillStyle = opts.sensorless ? '#f0b429' : '#9aa5b1'; g.font = '16px system-ui';
-  g.fillText(opts.sensorless ? 'SENSORLESS \u00b7 estimated angle' : 'SENSORED \u00b7 encoder feedback', 290, 30);
-  g.fillStyle = '#34d399'; g.beginPath(); g.arc(W - 28, 23, 7, 0, 7); g.fill();
+  g.fillText(opts.sensorless ? 'SENSORLESS \u00b7 angle estimated from back-EMF'
+                             : 'SENSORED \u00b7 encoder feedback', 312, 32);
+  const blink = (t % 2) < 1.4;
+  g.fillStyle = blink ? '#34d399' : '#1f3a30';
+  g.beginPath(); g.arc(W - 30, 25, 7, 0, 7); g.fill();
   g.fillStyle = '#6b7684'; g.font = '14px system-ui'; g.textAlign = 'right';
-  g.fillText('live', W - 44, 29);
+  g.fillText('recording', W - 46, 31);
 
-  // readout tiles
-  const tiles = [
-    ['SPEED', Math.round(rpm) + ' rpm', '#e8eaed'],
-    ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#34d399' : kept > .8 ? '#f0b429' : '#ef4444'],
-    ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#34d399' : '#f0b429'],
-    ['BACK-EMF', (rpm * 2 * Math.PI / 60 * 3 * 0.0236).toFixed(2) + ' V', '#7aa2f7'],
-  ];
-  g.textAlign = 'left';
-  tiles.forEach(([k, v, col], i) => {
-    const x = 18 + i * 186, y = 62;
-    g.fillStyle = '#131a23'; g.fillRect(x, y, 172, 74);
-    g.strokeStyle = '#212a36'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, 171, 73);
-    g.fillStyle = '#6b7684'; g.font = '600 12px system-ui'; g.fillText(k, x + 14, y + 24);
-    g.fillStyle = col; g.font = 'bold 27px system-ui'; g.fillText(v, x + 14, y + 57);
-  });
-
-  // trace window
-  const L = 18, R = W - 18, T = 152, B = H - 54;
-  g.fillStyle = '#0b0f15'; g.fillRect(L, T, R - L, B - T);
-  g.strokeStyle = '#1b2430'; g.lineWidth = 1;
-  for (let k = 1; k < 6; k++) {
-    const y = T + (B - T) * k / 6;
-    g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke();
-  }
-  for (let k = 1; k < 10; k++) {
-    const x = L + (R - L) * k / 10;
-    g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke();
-  }
-  const mid = (T + B) / 2, amp = (B - T) * .36;
-  for (let ph = 0; ph < 3; ph++) {
-    g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][ph]; g.lineWidth = 2.4;
+  // ---- left column: angle dial and checks -------------------------------------
+  const LX = 16, LW = 236;
+  panelBox(g, LX, 62, LW, 196, 'ROTOR AND CURRENT');
+  const dx = LX + LW / 2, dy = 168, dr = 62;
+  g.strokeStyle = '#2b3646'; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(dx, dy, dr, 0, 7); g.stroke();
+  for (let k = 0; k < 12; k++) {                        // dial ticks
+    const a = k * Math.PI / 6;
     g.beginPath();
-    for (let px = 0; px <= R - L; px += 3) {
-      const a = (px / 90) + t * 2.2 - ph * 2 * Math.PI / 3;
-      const y = mid - Math.sin(a) * amp * (0.45 + 0.55 * Math.min(rpm / 1200, 1));
-      px ? g.lineTo(L + px, y) : g.moveTo(L + px, y);
-    }
+    g.moveTo(dx + Math.cos(a) * dr, dy - Math.sin(a) * dr);
+    g.lineTo(dx + Math.cos(a) * (dr - (k % 3 ? 5 : 9)), dy - Math.sin(a) * (dr - (k % 3 ? 5 : 9)));
     g.stroke();
   }
-  g.strokeStyle = '#2b3646'; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
-  g.fillStyle = '#6b7684'; g.font = '13px system-ui';
-  g.fillText('phase currents  A  B  C', L + 12, T + 22);
+  const theta = (t * Math.max(rpm, 1) / 60 * 2 * Math.PI * 3) % (2 * Math.PI);
+  const vec = (a, len, colour, width) => {
+    g.strokeStyle = colour; g.lineWidth = width; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(dx, dy); g.lineTo(dx + Math.cos(a) * len, dy - Math.sin(a) * len); g.stroke();
+  };
+  vec(theta, dr - 12, '#ef4444', 5);                    // magnet axis
+  if (err > .02) vec(theta + Math.PI / 2, dr - 12, '#3f6b57', 3);
+  vec(theta + Math.PI / 2 + err, dr - 12, err > .02 ? '#f0b429' : '#34d399', 5);
+  g.fillStyle = '#5b6b7f'; g.beginPath(); g.arc(dx, dy, 6, 0, 7); g.fill();
+  g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'center';
+  g.fillText('d (magnets)', dx - 64, dy + 84); g.fillStyle = '#34d399';
+  g.fillText('q (current)', dx + 64, dy + 84);
 
-  // status strip
-  g.fillStyle = '#131a23'; g.fillRect(18, H - 42, W - 36, 30);
-  g.fillStyle = '#9aa5b1'; g.font = '14px system-ui';
-  g.fillText('Id held at 0 A   \u00b7   closed loop   \u00b7   no fault', 32, H - 21);
-  g.fillStyle = '#6b7684'; g.textAlign = 'right';
-  g.fillText('simulation, not measured', W - 32, H - 21);
+  panelBox(g, LX, 270, LW, 176, 'CHECKS');
+  const checks = [
+    ['Id held at zero', true],
+    ['Duty below saturation', duty < .98],
+    ['Current within 25 A', iq < 25],
+    ['Bus within range', true],
+    [opts.sensorless ? 'Observer valid' : 'Encoder healthy', !opts.sensorless || rpm > 150],
+    ['No fault latched', true],
+  ];
+  checks.forEach(([label, ok], k) => {
+    const y = 300 + k * 24;
+    g.fillStyle = ok ? '#34d399' : '#ef4444';
+    g.font = 'bold 14px system-ui'; g.textAlign = 'left';
+    g.fillText(ok ? '\u2713' : '\u2715', LX + 14, y);
+    g.fillStyle = ok ? '#9aa5b1' : '#ef4444'; g.font = '14px system-ui';
+    g.fillText(label, LX + 34, y);
+  });
+
+  // ---- right column: two plots -------------------------------------------------
+  const RX = LX + LW + 16, RW = W - RX - 16;
+  const plot = (y, h, title, draw) => {
+    panelBox(g, RX, y, RW, h, title);
+    const L = RX + 14, R = RX + RW - 14, T = y + 30, B = y + h - 14;
+    g.save(); g.beginPath(); g.rect(L, T, R - L, B - T); g.clip();
+    g.strokeStyle = '#1b2430'; g.lineWidth = 1;
+    for (let k = 1; k < 4; k++) {
+      const gy = T + (B - T) * k / 4;
+      g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke();
+    }
+    for (let k = 1; k < 12; k++) {
+      const gx = L + (R - L) * k / 12;
+      g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke();
+    }
+    draw(L, R, T, B);
+    g.restore();
+    g.strokeStyle = '#2b3646'; g.strokeRect(RX + 14.5, T + .5, R - L - 1, B - T - 1);
+  };
+
+  plot(62, 196, 'PHASE CURRENTS   A   B   C', (L, R, T, B) => {
+    const mid = (T + B) / 2, amp = (B - T) * .38 * (0.35 + 0.65 * Math.min(rpm / 1200, 1));
+    for (let ph = 0; ph < 3; ph++) {
+      g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][ph]; g.lineWidth = 2.4;
+      g.beginPath();
+      for (let px = 0; px <= R - L; px += 3) {
+        const a = px / 78 + t * 2.4 - ph * 2 * Math.PI / 3;
+        const yy = mid - Math.sin(a) * amp;
+        px ? g.lineTo(L + px, yy) : g.moveTo(L + px, yy);
+      }
+      g.stroke();
+    }
+    g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'right';
+    g.fillText('+' + iq.toFixed(1) + ' A', R - 6, T + 14);
+    g.fillText('-' + iq.toFixed(1) + ' A', R - 6, B - 6);
+  });
+
+  plot(270, 176, 'SHAFT SPEED   reference and measured', (L, R, T, B) => {
+    const top = Math.max(...speedHistory, rpm) * 1.25 + 50;
+    const yFor = v => B - (B - T) * Math.min(v / top, 1);
+    g.strokeStyle = '#5b6b7f'; g.setLineDash([6, 5]); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(L, yFor(rpm)); g.lineTo(R, yFor(rpm)); g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = '#34d399'; g.lineWidth = 2.6; g.beginPath();
+    speedHistory.forEach((v, k) => {
+      const x = L + (R - L) * k / Math.max(speedHistory.length - 1, 1);
+      k ? g.lineTo(x, yFor(v)) : g.moveTo(x, yFor(v));
+    });
+    g.stroke();
+    g.fillStyle = '#6b7684'; g.font = '12px system-ui'; g.textAlign = 'right';
+    g.fillText(Math.round(top) + ' rpm', R - 6, T + 14);
+  });
+
+  // ---- bottom tiles -------------------------------------------------------------
+  const tiles = [
+    ['SPEED', Math.round(rpm) + ' rpm', '#e8eaed'],
+    ['Iq', iq.toFixed(1) + ' A', iq < 20 ? '#e8eaed' : '#f0b429'],
+    ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#34d399' : kept > .8 ? '#f0b429' : '#ef4444'],
+    ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#34d399' : '#f0b429'],
+    ['BACK-EMF', backEmf.toFixed(2) + ' V', '#7aa2f7'],
+    ['MAX DUTY', duty.toFixed(3), duty < .95 ? '#9aa5b1' : '#f0b429'],
+  ];
+  const tw = (W - 32 - 5 * 8) / 6;
+  tiles.forEach(([k, v, col], idx) => {
+    const x = 16 + idx * (tw + 8), y = 458;
+    panelBox(g, x, y, tw, 50);
+    g.fillStyle = '#6b7684'; g.font = '600 11px system-ui'; g.textAlign = 'left';
+    g.fillText(k, x + 10, y + 18);
+    g.fillStyle = col; g.font = 'bold 20px system-ui';
+    g.fillText(v, x + 10, y + 41);
+  });
+
+  g.fillStyle = '#4a545f'; g.font = '12px system-ui'; g.textAlign = 'right';
+  g.fillText('simulation, not measured', W - 18, H - 4);
 }
 
 function buildRig() {
@@ -578,6 +672,21 @@ export function init(container) {
     }
   };
   for (const t of ['pointerdown', 'pointerup', 'pointermove', 'pointerleave']) container.addEventListener(t, pointer);
+  // Scroll to zoom. The page must not scroll underneath, so the event is claimed.
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomBy(1 + Math.sign(e.deltaY) * .12);
+  }, { passive: false });
+  // Pinch on a touch screen, which is what a visitor will try first.
+  let pinch = 0;
+  container.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2) return;
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+    if (pinch) zoomBy(pinch / d);
+    pinch = d;
+  }, { passive: true });
+  container.addEventListener('touchend', () => { pinch = 0; });
   resize(); addEventListener('resize', resize);
   renderer.setAnimationLoop(frame);
 }
@@ -588,8 +697,20 @@ function resize() {
   camera.aspect = host.clientWidth / Math.max(host.clientHeight, 1); camera.updateProjectionMatrix();
 }
 
+// Zoom is a multiplier on the framing each view asks for, so switching view
+// still frames properly and the viewer keeps control afterwards.
+export function zoomBy(factor) {
+  orbit.zoom = V.clamp(orbit.zoom * factor, .35, 2.6);
+  intro = 99;                       // the viewer has taken over from the fly-in
+  return orbit.zoom;
+}
+
+export function resetView() {
+  orbit.zoom = 1; orbit.yaw = 0.75; orbit.pitch = 0.22; intro = 0;
+}
+
 export function setView(next) {
-  view = next; intro = 0;
+  view = next; intro = 0; orbit.zoom = 1;
   const inside = next === 'inside';
   for (const child of scene.children) {
     if (child.isLight) continue;
@@ -633,7 +754,7 @@ function frame() {
   const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .05, 0);
   const wanted = view === 'inside' ? .25 : .88;
   const ease = Math.min(intro / 3.5, 1);
-  const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease));
+  const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * orbit.zoom;
   if (intro < 8 && !orbit.drag && view === 'rig') orbit.yaw += dt * .12;
   if (view === 'inside' && intro < .05) { orbit.yaw = Math.PI / 2; orbit.pitch = .22; }
   camera.position.set(

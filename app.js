@@ -822,6 +822,9 @@ async function start() {
     $('d3-title').textContent = 'Inside the test motor';
     $('d3-text').textContent = 'The housing is hidden. The rotor magnets spin, and the green arrow is the current the controller pushes into the windings: it has to stay at right angles to the magnets to make torque. That is field-oriented control, and it needs the rotor angle.'; });
   for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
+  $('d3-in').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1 / 1.25); });
+  $('d3-out').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1.25); });
+  $('d3-reset').addEventListener('click', () => { touched(); rig3d && rig3d.resetView(); });
   setInterval(() => { if (!$('tab-3d').hidden) update3d(); }, 250);
   buildPartBar();
   buildStory();

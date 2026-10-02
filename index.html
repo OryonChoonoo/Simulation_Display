@@ -40,8 +40,8 @@
 <main id="tab-3d" hidden>
   <section class="plot-card">
     <div id="stage3d" class="stage3d"></div>
-    <p id="stage3d-note" class="caption">Tap any part of the rig to see what it does, and drag to turn it
-      around. Built from simple shapes at roughly rig scale: an illustration of the setup, not a CAD model
+    <p id="stage3d-note" class="caption">Tap any part of the rig to see what it does, drag to turn it
+      around, and scroll or pinch to zoom. Built from simple shapes at roughly rig scale: an illustration of the setup, not a CAD model
       and not measured data.</p>
     <div id="partbar" class="partbar"></div>
   </section>
@@ -60,6 +60,11 @@
     <div class="controls">
       <button id="d3-rig" class="primary-btn">Show the whole rig</button>
       <button id="d3-inside" class="primary-btn">Look inside the motor</button>
+      <div class="zoom-row">
+        <button id="d3-out" title="Zoom out">&minus;</button>
+        <button id="d3-in" title="Zoom in">+</button>
+        <button id="d3-reset" class="wide">Reset the view</button>
+      </div>
       <label>Speed <b id="d3-speed-out">400 rpm</b>
         <input id="d3-speed" type="range" min="30" max="2000" step="10" value="400">
       </label>
