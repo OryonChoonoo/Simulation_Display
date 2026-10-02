@@ -874,6 +874,9 @@ async function start() {
   requestAnimationFrame(focFrame);
   requestAnimationFrame(sbsFrame);
   for (const id of ['sbs-speed', 'sbs-load']) $(id).addEventListener('input', () => { touched(); sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; });
+  $('sbs-in').addEventListener('click', () => { touched(); compare3d && compare3d.zoomBy(1 / 1.25); });
+  $('sbs-out').addEventListener('click', () => { touched(); compare3d && compare3d.zoomBy(1.25); });
+  $('sbs-reset-view').addEventListener('click', () => { touched(); compare3d && compare3d.resetView(); });
   $('sbs-sweep').addEventListener('click', () => {
     touched();
     sbsSweep = sbsSweep === null ? 9 : null;

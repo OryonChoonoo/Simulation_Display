@@ -13,9 +13,12 @@
 import * as THREE from './vendor/three.module.js';
 import { buildFocMachine, labelSprite } from './focmachine.js';
 
-let renderer, scene, camera, clock, host, left, right, raf = 0;
+let renderer, scene, camera, clock, host, left, right;
 let state = { rpm: 400, err: 0, amplitude: 1, limited: false };
 let spin = 0;
+// Same controls as the rig view: drag to turn, scroll or pinch to zoom.
+const orbit = { yaw: .42, pitch: .33, zoom: 1, drag: null };
+const HOME = { yaw: .42, pitch: .33, zoom: 1 };
 
 export function init(container) {
   host = container;
@@ -53,6 +56,34 @@ export function init(container) {
     'one pole pair shown · the motor has three', '#5b6b7f', .20);
   note.position.set(0, -.175, .05); scene.add(note);
 
+  let pressed = null;
+  const pointer = e => {
+    if (e.type === 'pointerdown') { orbit.drag = { x: e.clientX, y: e.clientY }; pressed = true; }
+    else if (e.type === 'pointerup' || e.type === 'pointerleave') { orbit.drag = null; pressed = false; }
+    else if (orbit.drag) {
+      orbit.yaw -= (e.clientX - orbit.drag.x) * .006;
+      orbit.pitch = Math.max(-.25, Math.min(1.0, orbit.pitch + (e.clientY - orbit.drag.y) * .004));
+      orbit.drag = { x: e.clientX, y: e.clientY };
+    }
+    host.style.cursor = pressed ? 'grabbing' : 'grab';
+  };
+  for (const t of ['pointerdown', 'pointerup', 'pointermove', 'pointerleave'])
+    container.addEventListener(t, pointer);
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomBy(1 + Math.sign(e.deltaY) * .12);
+  }, { passive: false });
+  let pinch = 0;
+  container.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2) return;
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+    if (pinch) zoomBy(pinch / d);
+    pinch = d;
+  }, { passive: true });
+  container.addEventListener('touchend', () => { pinch = 0; });
+  host.style.cursor = 'grab';
+
   resize();
   addEventListener('resize', resize);
   clock = new THREE.Clock();
@@ -79,11 +110,23 @@ function frame() {
   left.update({ theta: spin, err: 0, amplitude: 1 });
   right.update({ theta: spin, err: state.err, amplitude: Math.min(state.amplitude, 1), showEstimate: true });
 
-  const dist = .62;
-  camera.position.set(Math.cos(.45) * dist * .55, .22, dist);
+  const dist = .62 * orbit.zoom;
+  camera.position.set(
+    Math.sin(orbit.yaw) * Math.cos(orbit.pitch) * dist,
+    Math.sin(orbit.pitch) * dist,
+    Math.cos(orbit.yaw) * Math.cos(orbit.pitch) * dist);
   camera.lookAt(0, -.01, 0);
   renderer.render(scene, camera);
   raf = 1;
+}
+
+export function zoomBy(factor) {
+  orbit.zoom = Math.max(.4, Math.min(2.4, orbit.zoom * factor));
+  return orbit.zoom;
+}
+
+export function resetView() {
+  Object.assign(orbit, HOME);
 }
 
 export function stop() {

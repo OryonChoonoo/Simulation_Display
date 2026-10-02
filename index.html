@@ -107,7 +107,8 @@
     </div>
     <p class="caption">Same motor, same speed, same load demanded of both. The only difference is where the
       controller gets the rotor angle from. Each coil lights by the current its own controller is commanding,
-      so the lit pattern is the stator field: watch the right-hand machine energise the wrong coils.</p>
+      so the lit pattern is the stator field: watch the right-hand machine energise the wrong coils.
+      Drag to turn both machines, scroll or pinch to zoom.</p>
   </section>
 
   <section class="side">
@@ -117,6 +118,11 @@
     </div>
     <div class="controls">
       <button id="sbs-sweep" class="primary-btn">Run the speed down</button>
+      <div class="zoom-row">
+        <button id="sbs-out" title="Zoom out">&minus;</button>
+        <button id="sbs-in" title="Zoom in">+</button>
+        <button id="sbs-reset-view" class="wide">Reset the view</button>
+      </div>
       <label>Speed <b id="sbs-speed-out">1200 rpm</b>
         <input id="sbs-speed" type="range" min="30" max="2000" step="10" value="1200"></label>
       <label>Load torque <b id="sbs-load-out">1.00 N&middot;m</b>
