@@ -3,6 +3,9 @@
 An interactive page showing what a BM1109 PMSM driven by an ODrive Pro can and cannot do,
 built for the fourth-year investigation Open Day (15 October 2026).
 
+**Live at <https://clever-gecko-55237e.netlify.app>**, redeployed automatically from this
+repository on every push.
+
 **This is a simulation, not a measurement.** Motor parameters are provisional, the inverter
 is averaged, rotor feedback is ideal, and nothing here has been validated against the
 physical rig.
