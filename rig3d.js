@@ -51,6 +51,86 @@ function bolt(x, y, z, r = .0035, h = .004, colour = 0x9aa5b1) { return cyl(r, h
 function tieWrap(x, y, z) { return box(.008, .008, .003, 0x11151b, x, y, z); }
 function label(w, h, x, y, z, colour = 0xd7dde5) { return box(w, h, .0012, colour, x, y, z); }
 
+// The operator's screen: a small dashboard drawn to a canvas and used as a
+// texture, so the monitor in the scene shows something worth reading rather than
+// a glowing rectangle. It mirrors the page's own numbers.
+let screenTexture = null, screenCanvas = null, screenClock = 0;
+
+function makeScreenTexture() {
+  screenCanvas = document.createElement('canvas');
+  screenCanvas.width = 760; screenCanvas.height = 452;
+  drawScreen(0);
+  const t = new THREE.CanvasTexture(screenCanvas);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function drawScreen(t) {
+  const c = screenCanvas, g = c.getContext('2d'), W = c.width, H = c.height;
+  const rpm = opts.rpm, err = opts.sensorless ? estimateError(rpm, t) : 0;
+  const kept = Math.cos(err);
+
+  g.fillStyle = '#0d1117'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#161d27'; g.fillRect(0, 0, W, 46);                   // title bar
+  g.fillStyle = '#34d399'; g.font = 'bold 21px system-ui'; g.textAlign = 'left';
+  g.fillText("LET'S TORQUE CONTROL", 20, 31);
+  g.fillStyle = opts.sensorless ? '#f0b429' : '#9aa5b1'; g.font = '16px system-ui';
+  g.fillText(opts.sensorless ? 'SENSORLESS \u00b7 estimated angle' : 'SENSORED \u00b7 encoder feedback', 290, 30);
+  g.fillStyle = '#34d399'; g.beginPath(); g.arc(W - 28, 23, 7, 0, 7); g.fill();
+  g.fillStyle = '#6b7684'; g.font = '14px system-ui'; g.textAlign = 'right';
+  g.fillText('live', W - 44, 29);
+
+  // readout tiles
+  const tiles = [
+    ['SPEED', Math.round(rpm) + ' rpm', '#e8eaed'],
+    ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#34d399' : kept > .8 ? '#f0b429' : '#ef4444'],
+    ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#34d399' : '#f0b429'],
+    ['BACK-EMF', (rpm * 2 * Math.PI / 60 * 3 * 0.0236).toFixed(2) + ' V', '#7aa2f7'],
+  ];
+  g.textAlign = 'left';
+  tiles.forEach(([k, v, col], i) => {
+    const x = 18 + i * 186, y = 62;
+    g.fillStyle = '#131a23'; g.fillRect(x, y, 172, 74);
+    g.strokeStyle = '#212a36'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, 171, 73);
+    g.fillStyle = '#6b7684'; g.font = '600 12px system-ui'; g.fillText(k, x + 14, y + 24);
+    g.fillStyle = col; g.font = 'bold 27px system-ui'; g.fillText(v, x + 14, y + 57);
+  });
+
+  // trace window
+  const L = 18, R = W - 18, T = 152, B = H - 54;
+  g.fillStyle = '#0b0f15'; g.fillRect(L, T, R - L, B - T);
+  g.strokeStyle = '#1b2430'; g.lineWidth = 1;
+  for (let k = 1; k < 6; k++) {
+    const y = T + (B - T) * k / 6;
+    g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke();
+  }
+  for (let k = 1; k < 10; k++) {
+    const x = L + (R - L) * k / 10;
+    g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke();
+  }
+  const mid = (T + B) / 2, amp = (B - T) * .36;
+  for (let ph = 0; ph < 3; ph++) {
+    g.strokeStyle = ['#34d399', '#f0b429', '#7aa2f7'][ph]; g.lineWidth = 2.4;
+    g.beginPath();
+    for (let px = 0; px <= R - L; px += 3) {
+      const a = (px / 90) + t * 2.2 - ph * 2 * Math.PI / 3;
+      const y = mid - Math.sin(a) * amp * (0.45 + 0.55 * Math.min(rpm / 1200, 1));
+      px ? g.lineTo(L + px, y) : g.moveTo(L + px, y);
+    }
+    g.stroke();
+  }
+  g.strokeStyle = '#2b3646'; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
+  g.fillStyle = '#6b7684'; g.font = '13px system-ui';
+  g.fillText('phase currents  A  B  C', L + 12, T + 22);
+
+  // status strip
+  g.fillStyle = '#131a23'; g.fillRect(18, H - 42, W - 36, 30);
+  g.fillStyle = '#9aa5b1'; g.font = '14px system-ui';
+  g.fillText('Id held at 0 A   \u00b7   closed loop   \u00b7   no fault', 32, H - 21);
+  g.fillStyle = '#6b7684'; g.textAlign = 'right';
+  g.fillText('simulation, not measured', W - 32, H - 21);
+}
+
 function buildRig() {
   // The rig stands in a timber frame, not on a steel bench: five planks across,
   // posts at the corners and a back board carrying the wiring.
@@ -229,27 +309,37 @@ function buildRig() {
   // A desktop on the bench and its tower standing on the floor beside the frame.
   tagging = 'laptop';
   const deskX = -.44, benchTop = -.062;
-  const monitor = new THREE.Group();
-  monitor.position.set(deskX, benchTop, -.02);
-  monitor.rotation.y = .62;                                         // angled toward the rig
-  scene.add(monitor);
-  box(.13, .007, .085, 0x1b2430, 0, .004, 0, monitor);               // stand foot
-  box(.022, .075, .022, 0x222b36, 0, .042, 0, monitor);              // column
-  const panel = box(.25, .15, .009, 0x1b2430, 0, .145, -.004, monitor);
-  panel.rotation.x = -.06;
-  const screen = box(.236, .136, .002, 0x0d1117, 0, .145, .003, monitor);
-  screen.rotation.x = -.06;
-  screen.material.emissive = new THREE.Color(0x12384a);
-  screen.material.emissiveIntensity = .85;
-  for (let rowIndex = 0; rowIndex < 6; rowIndex++) {                 // plot lines on screen
-    const line = box(.19, .0025, .001, rowIndex % 2 ? 0x34d399 : 0x7aa2f7,
-      -.012, .19 - rowIndex * .018, .005, monitor);
-    line.rotation.x = -.06;
-    line.material.emissive = new THREE.Color(rowIndex % 2 ? 0x34d399 : 0x7aa2f7);
-    line.material.emissiveIntensity = .7;
+
+  // A shelf across the back of the frame carries the screen above the rig, where
+  // an operator can watch it while standing at the bench.
+  for (const ux of [-.30, .30]) {
+    const upright = box(.028, .24, .028, 0x5b4733, ux, .058, -.12);
+    upright.material.roughness = .95; upright.material.metalness = .02;
+    bolt(ux, -.056, -.12, .006, .006, 0x8d97a4);
   }
-  const dot = box(.004, .004, .002, 0x34d399, .105, .085, .005, monitor);
-  dot.material.emissive = new THREE.Color(0x34d399); dot.material.emissiveIntensity = 1.2;
+  const shelf = box(.72, .022, .10, 0x6b543c, 0, .168, -.12);
+  shelf.material.roughness = .95; shelf.material.metalness = .02;
+  for (const sx of [-.30, .30]) bolt(sx, .181, -.12, .005, .005, 0x8d97a4);
+
+  const monitor = new THREE.Group();
+  monitor.position.set(0, .179, -.125);
+  scene.add(monitor);
+  box(.15, .008, .075, 0x1b2430, 0, .004, .01, monitor);             // stand foot
+  box(.024, .055, .024, 0x222b36, 0, .034, 0, monitor);              // column
+  const panel = box(.30, .185, .010, 0x161b22, 0, .145, -.004, monitor);
+  panel.rotation.x = -.07;
+  const bezelLight = box(.012, .004, .002, 0x34d399, .13, .055, .004, monitor);
+  bezelLight.material.emissive = new THREE.Color(0x34d399);
+  bezelLight.material.emissiveIntensity = 1.1;
+
+  // The screen is a drawn dashboard rather than a coloured rectangle, redrawn
+  // while the rig view is on so the traces move with the speed slider.
+  screenTexture = makeScreenTexture();
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(.282, .168),
+    new THREE.MeshBasicMaterial({ map: screenTexture }));
+  screen.position.set(0, .145, .0025);
+  screen.rotation.x = -.07;
+  monitor.add(screen); tag(screen);
 
   const desk = new THREE.Group();
   desk.position.set(deskX + .03, benchTop, .12);
@@ -431,6 +521,8 @@ export function setPickHandler(fn) { onPick = fn; }
 // glow reads from across a room, an outline does not.
 export function highlight(key) {
   for (const [k, list] of Object.entries(partMeshes)) for (const m of list) {
+    // Some meshes, such as the screen, use a material with no emissive channel.
+    if (!m.material || !m.material.emissive) continue;
     if (m.userData.baseEmissive === undefined) {
       m.userData.baseEmissive = m.material.emissive.clone();
       m.userData.baseIntensity = m.material.emissiveIntensity;
@@ -521,6 +613,12 @@ export function readout() {
 function frame() {
   const dt = Math.min(clock.getDelta(), .05);
   intro += dt;
+  // Redraw the operator's screen a few times a second: often enough to look live,
+  // rarely enough that it costs nothing.
+  screenClock += dt;
+  if (screenTexture && view === 'rig' && screenClock > .07) {
+    drawScreen(clock.elapsedTime); screenTexture.needsUpdate = true; screenClock = 0;
+  }
   spin += dt * (opts.rpm * 2 * Math.PI / 60) * opts.slow;
   for (const s of sprockets) s.rotation.z = spin;
   rotorGroup.rotation.z = spin; encoderDisc.rotation.y = spin;
