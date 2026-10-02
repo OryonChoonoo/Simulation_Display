@@ -561,7 +561,7 @@ async function ensure3d() {
   // saying the library is missing when the scene code threw sends you looking in
   // the wrong place. They are reported separately, with the real error.
   try {
-    rig3d = await import('./rig3d.js');
+    rig3d = await import('./rig3d.js?v=' + (window.__build || ''));
   } catch (err) {
     return fail3d('The 3D view could not load its library', err, true);
   }
@@ -701,7 +701,7 @@ async function ensureCompare3d() {
   if (compare3d || compare3dFailed) return compare3d;
   let module;
   try {
-    module = await import('./compare3d.js');
+    module = await import('./compare3d.js?v=' + (window.__build || ''));
   } catch (err) {
     return failCompare('The comparison could not load its library', err, true);
   }

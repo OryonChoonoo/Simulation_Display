@@ -43,8 +43,12 @@ No build step and no dependencies. Either open `index.html` in a browser, or ser
 folder (needed because the page fetches `data/matrix.json`):
 
 ```bash
-python -m http.server 8790
+python serve.py
 ```
+
+`serve.py` is `python -m http.server` with caching switched off. That matters here:
+browsers cache ES modules hard, and a stale `app.js` against a fresh `index.html`
+renders a blank tab with nothing in the console to explain it.
 
 Then open <http://127.0.0.1:8790/>. For the Open Day laptop, open visitor mode in
 full screen: <http://127.0.0.1:8790/?mode=kiosk>

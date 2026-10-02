@@ -352,6 +352,12 @@
     It has not been validated against the physical rig, and the numbers are not measurements.</p>
 </footer>
 
-<script type="module" src="app.js"></script>
+<script type="module">
+  // A stale module against a fresh page renders nothing and reports nothing, so
+  // the code is loaded with a token that changes every time the page does.
+  // (vendor/three.module.js keeps its own cache: it never changes.)
+  window.__build = String(Date.now());
+  import('./app.js?v=' + window.__build);
+</script>
 </body>
 </html>
