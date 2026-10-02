@@ -850,7 +850,7 @@ async function start() {
     $('d3-text').textContent = 'Two motors joined by a chain, each driven by its own controller from one battery. The left motor is the one under test; the right one acts as the brake that loads it. Tap any part to see what it does.'; });
   $('d3-inside').addEventListener('click', () => { touched(); rig3d && rig3d.setView('inside');
     $('d3-title').textContent = 'Inside the test motor';
-    $('d3-text').textContent = 'The housing is hidden. The rotor magnets spin, and the green arrow is the current the controller pushes into the windings: it has to stay at right angles to the magnets to make torque. That is field-oriented control, and it needs the rotor angle.'; });
+    $('d3-text').textContent = 'The motor is pulled apart: encoder, stator, rotor. Each coil lights by the current the controller is putting through it, so the lit pattern is the magnetic field the stator makes. Watch it stay 90 electrical degrees ahead of the red magnet arrow — that is the whole of field-oriented control, and it is only possible because the angle is known. One pole pair is drawn; the real motor has three, so one turn here is a third of a shaft turn.'; });
   for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
   $('d3-in').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1 / 1.25); });
   $('d3-out').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1.25); });
