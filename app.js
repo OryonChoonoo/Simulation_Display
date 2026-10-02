@@ -662,6 +662,8 @@ function sbsFrame(now) {
   });
   showHeat('sensored', s.sensored.loss);
   showHeat('sensorless', s.sensorless.loss);
+  recordHistory(s, compare3d ? compare3d.angle() : 0);
+  drawSbsGraphs(s);
   const extra = s.sensorless.loss - s.sensored.loss;
   $('sbs-numbers').innerHTML = [
     ['Angle error', '0\u00b0 \u00b7 ' + Math.round(s.err * 180 / Math.PI) + '\u00b0'],
@@ -672,6 +674,168 @@ function sbsFrame(now) {
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
   sbsVerdict(s, extra);
   requestAnimationFrame(sbsFrame);
+}
+
+// ---- the three graphs under the side-by-side animation --------------------------
+// They plot the same vectors the 3D machines are showing, from the same angle,
+// so a visitor can move between the picture and the trace and see one thing.
+// Live from the model equations, not replayed from a simulation log.
+const history = { t: [], theta: [], err: [], kept: [], sensoredDq: [], sensorlessDq: [] };
+const HISTORY = 260;
+
+function recordHistory(s, theta) {
+  const kept = Math.cos(s.err);
+  history.t.push(performance.now() / 1000);
+  history.theta.push(((theta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
+  history.err.push(s.err);
+  history.kept.push(kept);
+  // Where each drive's current vector sits in the rotor frame. The sensored one
+  // is on the q axis by definition; the estimating one is pushed off it, and
+  // everything to the side of the axis is current that only makes heat.
+  history.sensoredDq.push([0, s.sensored.current]);
+  history.sensorlessDq.push([s.sensorless.current * Math.sin(s.err),
+                             s.sensorless.current * Math.cos(s.err)]);
+  for (const key of Object.keys(history)) {
+    while (history[key].length > HISTORY) history[key].shift();
+  }
+}
+
+function graphFrame(g, x, y, w, h, title) {
+  g.fillStyle = '#121923'; g.fillRect(x, y, w, h);
+  g.strokeStyle = '#212a36'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  g.fillStyle = '#6b7684'; g.font = '600 11.5px system-ui'; g.textAlign = 'left';
+  g.fillText(title, x + 10, y + 17);
+  return { L: x + 34, R: x + w - 10, T: y + 26, B: y + h - 18 };
+}
+
+function drawSbsGraphs(s) {
+  const c = $('sbs-graphs'); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const gap = 10, pw = (w - gap * 2) / 3;
+  drawAngleGraph(g, 0, 0, pw, h);
+  drawDqGraph(g, pw + gap, 0, pw, h);
+  drawErrorGraph(g, (pw + gap) * 2, 0, pw, h);
+}
+
+// 1. The angles themselves. Three sawtooths; the constant vertical gap between
+//    the magnets and the field is the 90 degrees the controller is holding.
+function drawAngleGraph(g, x, y, w, h) {
+  const { L, R, T, B } = graphFrame(g, x, y, w, h, 'ANGLE OVER TIME   magnets, field, estimate');
+  const n = history.theta.length;
+  if (n < 2) return;
+  gridLines(g, L, R, T, B, 4, 6);
+  g.fillStyle = '#4a545f'; g.font = '10px system-ui'; g.textAlign = 'right';
+  g.fillText('360', L - 5, T + 8); g.fillText('0', L - 5, B);
+
+  const trace = (offset, colour, dash) => {
+    g.strokeStyle = colour; g.lineWidth = 2; g.setLineDash(dash || []);
+    g.beginPath();
+    let last = null;
+    for (let k = 0; k < n; k++) {
+      const value = (((history.theta[k] + offset(k)) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const px = L + (R - L) * k / (n - 1);
+      const py = B - (B - T) * value / (2 * Math.PI);
+      if (last === null || value < last - Math.PI) g.moveTo(px, py);   // wrapped: lift the pen
+      else g.lineTo(px, py);
+      last = value;
+    }
+    g.stroke(); g.setLineDash([]);
+  };
+  trace(() => 0, '#ef4444');                                  // magnets
+  trace(() => Math.PI / 2, '#34d399');                        // field, encoder-fed
+  trace(k => Math.PI / 2 + history.err[k], '#f0b429', [5, 4]); // field, estimate-fed
+}
+
+// 2. The current vector in the rotor frame: the FOC diagnostic. On the q axis is
+//    torque; anything to the side of it is current that only makes heat.
+function drawDqGraph(g, x, y, w, h) {
+  const { L, R, T, B } = graphFrame(g, x, y, w, h, 'CURRENT VECTOR   Id across, Iq up');
+  const cx = (L + R) / 2, cy = (T + B) / 2;
+  const scale = Math.min((R - L) / 2, (B - T) / 2) / (P.iq_limit_A * 1.05);
+
+  g.strokeStyle = '#1b2430'; g.lineWidth = 1;
+  for (const amps of [10, 20]) {                               // current rings
+    g.beginPath(); g.arc(cx, cy, amps * scale, 0, 7); g.stroke();
+  }
+  g.strokeStyle = '#ef4444'; g.globalAlpha = .5;
+  g.beginPath(); g.arc(cx, cy, P.iq_limit_A * scale, 0, 7); g.stroke();
+  g.globalAlpha = 1;
+  g.strokeStyle = '#2b3646';
+  g.beginPath(); g.moveTo(L, cy); g.lineTo(R, cy); g.moveTo(cx, T); g.lineTo(cx, B); g.stroke();
+  g.fillStyle = '#4a545f'; g.font = '10px system-ui'; g.textAlign = 'left';
+  g.fillText('Id', R - 16, cy - 5);
+  g.fillText('Iq', cx + 5, T + 10);
+  g.fillStyle = '#6b4a4a'; g.textAlign = 'right';
+  g.fillText(P.iq_limit_A + ' A limit', R - 4, B - 2);
+
+  const plot = (series, colour) => {
+    const n = series.length; if (!n) return;
+    g.strokeStyle = colour; g.lineWidth = 1.5; g.globalAlpha = .45;
+    g.beginPath();
+    series.forEach(([id, iq], k) => {
+      const px = cx + id * scale, py = cy - iq * scale;
+      k ? g.lineTo(px, py) : g.moveTo(px, py);
+    });
+    g.stroke(); g.globalAlpha = 1;
+    const [id, iq] = series[n - 1];
+    const px = cx + id * scale, py = cy - iq * scale;
+    g.strokeStyle = colour; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(px, py); g.stroke();
+    g.fillStyle = colour; g.beginPath(); g.arc(px, py, 4, 0, 7); g.fill();
+  };
+  plot(history.sensoredDq, '#34d399');
+  plot(history.sensorlessDq, '#f0b429');
+}
+
+// 3. What the angle error costs, as it happens.
+function drawErrorGraph(g, x, y, w, h) {
+  const { L, R, T, B } = graphFrame(g, x, y, w, h, 'ANGLE ERROR and TORQUE KEPT');
+  const n = history.err.length;
+  if (n < 2) return;
+  gridLines(g, L, R, T, B, 4, 6);
+  g.fillStyle = '#4a545f'; g.font = '10px system-ui'; g.textAlign = 'right';
+  g.fillText('90\u00b0', L - 5, T + 8); g.fillText('0', L - 5, B);
+
+  g.strokeStyle = '#f0b429'; g.lineWidth = 2; g.beginPath();
+  history.err.forEach((e, k) => {
+    const px = L + (R - L) * k / (n - 1);
+    const py = B - (B - T) * Math.min(Math.abs(e) / (Math.PI / 2), 1);
+    k ? g.lineTo(px, py) : g.moveTo(px, py);
+  });
+  g.stroke();
+
+  g.strokeStyle = '#34d399'; g.lineWidth = 2; g.setLineDash([5, 4]); g.beginPath();
+  history.kept.forEach((kept, k) => {
+    const px = L + (R - L) * k / (n - 1);
+    const py = B - (B - T) * kept;
+    k ? g.lineTo(px, py) : g.moveTo(px, py);
+  });
+  g.stroke(); g.setLineDash([]);
+
+  const latest = history.err[n - 1] * 180 / Math.PI;
+  g.fillStyle = '#f0b429'; g.font = '600 11px system-ui'; g.textAlign = 'left';
+  g.fillText(latest.toFixed(0) + '\u00b0 out', L + 6, T + 12);
+  g.fillStyle = '#34d399'; g.textAlign = 'right';
+  g.fillText((100 * history.kept[n - 1]).toFixed(0) + ' % kept', R - 6, T + 12);
+}
+
+function gridLines(g, L, R, T, B, rows, cols) {
+  g.strokeStyle = '#1b2430'; g.lineWidth = 1;
+  for (let k = 1; k < rows; k++) {
+    const gy = T + (B - T) * k / rows;
+    g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke();
+  }
+  for (let k = 1; k < cols; k++) {
+    const gx = L + (R - L) * k / cols;
+    g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke();
+  }
+  g.strokeStyle = '#2b3646';
+  g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
 }
 
 function sbsVerdict(s, extra) {

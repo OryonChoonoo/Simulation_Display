@@ -139,6 +139,9 @@ function frame() {
   renderer.render(scene, camera);
 }
 
+// The graphs under the view plot the same angle the machines are turning at.
+export function angle() { return spin; }
+
 export function zoomBy(factor) {
   orbit.zoom = Math.max(.4, Math.min(2.4, orbit.zoom * factor));
   return orbit.zoom;
