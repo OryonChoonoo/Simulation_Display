@@ -193,7 +193,12 @@ function focState() {
   // splits that current: cos(error) still makes torque, sin(error) is pushed into the
   // magnets and only makes heat.
   const err = Number($('foc-err').value) * Math.PI / 180;
-  return { rpm, torque, o, peak, err, iq: o.iq * Math.cos(err), id: o.iq * Math.sin(err) };
+  // Two amplitudes matter. `peak` is what the windings would carry if the angle
+  // were right. `peakHeld` is what they must carry to make the same torque while
+  // pushing at the wrong angle, which is larger by 1/cos(error).
+  const peakHeld = peak / Math.max(Math.cos(err), .05);
+  return { rpm, torque, o, peak, peakHeld, err,
+           iq: o.iq * Math.cos(err), id: o.iq * Math.sin(err) };
 }
 
 // ---- the machine, drawn once and used by every exhibit --------------------------
@@ -327,49 +332,100 @@ function drawRotor(theta, peak, err) {
   g.fillText('drawn in electrical angle: one pole pair of the three', w / 2, h - 8);
 }
 
-function drawScope(theta, peak, iq, id) {
+function drawScope(theta, peak, iq, id, err, peakHeld) {
   const c = $('scope'), g = c.getContext('2d');
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  const L = 46, R = w - 12, T = 14, B = h - 26, mid = (T + B) / 2;
-  const scale = (B - T) / 2 / Math.max(peak * 1.25, 1);
+  const L = 46, R = w - 12, T = 14, B = h - 40, mid = (T + B) / 2;
+  const top = rotorFrame ? Math.max(peak, 1) : Math.max(peakHeld * 1.08, 1);
+  const scale = (B - T) / 2 / (top * 1.1);
   g.strokeStyle = '#2b3646'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke();
   g.beginPath(); g.moveTo(L, T); g.lineTo(L, B); g.stroke();
   g.fillStyle = '#9aa5b1'; g.font = '12px system-ui'; g.textAlign = 'right';
-  g.fillText('+' + Math.max(peak, 1).toFixed(1) + ' A', L - 6, T + 12);
+  g.fillText('+' + top.toFixed(1) + ' A', L - 6, T + 12);
   g.fillText('0', L - 6, mid + 4);
-  g.fillText('-' + Math.max(peak, 1).toFixed(1) + ' A', L - 6, B);
+  g.fillText('-' + top.toFixed(1) + ' A', L - 6, B);
 
-  const CYCLES = 2, N = 260;
-  const series = rotorFrame
-    ? [{ colour: '#34d399', label: 'Iq  torque', value: () => iq },
-       { colour: '#ef4444', label: 'Id  wasted', value: () => id }]
-    : [0, 1, 2].map(k => ({
-        colour: ['#34d399', '#f0b429', '#7aa2f7'][k], label: 'phase ' + 'ABC'[k],
-        value: a => peak * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2),
-      }));
-  for (const s of series) {
-    g.strokeStyle = s.colour; g.lineWidth = 2.5; g.beginPath();
+  const CYCLES = 2, N = 260, SPAN = CYCLES * 2 * Math.PI;
+  const xOf = frac => L + frac * (R - L);
+  const plot = (value, colour, width, dash) => {
+    g.strokeStyle = colour; g.lineWidth = width; g.setLineDash(dash || []);
+    g.beginPath();
     for (let i = 0; i <= N; i++) {
-      const frac = i / N, a = theta - (1 - frac) * CYCLES * 2 * Math.PI;
-      const x = L + frac * (R - L), y = mid - s.value(a) * scale;
-      i ? g.lineTo(x, y) : g.moveTo(x, y);
+      const frac = i / N, a = theta - (1 - frac) * SPAN;
+      const y = mid - value(a) * scale;
+      i ? g.lineTo(xOf(frac), y) : g.moveTo(xOf(frac), y);
     }
-    g.stroke();
-    const yEnd = mid - s.value(theta) * scale;
-    g.fillStyle = s.colour; g.beginPath(); g.arc(R - 1, yEnd, 4, 0, 7); g.fill();
-    g.textAlign = 'right'; g.font = 'bold 12px system-ui';
-    g.fillText(s.label, R - 8, yEnd - 10);
+    g.stroke(); g.setLineDash([]);
+  };
+
+  if (rotorFrame) {
+    for (const s2 of [{ colour: '#34d399', label: 'Iq  torque', value: iq },
+                      { colour: '#ef4444', label: 'Id  wasted', value: id }]) {
+      plot(() => s2.value, s2.colour, 2.5);
+      const y = mid - s2.value * scale;
+      g.fillStyle = s2.colour; g.beginPath(); g.arc(R - 1, y, 4, 0, 7); g.fill();
+      g.textAlign = 'right'; g.font = 'bold 12px system-ui';
+      g.fillText(s2.label, R - 8, y - 10);
+    }
+  } else {
+    // With an angle error the windings carry the same three currents, but shifted
+    // round by the error and larger, because the torque still has to be made. The
+    // faint traces are where they would be if the angle were right.
+    const shifted = k => a => peakHeld * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2 + err);
+    const ideal = k => a => peak * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2);
+    const colours = ['#34d399', '#f0b429', '#7aa2f7'];
+    if (Math.abs(err) > .01) {
+      for (let k = 0; k < 3; k++) plot(ideal(k), colours[k] + '55', 1.6, [5, 5]);
+    }
+    for (let k = 0; k < 3; k++) {
+      plot(shifted(k), colours[k], 2.5);
+      const y = mid - shifted(k)(theta) * scale;
+      g.fillStyle = colours[k]; g.beginPath(); g.arc(R - 1, y, 4, 0, 7); g.fill();
+      g.textAlign = 'right'; g.font = 'bold 12px system-ui';
+      g.fillText('phase ' + 'ABC'[k], R - 8, y - 10);
+    }
+
+    // Mark the shift itself: where phase A should peak, where it does, and the
+    // gap between them. Both marks come from the same cycle, so the gap is the
+    // error and never a whole revolution more.
+    if (Math.abs(err) > .05) {
+      const n = Math.round((theta - .5 * SPAN + Math.PI / 2) / (2 * Math.PI));
+      const fIdeal = 1 - (theta - (-Math.PI / 2 + 2 * Math.PI * n)) / SPAN;
+      const fActual = fIdeal - err / SPAN;
+      if (fIdeal > .16 && fIdeal < .92 && fActual > .04 && fActual < .97) {
+        const x1 = xOf(fIdeal), x2 = xOf(fActual);
+        g.fillStyle = 'rgba(240,180,41,.16)';
+        g.fillRect(Math.min(x1, x2), T, Math.abs(x2 - x1), B - T);
+        for (const [x, colour] of [[x1, '#3f6b57'], [x2, '#f0b429']]) {
+          g.strokeStyle = colour; g.lineWidth = 1.5; g.setLineDash([4, 4]);
+          g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke(); g.setLineDash([]);
+        }
+        g.fillStyle = '#f0b429'; g.font = 'bold 12px system-ui'; g.textAlign = 'center';
+        g.fillText(Math.abs(Math.round(err * 180 / Math.PI)) + '°',
+          (x1 + x2) / 2, T + 14);
+      }
+    }
   }
+
   g.fillStyle = '#9aa5b1'; g.textAlign = 'center'; g.font = '12px system-ui';
-  g.fillText(rotorFrame ? 'riding with the rotor' : 'standing still, watching the wires', (L + R) / 2, B + 18);
+  g.fillText(rotorFrame ? 'riding with the rotor' : 'standing still, watching the wires',
+    (L + R) / 2, B + 18);
+  if (!rotorFrame) {
+    const degrees = Math.round(Math.abs(err) * 180 / Math.PI);
+    g.fillStyle = degrees ? '#f0b429' : '#6b7684'; g.font = '12px system-ui';
+    g.fillText(degrees
+      ? `shifted ${degrees}\u00b0 round, and ${peak.toFixed(1)} A becomes ${peakHeld.toFixed(1)} A for the same torque`
+      : 'faint traces appear when the angle is wrong, showing where the currents should have been',
+      (L + R) / 2, B + 34);
+  }
 }
 
 function focFrame(now) {
   if (document.getElementById('tab-foc').hidden) { focLast = now; return requestAnimationFrame(focFrame); }
-  const { rpm, o, peak, err, iq, id } = focState();
+  const { rpm, o, peak, peakHeld, err, iq, id } = focState();
   const dt = Math.min((now - focLast) / 1000, 0.05); focLast = now;
   focPhase += dt * (rpm * 2 * Math.PI / 60) * P.pole_pairs * Number($('foc-rate').value);
   const degrees = Math.round(err * 180 / Math.PI);
@@ -377,7 +433,7 @@ function focFrame(now) {
   $('foc-load-out').textContent = Number($('foc-load').value).toFixed(2) + ' N\u00b7m';
   $('foc-err-out').textContent = (degrees > 0 ? '+' : '') + degrees + '\u00b0';
   $('foc-rate-out').textContent = Number($('foc-rate').value).toFixed(2) + '\u00d7';
-  drawRotor(focPhase, peak, err); drawScope(focPhase, peak, iq, id);
+  drawRotor(focPhase, peak, err); drawScope(focPhase, peak, iq, id, err, peakHeld);
   const kept = Math.cos(err), backEmf = (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb;
   $('foc-numbers').innerHTML = (rotorFrame
     ? [['Iq, makes torque', iq.toFixed(2) + ' A'],
