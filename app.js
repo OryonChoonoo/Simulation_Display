@@ -446,6 +446,7 @@ function focFrame(now) {
        ['Torque', (iq * P.Kt_NmPerA).toFixed(2) + ' N\u00b7m']]
   ).map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
   if (Math.abs(degrees) >= 1) angleMessage(degrees, kept, iq, id);
+  hear(rpm, err, Math.abs(iq) + Math.abs(id));
   requestAnimationFrame(focFrame);
 }
 
@@ -702,12 +703,7 @@ function V_deg(d) { return d * Math.PI / 180; }
 function sbsFrame(now) {
   if ($('tab-sbs').hidden) { sbsLast = now; return requestAnimationFrame(sbsFrame); }
   const dt = Math.min((now - sbsLast) / 1000, .05); sbsLast = now;
-  if (sbsSweep !== null) {                                 // the money shot: speed falling
-    sbsSweep -= dt;
-    const t = Math.max(sbsSweep, 0) / 9;
-    $('sbs-speed').value = String(Math.round(30 + (1600 - 30) * t));
-    if (sbsSweep <= 0) { sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; }
-  }
+  if (sbsSweep !== null) runScript(dt);
   const s = sbsState();
   $('sbs-speed-out').textContent = Math.round(s.rpm) + ' rpm';
   $('sbs-load-out').textContent = s.torque.toFixed(2) + ' N\u00b7m';
@@ -732,6 +728,7 @@ function sbsFrame(now) {
     ['Back-EMF to estimate from', s.backEmf.toFixed(2) + ' V'],
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
   sbsVerdict(s, extra);
+  hear(s.rpm, s.err, s.sensorless.current);
   requestAnimationFrame(sbsFrame);
 }
 
@@ -907,6 +904,56 @@ function gridLines(g, L, R, T, B, rows, cols) {
   g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
 }
 
+// A told sequence: both machines fine, then the speed falls and one of them
+// comes apart. Every line is timed against the speed it describes, and the whole
+// thing stops the moment anyone touches a control.
+const FAILURE_SCRIPT = [
+  { until: 1.2, rpm: 1400, line: 'Both machines, same speed, same load. At 1400 rpm you cannot tell them apart.' },
+  { until: 3.0, rpm: 900, line: 'Still nothing to choose between them. The estimate has plenty of back-EMF to work from.' },
+  { until: 5.2, rpm: 420, line: 'Slowing down. Watch the right-hand machine: its field is starting to lag behind the magnets.' },
+  { until: 7.4, rpm: 180, line: 'The wrong coils are lighting now, and it is pulling more current to make the same torque.' },
+  { until: 9.6, rpm: 70, line: 'Well out. Look at the heat bars: the same work, noticeably more heat in the windings.' },
+  { until: 12.5, rpm: 35, line: 'At walking pace the magnets barely generate anything to estimate from, and the guess falls apart.' },
+  { until: 15.0, rpm: 35, line: 'That is the whole investigation: not whether sensorless works, but where it stops working.' },
+];
+const SCRIPT_LENGTH = FAILURE_SCRIPT[FAILURE_SCRIPT.length - 1].until;
+let scriptClock = 0;
+
+function startScript() {
+  scriptClock = 0;
+  sbsSweep = 1;                                   // non-null means "running"
+  $('sbs-sweep').textContent = 'Stop';
+  $('sbs-script').hidden = false;
+}
+
+function stopScript() {
+  sbsSweep = null;
+  $('sbs-sweep').textContent = 'Watch it fail';
+  $('sbs-script').hidden = true;
+}
+
+function runScript(dt) {
+  scriptClock += dt;
+  if (scriptClock >= SCRIPT_LENGTH) { stopScript(); return; }
+  // Ease between the speed each step asks for, so the machines slow smoothly
+  // rather than jumping from one line to the next.
+  let from = FAILURE_SCRIPT[0].rpm, start = 0, step = FAILURE_SCRIPT[0];
+  for (let k = 0; k < FAILURE_SCRIPT.length; k++) {
+    if (scriptClock < FAILURE_SCRIPT[k].until) {
+      step = FAILURE_SCRIPT[k];
+      from = k ? FAILURE_SCRIPT[k - 1].rpm : FAILURE_SCRIPT[0].rpm;
+      start = k ? FAILURE_SCRIPT[k - 1].until : 0;
+      break;
+    }
+  }
+  const span = Math.max(step.until - start, .001);
+  const t = Math.min((scriptClock - start) / span, 1);
+  const smooth = t * t * (3 - 2 * t);
+  $('sbs-speed').value = String(Math.round(from + (step.rpm - from) * smooth));
+  $('sbs-script').textContent = step.line;
+  $('sbs-script').className = 'script-line' + (step.rpm <= 180 ? ' hot' : '');
+}
+
 function sbsVerdict(s, extra) {
   const head = $('sbs-title'), body = $('sbs-text'), deg = Math.round(s.err * 180 / Math.PI);
   if (s.sensorless.limited || deg >= 45) {
@@ -999,6 +1046,7 @@ function rigGraphFrame() {
   const s = rigState();
   recordHistory(rigHistory, s, rig3d.angle());
   drawGraphs('rig-graphs', rigHistory);
+  hear(s.rpm, s.err, s.sensorless.current);
 }
 
 // ---- the answer this project is working towards ---------------------------------
@@ -1123,6 +1171,35 @@ function renderMethod() {
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
 }
 
+// ---- sound ---------------------------------------------------------------------
+// Synthesised from the numbers the page already has, never a recording. Loaded
+// only when someone asks for it, because a browser will not make a sound before
+// a click anyway.
+let sound = null;
+
+async function toggleSound() {
+  if (!sound) {
+    try {
+      sound = await import('./sound.js?v=' + (window.__build || ''));
+    } catch (err) {
+      console.error('sound failed to load', err);
+      $('sound-label').textContent = 'Sound unavailable';
+      return;
+    }
+  }
+  const on = await sound.setEnabled(!sound.isEnabled());
+  $('sound-label').textContent = on ? 'Sound on' : 'Sound off';
+  $('sound-toggle').setAttribute('aria-pressed', String(on));
+  $('sound-toggle').classList.toggle('on', on);
+}
+
+// Whichever exhibit is on screen feeds the sound: they all pause when hidden.
+function hear(rpm, err, current) {
+  if (!sound || !sound.isEnabled()) return;
+  sound.setState({ rpm, err, current, limit: P ? P.iq_limit_A : 25 });
+  sound.update();
+}
+
 // ---- tabs ----------------------------------------------------------------------
 // Each tab says what it is. One fixed standfirst described the envelope while
 // the page opened on the rig, which was the first thing a visitor read.
@@ -1161,6 +1238,7 @@ async function start() {
     });
   }
   $('reset').addEventListener('click', () => { touched(); reset(); });
+  $('sound-toggle').addEventListener('click', () => { touched(); toggleSound(); });
   document.addEventListener('keydown', e => {
     touched();
     // Scenarios own the number keys. Tabs are letters, so pressing 3 on the
@@ -1207,15 +1285,15 @@ async function start() {
   setFrame(false);
   requestAnimationFrame(focFrame);
   requestAnimationFrame(sbsFrame);
-  for (const id of ['sbs-speed', 'sbs-load']) $(id).addEventListener('input', () => { touched(); sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; });
+  for (const id of ['sbs-speed', 'sbs-load'])
+    $(id).addEventListener('input', () => { touched(); if (sbsSweep !== null) stopScript(); });
   $('sbs-rate').addEventListener('input', touched);
   $('sbs-in').addEventListener('click', () => { touched(); compare3d && compare3d.zoomBy(1 / 1.25); });
   $('sbs-out').addEventListener('click', () => { touched(); compare3d && compare3d.zoomBy(1.25); });
   $('sbs-reset-view').addEventListener('click', () => { touched(); compare3d && compare3d.resetView(); });
   $('sbs-sweep').addEventListener('click', () => {
     touched();
-    sbsSweep = sbsSweep === null ? 9 : null;
-    $('sbs-sweep').textContent = sbsSweep === null ? 'Run the speed down' : 'Stop';
+    if (sbsSweep === null) startScript(); else stopScript();
   });
   document.addEventListener('pointerdown', touched);
   window.addEventListener('resize', () => { render(); if (plannedDrawn) drawPlannedMap(); });

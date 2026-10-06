@@ -27,7 +27,12 @@
       each with its own controller. Tap any part to see what it does.</p>
     <p class="sub hidden-readouts"><span id="vdc-out">26.5 V</span><span id="imax-out">25 A</span></p>
   </div>
-  <div class="mode-badge"><span id="mode-name">Presenter mode</span><small>press K to switch</small></div>
+  <div class="header-right">
+    <button id="sound-toggle" class="sound-btn" aria-pressed="false">
+      <span id="sound-label">Sound off</span><small>synthesised, not a recording</small>
+    </button>
+    <div class="mode-badge"><span id="mode-name">Presenter mode</span><small>press K to switch</small></div>
+  </div>
 </header>
 
 <nav class="tabs" role="tablist">
@@ -114,6 +119,7 @@
       estimate gets &mdash; that shape is a stand-in, and it will be replaced by the sensorless
       simulation's own error once that simulation works.</p>
     <div id="sbs-stage" class="stage3d" aria-label="Two machines under the same load: one fed by an encoder, one by an estimate"></div>
+    <p id="sbs-script" class="script-line" hidden></p>
     <canvas id="sbs-graphs" aria-label="Angle, current vector and angle error, tracked over time"></canvas>
     <div class="planned">
       <h2 class="panel-title">The answer this project is working towards</h2>
@@ -139,7 +145,7 @@
       <p class="explain" id="sbs-text">Drag the speed down and watch the right-hand motor lose the plot.</p>
     </div>
     <div class="controls">
-      <button id="sbs-sweep" class="primary-btn">Run the speed down</button>
+      <button id="sbs-sweep" class="primary-btn">Watch it fail</button>
       <div class="zoom-row">
         <button id="sbs-out" title="Zoom out">&minus;</button>
         <button id="sbs-in" title="Zoom in">+</button>
