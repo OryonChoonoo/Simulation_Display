@@ -21,7 +21,8 @@
   <div>
     <p class="eyebrow">FOURTH-YEAR INVESTIGATION &middot; ENCODER-BASED AND SENSORLESS FIELD-ORIENTED CONTROL</p>
     <h1>Let&rsquo;s Torque Control</h1>
-    <p class="tagline">What can this motor actually do &mdash; and does it need to know where its rotor is?</p>
+    <p class="tagline">At what speeds and loads can this motor be controlled well
+      <b>without a position sensor</b>?</p>
     <p class="sub" id="standfirst">The rig that produces the measurements: two motors joined by a chain,
       each with its own controller. Tap any part to see what it does.</p>
     <p class="sub hidden-readouts"><span id="vdc-out">26.5 V</span><span id="imax-out">25 A</span></p>
@@ -80,11 +81,20 @@
       <div id="d3-numbers" class="numbers"></div>
     </div>
     <div class="numbers-card">
-      <h2>The question this rig answers</h2>
-      <p class="explain">Field-oriented control needs to know where the rotor is. The encoder measures it
-        directly. A sensorless drive estimates it instead, from the voltage the spinning magnets generate.
-        This rig measures <strong>at which speeds and loads that estimate is good enough</strong> to
-        replace the encoder.</p>
+      <h2>Why take the sensor off at all?</h2>
+      <p class="explain">The encoder is an extra part bolted to the back of the shaft, and it is usually
+        the first thing on a drive to fail. Removing it means:</p>
+      <ul class="why-list">
+        <li>one fewer part, one fewer cable, one fewer connector to shake loose</li>
+        <li>nothing to misalign when the motor is rebuilt</li>
+        <li>it survives heat, dirt and vibration that would kill an encoder</li>
+        <li>cheaper, and the motor can be shorter</li>
+      </ul>
+      <p class="explain">The catch is the whole investigation. A sensorless drive works the angle out from
+        the voltage the spinning magnets generate &mdash; so it <strong>cannot know where the rotor is
+        when the motor is stopped</strong>, and its guess gets worse the slower the motor turns.</p>
+      <p class="explain">So the question is not "does sensorless work". It is
+        <strong>where</strong> it works: at which speeds, and under how much load.</p>
     </div>
     <div class="numbers-card advanced">
       <h2>Honest about the limits</h2>
@@ -105,6 +115,14 @@
       simulation's own error once that simulation works.</p>
     <div id="sbs-stage" class="stage3d" aria-label="Two machines under the same load: one fed by an encoder, one by an estimate"></div>
     <canvas id="sbs-graphs" aria-label="Angle, current vector and angle error, tracked over time"></canvas>
+    <div class="planned">
+      <h2 class="panel-title">The answer this project is working towards</h2>
+      <p class="caption planned-lede">The finished result is one picture: this grid, with every square
+        coloured by how sensorless control behaved there against the encoder-fed reference. The sensored
+        half of it is measured. <b>No sensorless square has been filled in yet</b>, which is why they are
+        all empty.</p>
+      <canvas id="planned-map" aria-label="The speed and load grid the investigation will fill in"></canvas>
+    </div>
     <div class="heat-row">
       <div><span>Encoder</span><div class="heat"><i id="heat-sensored"></i></div><b id="heat-sensored-text">&nbsp;</b></div>
       <div><span>Estimate</span><div class="heat"><i id="heat-sensorless"></i></div><b id="heat-sensorless-text">&nbsp;</b></div>
@@ -214,6 +232,40 @@
     </div>
 
     <div class="numbers-card">
+      <h2>Words used on this page</h2>
+      <details class="glossary">
+        <summary>Open the glossary</summary>
+        <dl>
+          <dt>Field-oriented control (FOC)</dt>
+          <dd>Aiming the current in the windings at a particular angle relative to the rotor magnets,
+            instead of just switching the windings on and off in turn.</dd>
+          <dt>Rotor angle</dt>
+          <dd>Where the magnets are pointing right now. Everything else depends on knowing it.</dd>
+          <dt>Electrical angle</dt>
+          <dd>The angle as the controller sees it. This motor has three pole pairs, so the electrical
+            angle turns three times for every turn of the shaft.</dd>
+          <dt>d and q</dt>
+          <dd>Two directions, measured from the rotor rather than the frame of the motor. <b>d</b> points
+            along the magnets, <b>q</b> at right angles to them. Current on q makes torque; current on d
+            makes only heat.</dd>
+          <dt>Id and Iq</dt>
+          <dd>How much current is on each of those directions. A working drive holds Id at zero and uses
+            Iq to set the torque.</dd>
+          <dt>Back-EMF</dt>
+          <dd>The voltage a motor generates by being turned. It grows with speed, and it is the only thing
+            a sensorless drive has to work the angle out from &mdash; which is why slow is hard.</dd>
+          <dt>Observer</dt>
+          <dd>The piece of code that estimates the rotor angle from the voltages and currents. The quality
+            of the observer is what decides whether sensorless control works.</dd>
+          <dt>Duty cycle</dt>
+          <dd>The fraction of the time an inverter switch is on, between 0 and 1. At 1 the supply is used
+            up and the motor cannot go faster, which sets the top of the operating envelope.</dd>
+          <dt>Encoder</dt>
+          <dd>A sensor on the shaft that measures the rotor angle directly. The thing this investigation
+            is trying to do without.</dd>
+        </dl>
+      </details>
+
       <h2>What this work does not show</h2>
       <ul class="limits">
         <li><b>No torque was measured.</b> The rig has no torque transducer. Torque is inferred as

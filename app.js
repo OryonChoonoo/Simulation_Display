@@ -1001,6 +1001,71 @@ function rigGraphFrame() {
   drawGraphs('rig-graphs', rigHistory);
 }
 
+// ---- the answer this project is working towards ---------------------------------
+// The grid the investigation will fill in. It is drawn empty on purpose: the
+// sensored half is measured, no sensorless case is, and showing the shape of the
+// finished result is the clearest way to say what the work is for.
+let plannedDrawn = false;
+
+function drawPlannedMap() {
+  const c = $('planned-map'); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (w < 320 || h < 120) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const speeds = [...new Set(CASES.map(k => Math.round(k.rpm)))].sort((a, b) => a - b);
+  const loads = [...new Set(CASES.map(k => k.load_Nm))].sort((a, b) => b - a);
+  const L = 74, R = w - 210, T = 28, B = h - 36;
+  const cw = (R - L) / speeds.length, ch = (B - T) / loads.length;
+
+  for (let row = 0; row < loads.length; row++) {
+    for (let col = 0; col < speeds.length; col++) {
+      const x = L + col * cw, y = T + row * ch;
+      g.fillStyle = '#121923';
+      g.fillRect(x + 3, y + 3, cw - 6, ch - 6);
+      g.strokeStyle = '#2a3542'; g.lineWidth = 1;
+      g.setLineDash([4, 4]);
+      g.strokeRect(x + 3.5, y + 3.5, cw - 7, ch - 7);
+      g.setLineDash([]);
+      g.fillStyle = '#39414d'; g.font = '13px system-ui'; g.textAlign = 'center';
+      g.fillText('?', x + cw / 2, y + ch / 2 + 5);
+    }
+  }
+
+  g.fillStyle = '#9aa5b1'; g.font = '12px system-ui';
+  g.textAlign = 'center';
+  speeds.forEach((rpm, col) => g.fillText(String(rpm), L + (col + .5) * cw, B + 18));
+  g.fillText('speed, rpm', (L + R) / 2, h - 4);
+  g.textAlign = 'right';
+  loads.forEach((nm, row) => g.fillText(nm.toFixed(1), L - 10, T + (row + .5) * ch + 4));
+  g.save();
+  g.translate(16, (T + B) / 2); g.rotate(-Math.PI / 2);
+  g.textAlign = 'center'; g.fillText('load, N\u00b7m', 0, 0);
+  g.restore();
+
+  // What the colours will mean once there is something to colour.
+  const key = [
+    ['#34d399', 'as good as the encoder'],
+    ['#f0b429', 'works, but costs more current'],
+    ['#ef4444', 'unstable, or will not start'],
+    ['#39414d', 'not measured yet'],
+  ];
+  g.textAlign = 'left';
+  g.font = '600 11.5px system-ui'; g.fillStyle = '#6b7684';
+  g.fillText('EACH SQUARE WILL BE', R + 22, T + 4);
+  key.forEach(([colour, label], k) => {
+    const y = T + 24 + k * 24;
+    g.fillStyle = colour; g.fillRect(R + 22, y - 9, 13, 13);
+    g.fillStyle = '#9aa5b1'; g.font = '12.5px system-ui';
+    g.fillText(label, R + 42, y + 2);
+  });
+  g.fillStyle = '#6b7684'; g.font = '11.5px system-ui';
+  g.fillText('24 squares \u00b7 0 filled in', R + 22, T + 24 + key.length * 24 + 10);
+}
+
 // ---- exhibit 6: method, parameters and limits ------------------------------------
 // Built from data/matrix.json so the parameter table cannot drift away from the
 // parameters the simulation actually ran with.
@@ -1013,7 +1078,8 @@ function renderMethod() {
   const ratedTorque = P.Kt_NmPerA * P.iq_limit_A;
   const rows = [
     ['Battery, nominal', P.vdc_V.toFixed(1) + ' V', 'Stated by the team; charged and cut-off voltages still unconfirmed'],
-    ['Current limit', P.iq_limit_A.toFixed(0) + ' A', 'Iq reference clamp in the speed controller'],
+    ['Current limit', P.iq_limit_A.toFixed(0) + ' A',
+      'Iq reference clamp in the speed controller: the most the drive will ever ask the windings to carry'],
     ['Torque constant Kt', P.Kt_NmPerA.toFixed(4) + ' N\u00b7m/A', 'Derived from a manufacturer test point, not measured here'],
     ['Pole pairs', String(P.pole_pairs), 'Electrical angle turns ' + P.pole_pairs + ' times per shaft revolution'],
     ['Magnet flux \u03bb', P.flux_Wb.toFixed(5) + ' Wb', 'Derived as (2/3)\u00b7Kt/p'],
@@ -1022,7 +1088,8 @@ function renderMethod() {
     ['Inertia J', P.J_kgm2.toFixed(4) + ' kg\u00b7m\u00b2', 'Provisional; sets how fast speed can change'],
     ['Viscous friction B', P.B_Nms.toExponential(2) + ' N\u00b7m\u00b7s', 'The only loss in the mechanical model'],
     ['Voltage utilisation', (100 * P.voltage_utilisation).toFixed(0) + ' %', 'Headroom left below the modulation limit'],
-    ['Torque at the limit', ratedTorque.toFixed(2) + ' N\u00b7m', 'Kt \u00d7 current limit: the most this drive can ask for'],
+    ['Torque at the limit', ratedTorque.toFixed(2) + ' N\u00b7m',
+      'Kt \u00d7 current limit: the most this drive can ask for \u2014 the pull of a 2.7 kg weight on the end of a 10 cm spanner'],
     ['Back-EMF at 1500 rpm', (1500 * 2 * Math.PI / 60 * P.pole_pairs * P.flux_Wb).toFixed(1) + ' V',
       'Falls in proportion to speed, which is why sensorless fails slowly'],
   ];
@@ -1072,7 +1139,10 @@ function setTab(name) {
   for (const id of ['envelope', 'foc', '3d', 'sbs', 'method']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
-  if (name === 'sbs') ensureCompare3d();
+  if (name === 'sbs') {
+    ensureCompare3d();
+    if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }
+  }
   if (name === 'envelope') render();
   if (name === 'method') renderMethod();
 }
@@ -1148,7 +1218,7 @@ async function start() {
     $('sbs-sweep').textContent = sbsSweep === null ? 'Run the speed down' : 'Stop';
   });
   document.addEventListener('pointerdown', touched);
-  window.addEventListener('resize', render);
+  window.addEventListener('resize', () => { render(); if (plannedDrawn) drawPlannedMap(); });
   const kiosk = new URLSearchParams(location.search).get('mode') === 'kiosk';
   setMode(kiosk ? 'kiosk' : 'presenter');
   // Unattended visitors need orientation before numbers, so the kiosk opens on the rig.
