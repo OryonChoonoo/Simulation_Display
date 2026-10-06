@@ -9,7 +9,7 @@ let renderer, scene, camera, clock, host;
 let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, encoderDisc, housing;
 let insideKeep = [];
 let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null, zoom: 1 };
-let opts = { rpm: 400, sensorless: false, slow: 0.04 };
+let opts = { rpm: 400, sensorless: false, slow: 0.04, heat: 0 };
 
 const COLOUR = { steel: 0x8b97a6, dark: 0x2a323d, pcb: 0x1f6b45, magnetN: 0xef4444, magnetS: 0x5b6b7f,
   copper: 0xf0b429, current: 0x34d399, estimate: 0xf0b429, cable: 0xef4444, power: 0xf0b429, signal: 0x7aa2f7 };
@@ -747,12 +747,27 @@ export function init(container) {
   scene = new THREE.Scene(); scene.background = new THREE.Color(0x11161f);
   camera = new THREE.PerspectiveCamera(42, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
+  // Real shadows, so the rig sits on the bench instead of hovering over it.
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
   scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20262f, 1.15));
-  const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(.6, 1, .8); scene.add(key);
+  const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(.6, 1, .8);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = .1; key.shadow.camera.far = 4;
+  key.shadow.camera.left = -1; key.shadow.camera.right = 1;
+  key.shadow.camera.top = 1; key.shadow.camera.bottom = -1;
+  key.shadow.bias = -.0012;
+  scene.add(key);
   const rim = new THREE.DirectionalLight(0x9ec1ff, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
   buildRig(); buildMotorInside(); setView('rig');
+  // Everything solid casts and receives. Doing it in one pass afterwards beats
+  // remembering it on every one of the few hundred parts.
+  scene.traverse(object => {
+    if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; }
+  });
   clock = new THREE.Clock();
 
   let pressed = null;
@@ -861,6 +876,7 @@ function frame() {
     theta: spin, err,
     amplitude: .55 + .45 * Math.min(opts.rpm / 900, 1),
     showEstimate: view === 'inside' && opts.sensorless,
+    heat: opts.heat || 0,
   });
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.

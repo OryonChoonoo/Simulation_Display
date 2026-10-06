@@ -14,7 +14,8 @@ import * as THREE from './vendor/three.module.js';
 import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
 let renderer, scene, camera, clock, host, left, right, leftNote, rightNote;
-let state = { rpm: 400, err: 0, amplitude: 1, limited: false, rate: .02 };
+let state = { rpm: 400, err: 0, amplitude: 1, limited: false, rate: .02,
+  heatLeft: 0, heatRight: 0 };
 let spin = 0;
 // Same controls as the rig view: drag to turn, scroll or pinch to zoom.
 const orbit = { yaw: .42, pitch: .33, zoom: 1, drag: null };
@@ -26,12 +27,21 @@ export function init(container) {
   scene.background = new THREE.Color(0x11161f);
   camera = new THREE.PerspectiveCamera(40, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   container.innerHTML = '';
   container.appendChild(renderer.domElement);
 
   scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20262f, 1.1));
-  const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(.5, 1, .9); scene.add(key);
+  const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(.5, 1, .9);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = .1; key.shadow.camera.far = 3;
+  key.shadow.camera.left = -.6; key.shadow.camera.right = .6;
+  key.shadow.camera.top = .5; key.shadow.camera.bottom = -.5;
+  key.shadow.bias = -.0012;
+  scene.add(key);
   const rim = new THREE.DirectionalLight(0x9ec1ff, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
 
   left = buildFocMachine(THREE, { labelScale: .85 });
@@ -40,6 +50,9 @@ export function init(container) {
   right.group.position.set(.155, 0, 0);
   scene.add(left.group, right.group);
   left.setExplode(.35); right.setExplode(.35);     // just enough to see inside
+  scene.traverse(object => {
+    if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; }
+  });
 
   const heading = (text, colour, x, width) => {
     const sprite = labelSprite(THREE, text, colour, width);
@@ -120,8 +133,9 @@ function frame() {
   // How much is the viewer's choice: the slider beside the view sets it.
   spin += dt * (state.rpm * 2 * Math.PI / 60) * state.rate;
 
-  left.update({ theta: spin, err: 0, amplitude: 1 });
-  right.update({ theta: spin, err: state.err, amplitude: Math.min(state.amplitude, 1), showEstimate: true });
+  left.update({ theta: spin, err: 0, amplitude: 1, heat: state.heatLeft });
+  right.update({ theta: spin, err: state.err, amplitude: Math.min(state.amplitude, 1),
+    showEstimate: true, heat: state.heatRight });
 
   const degrees = Math.round(Math.abs(state.err) * 180 / Math.PI);
   rightNote.userData.setText(

@@ -661,7 +661,8 @@ function escapeHtml(text) {
 function update3d() {
   if (!rig3d) return;
   const rpm = Number($('d3-speed').value), sensorless = $('d3-sensorless').checked;
-  rig3d.setOptions({ rpm, sensorless });
+  const heat = P ? Math.min(1.5 * P.Rs_ohm * Math.pow(rigState().sensorless.current, 2) / 40, 1) : 0;
+  rig3d.setOptions({ rpm, sensorless, heat });
   $('d3-speed-out').textContent = Math.round(rpm) + ' rpm';
   const r = rig3d.readout();
   const backEmf = (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb;
@@ -714,6 +715,9 @@ function sbsFrame(now) {
     amplitude: Math.min(s.sensorless.current / Math.max(P.iq_limit_A * .6, 1), 1),
     limited: s.sensorless.limited,
     rate,
+    // The same loss the bars below the view are drawing, as a 0-to-1 warmth.
+    heatLeft: Math.min(s.sensored.loss / 40, 1),
+    heatRight: Math.min(s.sensorless.loss / 40, 1),
   });
   showHeat('sensored', s.sensored.loss);
   showHeat('sensorless', s.sensorless.loss);

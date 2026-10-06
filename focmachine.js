@@ -13,6 +13,24 @@
 export const PHASE_COLOUR = [0x34d399, 0xf0b429, 0x7aa2f7];
 export const PHASE_NAME = ['A', 'B', 'C'];
 
+// A soft disc, drawn once and shared, used additively so a lit coil reads as
+// glowing rather than merely being a brighter colour.
+let glowTexture = null;
+function glowMap(THREE) {
+  if (glowTexture) return glowTexture;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(.35, 'rgba(255,255,255,.45)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+  glowTexture = new THREE.CanvasTexture(c);
+  glowTexture.colorSpace = THREE.SRGBColorSpace;
+  return glowTexture;
+}
+
 export function labelSprite(THREE, text, colour, width) {
   // The canvas is sized to the text so long labels are not squashed or clipped.
   const c = document.createElement('canvas');
@@ -228,7 +246,15 @@ export function buildFocMachine(THREE, opts = {}) {
       tag.position.set(Math.cos(a) * .066, Math.sin(a) * .066, .046);
       statorGroup.add(tag);
     }
-    coils.push({ mesh: coil, phase, sign, angle: a, dot, cross });
+    // The glow that makes a lit coil look lit.
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowMap(THREE), color: PHASE_COLOUR[phase], transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.scale.set(.055, .055, 1);
+    glow.position.set(Math.cos(a) * .0415, Math.sin(a) * .0415, .03);
+    statorGroup.add(glow);
+    coils.push({ mesh: coil, phase, sign, angle: a, dot, cross, glow,
+                 base: new THREE.Color(PHASE_COLOUR[phase]) });
   }
   for (const ez of [-.048, .048])                                     // end windings
     ringAt(.0455, .012, 0xb87333, ez, statorGroup, 32);
@@ -356,8 +382,10 @@ export function buildFocMachine(THREE, opts = {}) {
     }
   }
 
+  const HOT = new THREE.Color(0xff5a2a);
+
   function update(state) {
-    const { theta = 0, err = 0, amplitude = 1, showEstimate = false } = state;
+    const { theta = 0, err = 0, amplitude = 1, showEstimate = false, heat = 0 } = state;
     const fieldAngle = theta + Math.PI / 2 + err;
 
     dArrow.rotation.z = theta;
@@ -369,10 +397,19 @@ export function buildFocMachine(THREE, opts = {}) {
     const bad = Math.abs(err) > Math.PI / 3;
     qArrow.traverse(m => { if (m.material && m.material.emissive) m.material.color.setHex(bad ? 0xef4444 : 0x34d399); });
 
+    // Copper that is working gets hot, and hot copper is not green. The coil
+    // colour runs toward a dull orange as the loss climbs, which is the same
+    // number the heat bars under the view are showing.
+    const warmth = Math.min(Math.max(heat, 0), 1);
     for (const coil of coils) {
       const current = Math.cos(fieldAngle - coil.phase * 2 * Math.PI / 3) * amplitude;
       const lit = coil.sign * current;                 // this coil's own current
       coil.mesh.material.emissiveIntensity = Math.max(0, lit) * 1.6;
+      coil.mesh.material.emissive.copy(coil.base).lerp(HOT, warmth * .85);
+      coil.mesh.material.color.copy(coil.base).lerp(HOT, warmth * .55);
+      coil.glow.material.opacity = Math.max(0, lit) * (.55 + .35 * warmth);
+      coil.glow.material.color.copy(coil.base).lerp(HOT, warmth * .85);
+      coil.glow.scale.setScalar(.05 + .022 * Math.max(0, lit) + .012 * warmth);
       if (coil.dot) {
         coil.dot.visible = lit > .02;
         coil.cross.visible = lit < -.02;
