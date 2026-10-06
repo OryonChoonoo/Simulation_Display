@@ -37,7 +37,7 @@ function build() {
   // from turning into a whistle.
   const tone = ctx.createBiquadFilter();
   tone.type = 'lowpass';
-  tone.frequency.value = 1400;
+  tone.frequency.value = 800;
   tone.Q.value = .4;
 
   master = ctx.createGain();
@@ -69,7 +69,7 @@ function build() {
   whineOsc.start();
   const whine = { osc: whineOsc, g: whineGain, filter: whineFilter };
 
-  const rumble = voice('sine', .26);
+  const rumble = voice('sine', .34);
 
   // Windage: noise, kept low and dull rather than hissy.
   const seconds = 2;
@@ -125,23 +125,27 @@ export function update() {
   const electrical = mechanical * 3;                 // three pole pairs
   const moving = rpm > 8;
 
-  const growlHz = clamp(electrical * 2, 28, 420);
+  // An octave lower than the obvious choice. The electrical frequency itself,
+  // not twice it, is the body of the sound: at 1500 rpm that is 75 Hz, which is
+  // where a machine of this size actually sits rather than where a tone is easy
+  // to synthesise.
+  const growlHz = clamp(electrical, 30, 260);
   parts.growl.osc.frequency.setTargetAtTime(growlHz, now, ease);
   parts.growlB.osc.frequency.setTargetAtTime(growlHz, now, ease);
-  parts.whine.osc.frequency.setTargetAtTime(clamp(electrical * 6, 60, 1250), now, ease);
-  parts.whine.filter.frequency.setTargetAtTime(clamp(electrical * 10, 220, 1600), now, ease);
-  parts.rumble.osc.frequency.setTargetAtTime(clamp(mechanical * 2, 18, 150), now, ease);
+  parts.whine.osc.frequency.setTargetAtTime(clamp(electrical * 4, 60, 800), now, ease);
+  parts.whine.filter.frequency.setTargetAtTime(clamp(electrical * 7, 160, 1000), now, ease);
+  parts.rumble.osc.frequency.setTargetAtTime(clamp(mechanical, 14, 90), now, ease);
 
   // The tone opens up a little with speed, the way a machine brightens as it
-  // winds up, but never far enough to become shrill.
-  parts.tone.frequency.setTargetAtTime(clamp(700 + rpm * .55, 700, 2000), now, ease);
+  // winds up, but the ceiling is low enough that it can never become shrill.
+  parts.tone.frequency.setTargetAtTime(clamp(380 + rpm * .32, 380, 1200), now, ease);
 
   const load = clamp(state.current / Math.max(state.limit, 1), 0, 1);
   const level = moving ? clamp(.04 + .13 * clamp(rpm / 1500, 0, 1) + .07 * load, 0, .24) : 0;
   master.gain.setTargetAtTime(level, now, ease);
   parts.noiseGain.gain.setTargetAtTime(moving ? .05 + .10 * clamp(rpm / 2000, 0, 1) : 0, now, ease);
-  parts.band.frequency.setTargetAtTime(clamp(320 + rpm * .35, 320, 1100), now, ease);
-  parts.whine.g.gain.setTargetAtTime(moving ? .02 + .03 * clamp(rpm / 1800, 0, 1) : 0, now, ease);
+  parts.band.frequency.setTargetAtTime(clamp(220 + rpm * .20, 220, 700), now, ease);
+  parts.whine.g.gain.setTargetAtTime(moving ? .012 + .020 * clamp(rpm / 1800, 0, 1) : 0, now, ease);
 
   // Roughness in proportion to how far out the angle is.
   const wrong = clamp(Math.abs(state.err) / (Math.PI / 2), 0, 1);
