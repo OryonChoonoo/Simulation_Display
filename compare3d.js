@@ -14,7 +14,7 @@ import * as THREE from './vendor/three.module.js';
 import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
 let renderer, scene, camera, clock, host, left, right, leftNote, rightNote;
-let state = { rpm: 400, err: 0, amplitude: 1, limited: false };
+let state = { rpm: 400, err: 0, amplitude: 1, limited: false, rate: .02 };
 let spin = 0;
 // Same controls as the rig view: drag to turn, scroll or pinch to zoom.
 const orbit = { yaw: .42, pitch: .33, zoom: 1, drag: null };
@@ -116,8 +116,9 @@ function resize() {
 
 function frame() {
   const dt = Math.min(clock.getDelta(), .05);
-  // Slowed heavily: at real speed the field is a blur and nothing can be read.
-  spin += dt * (state.rpm * 2 * Math.PI / 60) * .035;
+  // Slowed, because at real speed the field is a blur and nothing can be read.
+  // How much is the viewer's choice: the slider beside the view sets it.
+  spin += dt * (state.rpm * 2 * Math.PI / 60) * state.rate;
 
   left.update({ theta: spin, err: 0, amplitude: 1 });
   right.update({ theta: spin, err: state.err, amplitude: Math.min(state.amplitude, 1), showEstimate: true });

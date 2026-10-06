@@ -711,10 +711,13 @@ function sbsFrame(now) {
   const s = sbsState();
   $('sbs-speed-out').textContent = Math.round(s.rpm) + ' rpm';
   $('sbs-load-out').textContent = s.torque.toFixed(2) + ' N\u00b7m';
+  const rate = Number($('sbs-rate').value);
+  $('sbs-rate-out').textContent = String(rate) + '×';
   if (compare3d) compare3d.update({
     rpm: s.rpm, err: s.err,
     amplitude: Math.min(s.sensorless.current / Math.max(P.iq_limit_A * .6, 1), 1),
     limited: s.sensorless.limited,
+    rate,
   });
   showHeat('sensored', s.sensored.loss);
   showHeat('sensorless', s.sensorless.loss);
@@ -1135,6 +1138,7 @@ async function start() {
   requestAnimationFrame(focFrame);
   requestAnimationFrame(sbsFrame);
   for (const id of ['sbs-speed', 'sbs-load']) $(id).addEventListener('input', () => { touched(); sbsSweep = null; $('sbs-sweep').textContent = 'Run the speed down'; });
+  $('sbs-rate').addEventListener('input', touched);
   $('sbs-in').addEventListener('click', () => { touched(); compare3d && compare3d.zoomBy(1 / 1.25); });
   $('sbs-out').addEventListener('click', () => { touched(); compare3d && compare3d.zoomBy(1.25); });
   $('sbs-reset-view').addEventListener('click', () => { touched(); compare3d && compare3d.resetView(); });
