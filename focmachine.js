@@ -148,7 +148,7 @@ function arrow(THREE, colour, length = .07) {
 }
 
 export function buildFocMachine(THREE, opts = {}) {
-  const { withLabels = true, labelScale = 1, detailed = false } = opts;
+  const { withLabels = true, labelScale = 1, detailed = false, glow: glowBoost = 1 } = opts;
   const group = new THREE.Group();
 
   const rotorGroup = new THREE.Group();
@@ -250,7 +250,7 @@ export function buildFocMachine(THREE, opts = {}) {
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowMap(THREE), color: PHASE_COLOUR[phase], transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false }));
-    glow.scale.set(.055, .055, 1);
+    glow.scale.set(.055 * glowBoost, .055 * glowBoost, 1);
     glow.position.set(Math.cos(a) * .0415, Math.sin(a) * .0415, .03);
     statorGroup.add(glow);
     coils.push({ mesh: coil, phase, sign, angle: a, dot, cross, glow,
@@ -404,12 +404,12 @@ export function buildFocMachine(THREE, opts = {}) {
     for (const coil of coils) {
       const current = Math.cos(fieldAngle - coil.phase * 2 * Math.PI / 3) * amplitude;
       const lit = coil.sign * current;                 // this coil's own current
-      coil.mesh.material.emissiveIntensity = Math.max(0, lit) * 1.6;
+      coil.mesh.material.emissiveIntensity = Math.max(0, lit) * 1.6 * glowBoost;
       coil.mesh.material.emissive.copy(coil.base).lerp(HOT, warmth * .85);
       coil.mesh.material.color.copy(coil.base).lerp(HOT, warmth * .55);
-      coil.glow.material.opacity = Math.max(0, lit) * (.55 + .35 * warmth);
+      coil.glow.material.opacity = Math.min(Math.max(0, lit) * (.55 + .35 * warmth) * glowBoost, 1);
       coil.glow.material.color.copy(coil.base).lerp(HOT, warmth * .85);
-      coil.glow.scale.setScalar(.05 + .022 * Math.max(0, lit) + .012 * warmth);
+      coil.glow.scale.setScalar((.05 + .022 * Math.max(0, lit) + .012 * warmth) * glowBoost);
       if (coil.dot) {
         coil.dot.visible = lit > .02;
         coil.cross.visible = lit < -.02;

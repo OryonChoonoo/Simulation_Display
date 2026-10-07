@@ -24,7 +24,7 @@ const HOME = { yaw: .42, pitch: .33, zoom: 1 };
 export function init(container) {
   host = container;
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x11161f);
+  scene.background = new THREE.Color(0x0b0f16);
   camera = new THREE.PerspectiveCamera(40, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.shadowMap.enabled = true;
@@ -33,8 +33,8 @@ export function init(container) {
   container.innerHTML = '';
   container.appendChild(renderer.domElement);
 
-  scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20262f, 1.1));
-  const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(.5, 1, .9);
+  scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20262f, .72));
+  const key = new THREE.DirectionalLight(0xffffff, 1.05); key.position.set(.5, 1, .9);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.camera.near = .1; key.shadow.camera.far = 3;
@@ -44,8 +44,8 @@ export function init(container) {
   scene.add(key);
   const rim = new THREE.DirectionalLight(0x9ec1ff, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
 
-  left = buildFocMachine(THREE, { labelScale: .85 });
-  right = buildFocMachine(THREE, { labelScale: .85 });
+  left = buildFocMachine(THREE, { labelScale: .85, glow: 2.1 });
+  right = buildFocMachine(THREE, { labelScale: .85, glow: 2.1 });
   left.group.position.set(-.155, 0, 0);
   right.group.position.set(.155, 0, 0);
   scene.add(left.group, right.group);
