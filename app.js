@@ -1367,9 +1367,13 @@ const game = {
 
 // Gentle is the default because the point is to be understood, not to be beaten.
 // Normal is for whoever has already had a go and wants it to fight back.
+// `slow` is how much of the real rotation you are shown. A motor at 400 rpm
+// turns nearly seven times a second, which no hand can follow, so the picture
+// runs at a fraction of it and says so on screen. Every other exhibit on this
+// page is slowed the same way and for the same reason.
 const LEVELS = {
-  gentle: { start: 50, ramp: 7, bonus: 14, cap: 700, give: .20, grace: 5, band: 32 },
-  normal: { start: 90, ramp: 14, bonus: 34, cap: 1400, give: .34, grace: 3, band: 20 },
+  gentle: { start: 40, ramp: 3.5, bonus: 7, cap: 450, give: .18, grace: 6, band: 38, slow: .10 },
+  normal: { start: 80, ramp: 10, bonus: 22, cap: 1100, give: .30, grace: 4, band: 24, slow: .20 },
 };
 function level() { return LEVELS[game.gentle ? 'gentle' : 'normal']; }
 const GAME_BEST_KEY = 'ltc-best-attempt';
@@ -1433,7 +1437,7 @@ function gameFrame(now) {
 
   if (game.running) {
     // One pole pair drawn, so the picture turns at the electrical rate.
-    game.theta = (game.theta + dt * game.rpm / 60 * 2 * Math.PI) % (2 * Math.PI);
+    game.theta = (game.theta + dt * game.rpm / 60 * 2 * Math.PI * level().slow) % (2 * Math.PI);
     const ideal = game.theta + Math.PI / 2;
     if (game.demo) game.aim = ideal;
     const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
@@ -1533,6 +1537,9 @@ function drawGame() {
 
   g.textAlign = 'right'; g.fillStyle = '#6b7684'; g.font = '12px system-ui';
   g.fillText(Math.round(game.rpm) + ' rpm \u00b7 ' + game.elapsed.toFixed(1) + ' s', bx + bw, hy + 19);
+  g.textAlign = 'center'; g.fillStyle = '#4a545f'; g.font = '11.5px system-ui';
+  g.fillText('shown at ' + Math.round(level().slow * 100) + ' % of real speed, so a hand can follow it',
+    cx, hy + 36);
 
   // A word when you pass a milestone, fading out.
   const age = game.elapsed - game.flashAt;
