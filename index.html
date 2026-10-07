@@ -41,6 +41,7 @@
   <button class="tab" data-tab="foc" role="tab" aria-selected="false">How the control works</button>
   <button class="tab" data-tab="sbs" role="tab" aria-selected="false">Side by side</button>
   <button class="tab" data-tab="method" role="tab" aria-selected="false">Method and limits</button>
+  <button class="tab" data-tab="game" role="tab" aria-selected="false">Beat the controller</button>
 </nav>
 
 <main id="tab-3d" hidden>
@@ -291,6 +292,43 @@
         <li><b>The motor itself is uncertain.</b> The exact BM1109 variant is unconfirmed and the datasheet
           never states the back-EMF waveform, so whether it is strictly a PMSM or a BLDC is unknown.</li>
       </ul>
+    </div>
+  </section>
+</main>
+
+<main id="tab-game" hidden>
+  <section class="plot-card">
+    <canvas id="game" aria-label="Hold the current vector ninety degrees ahead of the rotor magnets"></canvas>
+    <p class="caption">Move your pointer, or your finger, around the motor. You are aiming the current the
+      stator makes. Keep it a quarter turn ahead of the red magnet arrow and the motor pulls hard; let it
+      slip and the torque falls away with the cosine of how far out you are.</p>
+  </section>
+
+  <section class="side">
+    <div class="verdict-card">
+      <p class="verdict ok" id="game-title">Beat the controller</p>
+      <p class="explain" id="game-text">A real drive does this twenty thousand times a second, for hours,
+        without ever being more than a fraction of a degree out. See how long you last.</p>
+    </div>
+    <div class="controls">
+      <button id="game-start" class="primary-btn">Start</button>
+      <button id="game-demo" class="primary-btn ghost">Watch the controller do it</button>
+      <p class="hint">The motor speeds up the better you do. You lose when you cannot hold a quarter of the
+        torque for a second and a half &mdash; which is what losing the rotor looks like.</p>
+    </div>
+    <div class="numbers-card">
+      <h2>This attempt</h2>
+      <div id="game-numbers" class="numbers"></div>
+    </div>
+    <div class="numbers-card">
+      <h2>Why this is hard, and why it matters</h2>
+      <p class="explain">You are doing by hand what field-oriented control does continuously: keeping the
+        stator current at right angles to the rotor magnets. Only the part of the current at right angles
+        makes torque, so being <i>&epsilon;</i> degrees out costs you cos&nbsp;<i>&epsilon;</i> of it, and
+        the rest turns into heat.</p>
+      <p class="explain">The controller manages it because an encoder tells it exactly where the rotor is,
+        every 50 microseconds. <strong>Take the encoder away and it has to work the angle out from the
+        voltage the magnets generate</strong> &mdash; which is what this whole investigation is about.</p>
     </div>
   </section>
 </main>

@@ -1230,6 +1230,150 @@ function hear(rpm, err, current) {
   sound.update();
 }
 
+// ---- beat the controller --------------------------------------------------------
+// The visitor aims the stator current by hand while the rotor turns. It is the
+// same arithmetic as the rest of the page - torque follows cos of the angle
+// error - with the controller replaced by a person, which is the point: nobody
+// can do it, and a drive does it every fifty microseconds without trying.
+const game = {
+  running: false, demo: false, theta: 0, aim: Math.PI / 2, rpm: 90,
+  kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: 0,
+};
+const GAME_BEST_KEY = 'ltc-best-attempt';
+
+function gameBest() {
+  try {
+    const raw = localStorage.getItem(GAME_BEST_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }           // private browsing, or storage refused
+}
+
+function saveGameBest(next) {
+  try { localStorage.setItem(GAME_BEST_KEY, JSON.stringify(next)); } catch { /* fine */ }
+}
+
+function startGame(demo) {
+  Object.assign(game, {
+    running: true, demo, theta: 0, aim: Math.PI / 2, rpm: 90,
+    kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: performance.now(),
+  });
+  $('game-start').textContent = 'Stop';
+  $('game-title').textContent = demo ? 'The controller, doing it properly' : 'Hold it at ninety degrees';
+  $('game-title').className = 'verdict ok';
+  $('game-text').textContent = demo
+    ? 'Perfectly on target, at any speed, for as long as you like. This is what you are up against.'
+    : 'Keep the green arrow a quarter turn ahead of the red one. The motor speeds up as you do better.';
+}
+
+function endGame(reason) {
+  game.running = false;
+  game.over = true;
+  $('game-start').textContent = 'Try again';
+  const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
+  if (game.demo) {
+    // Stopping the demonstration should not leave its text behind, claiming a
+    // perfect score the visitor did not make.
+    $('game-start').textContent = 'Start';
+    $('game-title').textContent = 'Beat the controller';
+    $('game-title').className = 'verdict ok';
+    $('game-text').textContent = 'Your turn. Press Start and keep the green arrow a quarter turn '
+      + 'ahead of the red one.';
+  } else {
+    const best = gameBest();
+    const better = !best || game.elapsed > best.seconds;
+    if (better) saveGameBest({ seconds: game.elapsed, percent, rpm: game.rpm });
+    $('game-title').textContent = reason;
+    $('game-title').className = 'verdict bad';
+    $('game-text').textContent = `You held it for ${game.elapsed.toFixed(1)} seconds, keeping `
+      + `${percent.toFixed(0)} % of the torque, up to ${Math.round(game.rpm)} rpm. `
+      + (better ? 'That is your best yet. ' : '')
+      + 'A drive with an encoder would still be at 100 % at four thousand.';
+  }
+}
+
+function gameFrame(now) {
+  requestAnimationFrame(gameFrame);
+  if ($('tab-game').hidden) { game.last = now; return; }
+  const dt = Math.min((now - game.last) / 1000, .05);
+  game.last = now;
+
+  if (game.running) {
+    // One pole pair drawn, so the picture turns at the electrical rate.
+    game.theta = (game.theta + dt * game.rpm / 60 * 2 * Math.PI) % (2 * Math.PI);
+    const ideal = game.theta + Math.PI / 2;
+    if (game.demo) game.aim = ideal;
+    const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
+    game.kept = Math.cos(error);
+    game.elapsed += dt;
+    game.score += Math.max(game.kept, 0) * dt;
+    // Doing well speeds the motor up, which is how it beats you in the end.
+    game.rpm = Math.min(game.rpm + dt * (18 + 42 * Math.max(game.kept, 0)), 1600);
+    // A smoothed average, not an instantaneous threshold. Standing still is not
+    // a way to survive: the error sweeps past zero once a revolution, so the
+    // instantaneous torque keeps touching 100 % while the average is hopeless.
+    game.recent += (game.kept - game.recent) * Math.min(dt / .8, 1);
+    if (!game.demo && game.elapsed > 2.5 && game.recent < .35) endGame('You lost the rotor');
+  }
+  drawGame();
+}
+
+function drawGame() {
+  const c = $('game'); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (w < 120 || h < 120) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2 + 10, r = Math.min(w, h) * .22;
+  const ideal = game.theta + Math.PI / 2;
+  const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
+  drawMachine(g, cx, cy, r, {
+    theta: game.theta, err: error, peak: 1, bounds: [8, w - 8],
+  });
+
+  // A bar across the top: how much torque this attempt is making right now.
+  const kept = Math.max(game.kept, 0);
+  const bw = Math.min(w - 48, 420), bx = (w - bw) / 2, by = 16;
+  g.fillStyle = '#121923'; g.fillRect(bx, by, bw, 16);
+  g.fillStyle = kept > .9 ? '#34d399' : kept > .6 ? '#f0b429' : '#ef4444';
+  g.fillRect(bx, by, bw * kept, 16);
+  g.strokeStyle = '#2a3542'; g.lineWidth = 1; g.strokeRect(bx + .5, by + .5, bw - 1, 15);
+  g.fillStyle = '#9aa5b1'; g.font = '600 12px system-ui'; g.textAlign = 'left';
+  g.fillText('torque you are making', bx, by - 5);
+  g.textAlign = 'right';
+  g.fillStyle = kept > .9 ? '#34d399' : '#cfd6df';
+  g.fillText((100 * kept).toFixed(0) + ' %', bx + bw, by - 5);
+
+  g.textAlign = 'center'; g.fillStyle = '#6b7684'; g.font = '12.5px system-ui';
+  g.fillText(game.running || game.over
+    ? Math.round(game.rpm) + ' rpm \u00b7 ' + game.elapsed.toFixed(1) + ' s'
+    : 'press Start, then move your pointer around the motor', cx, h - 12);
+}
+
+function updateGameNumbers() {
+  if ($('tab-game').hidden) return;
+  const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
+  const best = gameBest();
+  $('game-numbers').innerHTML = [
+    ['Torque right now', (100 * Math.max(game.kept, 0)).toFixed(0) + ' %'],
+    ['Last second or so', (100 * Math.max(game.recent, 0)).toFixed(0) + ' %'],
+    ['Average this attempt', percent.toFixed(0) + ' %'],
+    ['Held for', game.elapsed.toFixed(1) + ' s'],
+    ['Motor speed', Math.round(game.rpm) + ' rpm'],
+    ['Your best', best ? best.seconds.toFixed(1) + ' s at ' + best.percent.toFixed(0) + ' %' : 'no attempt yet'],
+    ['The controller', 'about 100 %, indefinitely'],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+
+function aimAt(event) {
+  const c = $('game'), rect = c.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2 + 10;
+  game.aim = Math.atan2(cy - event.clientY, event.clientX - cx);
+  if (game.demo && game.running) { game.demo = false; $('game-title').textContent = 'Your turn'; }
+}
+
 // ---- tabs ----------------------------------------------------------------------
 // Each tab says what it is. One fixed standfirst described the envelope while
 // the page opened on the rig, which was the first thing a visitor read.
@@ -1239,11 +1383,12 @@ const STANDFIRST = {
   foc: 'Why a motor controller has to know where the rotor is, and what it does with that angle once it has it.',
   sbs: 'The same motor twice, under the same load, differing only in where the rotor angle comes from.',
   method: 'What is modelled, what every parameter is, which results exist, and what this work does not yet show.',
+  game: 'Aim the current by hand and try to keep it a quarter turn ahead of the magnets. This is the job the controller does twenty thousand times a second.',
 };
 
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
-  for (const id of ['envelope', 'foc', '3d', 'sbs', 'method']) $('tab-' + id).hidden = name !== id;
+  for (const id of ['envelope', 'foc', '3d', 'sbs', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
   if (name === 'sbs') {
@@ -1281,12 +1426,23 @@ async function start() {
     if (e.key === 'w') setTab('3d');
     if (e.key === 's') setTab('sbs');
     if (e.key === 'm') setTab('method');
+    if (e.key === 'g') setTab('game');
   });
   for (const t of document.querySelectorAll('.tab')) {
     t.addEventListener('click', () => { touched(); if (!t.disabled) setTab(t.dataset.tab); });
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
   requestAnimationFrame(rigGraphFrame);
+  requestAnimationFrame(gameFrame);
+  setInterval(updateGameNumbers, 150);
+  $('game-start').addEventListener('click', () => {
+    touched();
+    if (game.running) endGame('Stopped'); else startGame(false);
+  });
+  $('game-demo').addEventListener('click', () => { touched(); startGame(true); });
+  for (const type of ['pointermove', 'pointerdown'])
+    $('game').addEventListener(type, event => { touched(); aimAt(event); });
+  $('game').addEventListener('touchmove', e => e.preventDefault(), { passive: false });
   $('d3-rig').addEventListener('click', () => { touched(); rigView = 'rig'; rig3d && rig3d.setView('rig');
     rig3d && rig3d.highlight(null);
     for (const b of document.querySelectorAll('#partbar button')) b.classList.remove('active');
