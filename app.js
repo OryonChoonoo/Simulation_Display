@@ -777,18 +777,28 @@ function drawGraphs(canvasId, hist) {
   history = hist;
   const c = $(canvasId); if (!c) return;
   const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-  // On the frame a hidden canvas is first shown, layout has not run yet, so the
-  // canvas is reported far narrower than it will be. Three panels need room; if
-  // there is not enough, the panel maths goes negative. Wait for the next frame.
-  if (w < 330 || h < 70) return;
+  // On the frame a hidden canvas is first shown, layout has not run yet and it
+  // is reported far narrower than it will be. Below that, wait for the next one.
+  if (w < 180 || h < 70) return;
   c.width = w * dpr; c.height = h * dpr;
   const g = c.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  const gap = 10, pw = (w - gap * 2) / 3;
-  drawAngleGraph(g, 0, 0, pw, h);
-  drawDqGraph(g, pw + gap, 0, pw, h);
-  drawErrorGraph(g, (pw + gap) * 2, 0, pw, h);
+  // Side by side on a laptop, stacked on a phone. Three 100-pixel panels are
+  // worse than no panels at all, which is what a narrow screen used to get.
+  const gap = 10;
+  if (w < 560) {
+    const ph = (h - gap * 2) / 3;
+    if (ph < 70) return;
+    drawAngleGraph(g, 0, 0, w, ph);
+    drawDqGraph(g, 0, ph + gap, w, ph);
+    drawErrorGraph(g, 0, (ph + gap) * 2, w, ph);
+  } else {
+    const pw = (w - gap * 2) / 3;
+    drawAngleGraph(g, 0, 0, pw, h);
+    drawDqGraph(g, pw + gap, 0, pw, h);
+    drawErrorGraph(g, (pw + gap) * 2, 0, pw, h);
+  }
 }
 
 // 1. The angles themselves. Three sawtooths; the constant vertical gap between
@@ -1070,7 +1080,12 @@ function drawPlannedMap() {
 
   const speeds = [...new Set(CASES.map(k => Math.round(k.rpm)))].sort((a, b) => a - b);
   const loads = [...new Set(CASES.map(k => k.load_Nm))].sort((a, b) => b - a);
-  const L = 74, R = w - 210, T = 28, B = h - 36;
+  const narrow = w < 620;
+  const L = narrow ? 52 : 74, R = narrow ? w - 14 : w - 210;
+  // A phone needs the key stacked under the grid in one column, a tablet can
+  // take two, a laptop puts it alongside. Each needs different room below.
+  const tiny = w < 470;
+  const T = 28, B = narrow ? h - (tiny ? 150 : 104) : h - 36;
   const cw = (R - L) / speeds.length, ch = (B - T) / loads.length;
 
   for (let row = 0; row < loads.length; row++) {
@@ -1090,7 +1105,7 @@ function drawPlannedMap() {
   g.fillStyle = '#9aa5b1'; g.font = '12px system-ui';
   g.textAlign = 'center';
   speeds.forEach((rpm, col) => g.fillText(String(rpm), L + (col + .5) * cw, B + 18));
-  g.fillText('speed, rpm', (L + R) / 2, h - 4);
+  g.fillText('speed, rpm', (L + R) / 2, narrow ? B + 36 : h - 4);
   g.textAlign = 'right';
   loads.forEach((nm, row) => g.fillText(nm.toFixed(1), L - 10, T + (row + .5) * ch + 4));
   g.save();
@@ -1101,21 +1116,32 @@ function drawPlannedMap() {
   // What the colours will mean once there is something to colour.
   const key = [
     ['#34d399', 'as good as the encoder'],
-    ['#f0b429', 'works, but costs more current'],
-    ['#ef4444', 'unstable, or will not start'],
+    ['#f0b429', tiny ? 'costs more current' : 'works, but costs more current'],
+    ['#ef4444', tiny ? 'unstable or will not start' : 'unstable, or will not start'],
     ['#39414d', 'not measured yet'],
   ];
   g.textAlign = 'left';
+  const keyX = narrow ? 14 : R + 22;
+  const keyY = narrow ? B + (tiny ? 56 : 42) : T + 4;
   g.font = '600 11.5px system-ui'; g.fillStyle = '#6b7684';
-  g.fillText('EACH SQUARE WILL BE', R + 22, T + 4);
+  g.fillText('EACH SQUARE WILL BE', keyX, keyY);
   key.forEach(([colour, label], k) => {
-    const y = T + 24 + k * 24;
-    g.fillStyle = colour; g.fillRect(R + 22, y - 9, 13, 13);
+    // Two columns on a phone, one down the side on a laptop.
+    const x = (narrow && !tiny) ? keyX + (k % 2) * (w / 2 - 10) : keyX;
+    const y = tiny ? keyY + 18 + k * 18
+      : narrow ? keyY + 20 + Math.floor(k / 2) * 20
+      : keyY + 20 + k * 24;
+    g.fillStyle = colour; g.fillRect(x, y - 9, 13, 13);
     g.fillStyle = '#9aa5b1'; g.font = '12.5px system-ui';
-    g.fillText(label, R + 42, y + 2);
+    g.fillText(label, x + 20, y + 2);
   });
-  g.fillStyle = '#6b7684'; g.font = '11.5px system-ui';
-  g.fillText('24 squares \u00b7 0 filled in', R + 22, T + 24 + key.length * 24 + 10);
+  // On a phone the paragraph above already says none are filled in, so the
+  // counter is dropped rather than squeezed on top of the key.
+  if (!tiny) {
+    g.fillStyle = '#6b7684'; g.font = '11.5px system-ui';
+    g.fillText('24 squares \u00b7 0 filled in',
+      keyX, narrow ? keyY + 60 : keyY + 20 + key.length * 24 + 10);
+  }
 }
 
 // ---- exhibit 6: method, parameters and limits ------------------------------------

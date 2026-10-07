@@ -231,3 +231,52 @@ body[data-mode=kiosk] #planned-map{height:260px}
   border:1px solid #34d399;color:#e8eaed;font:500 15.5px/1.5 system-ui}
 .script-line.hot{background:#2a1a16;border-color:#ef4444}
 body[data-mode=kiosk] .script-line{font-size:17.5px}
+
+/* ---------------------------------------------------------------------------
+   Phones. The width of the window decides this, not the make of the device, so
+   a narrow laptop window gets the same treatment and nothing has to be guessed.
+   The QR code on the stand sends people straight here, so it has to work. */
+@media (max-width: 760px) {
+  header{flex-direction:column;gap:12px;padding:16px 16px 12px}
+  .header-right{width:100%;justify-content:space-between}
+  .eyebrow{font-size:10px;letter-spacing:.12em}
+  h1{font-size:25px;margin:4px 0 6px}
+  .tagline{font-size:15px}
+  .sub{font-size:14.5px}
+  main{padding:14px 16px;gap:16px}
+  .plot-card{padding:10px}
+  .tabs{gap:4px;padding:10px 16px 0;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:9px 12px;font-size:13.5px;white-space:nowrap}
+
+  /* Stages: shorter, because a phone screen is tall and narrow and the rest of
+     the page has to be reachable without endless scrolling. */
+  .stage3d{height:300px}
+  #sbs-stage{height:290px}
+  #envelope{height:340px}
+  #rotor,#scope{height:300px}
+
+  /* The graphs stack, so each one keeps a readable width. */
+  #sbs-graphs{height:420px}
+  #rig-graphs{height:400px}
+  #planned-map{height:380px}
+
+  .heat-row{grid-template-columns:1fr;gap:8px}
+  .verdict{font-size:19px}
+  .verdict-card,.controls,.numbers-card{padding:13px 14px}
+  .chain li{grid-template-columns:22px 1fr;row-gap:2px}
+  .chain li span{grid-column:2}
+  .ptable td:nth-child(3){display:none}      /* keep the quantity and the value */
+  .partbar button{font-size:12.5px;padding:5px 10px}
+  .sound-btn{padding:6px 10px;font-size:12px}
+  .sound-btn small{display:none}
+  .script-line{font-size:14.5px}
+}
+
+/* Very small phones: give the 3D a little more height back, since by then the
+   text has shrunk enough that the picture is the thing worth the space. */
+@media (max-width: 420px) {
+  h1{font-size:22px}
+  .stage3d{height:260px}
+  #sbs-stage{height:250px}
+}
