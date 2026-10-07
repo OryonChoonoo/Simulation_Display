@@ -9,7 +9,7 @@ let renderer, scene, camera, clock, host;
 let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, encoderDisc, housing;
 let insideKeep = [];
 let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null, zoom: 1 };
-let opts = { rpm: 400, sensorless: false, slow: 0.04, heat: 0 };
+let opts = { rpm: 400, sensorless: false, errorDeg: 0, slow: 0.04, heat: 0 };
 
 const COLOUR = { steel: 0x8b97a6, dark: 0x2a323d, pcb: 0x1f6b45, magnetN: 0xef4444, magnetS: 0x5b6b7f,
   copper: 0xf0b429, current: 0x34d399, estimate: 0xf0b429, cable: 0xef4444, power: 0xf0b429, signal: 0x7aa2f7 };
@@ -700,11 +700,10 @@ function buildMotorInside() {
 }
 
 
-// The angle a sensorless estimator gets wrong: back-EMF shrinks with speed, so the
-// error grows as the motor slows. Illustrative shape, not measured behaviour.
-function estimateError(rpm, t) {
-  const base = Math.min(85, 2500 / Math.max(rpm, 25));
-  return V.degToRad(base) * (0.7 + 0.3 * Math.sin(t * 6));
+// The page supplies the RMS error interpolated from the completed 0.5 N.m sweep.
+// Zero also represents the encoder fallback region: no unmeasured error is invented.
+function estimateError() {
+  return V.degToRad(opts.errorDeg || 0);
 }
 
 const raycaster = new THREE.Raycaster();

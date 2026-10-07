@@ -6,6 +6,7 @@
 
 const $ = id => document.getElementById(id);
 let P = null, CASES = [], mode = 'presenter', idleTimer = 0, attract = null, selected = null;
+let SWEEP = null, TRANSIENT = null, STARTUP = null;
 
 // ---- physics ------------------------------------------------------------------
 // Iq from torque, terminal voltage from back-EMF + resistive and inductive drops,
@@ -503,7 +504,7 @@ const STORY = [
   { tab: 'Where the angle comes from',
     head: 'Which leaves one question: how do you know the angle?',
     plain: 'An encoder measures it directly. That is the sensored case, and it is the reference this investigation compares against. A sensorless drive estimates it instead, from the voltage the spinning magnets generate \u2014 and that voltage shrinks as the motor slows: about 11 V at 1500 rpm, but only 0.4 V at 50 rpm. That is why the comparison is measured as a map of speed and load.',
-    tech: 'ODrive starts sensorless operation with an open-loop ramp and hands over to its estimator once there is enough back-EMF to work from. That handover is the fragile part, and it is where this project\u2019s sensorless simulation currently stands: no sensorless result exists yet, so anything shown for it here is illustrative.',
+    tech: 'This simulation aligns and accelerates with encoder assistance, blends to the back-EMF estimator, and monitors whether the estimate remains valid. At 0.5 N\u00b7m it sustained sensorless control from 300 to 1500 rpm; at 200 rpm it triggered the designed encoder fallback.',
     err: null, frame: true },
 ];
 let step = 0;
@@ -532,14 +533,14 @@ function showStep(i) {
 // ---- sensored or sensorless ----------------------------------------------------
 let source = 'sensored';
 
-// The error a sensorless estimator would carry at this speed. The sensorless
-// model exists and has measured error, but only at one operating point, so the
-// error-against-speed SHAPE used here is still illustrative rather than measured.
-// See the Method and limits tab for what is measured and what is not.
+// Interpolate the measured-in-simulation 0.5 N.m sweep. Below the lowest
+// sustained point there is deliberately no invented sensorless error: the
+// controller has fallen back to its encoder, so this display returns zero.
 function sourceError() {
   if (source !== 'sensorless') return 0;
   const rpm = Number($('foc-speed').value);
-  return Math.round(Math.min(85, 2500 / Math.max(rpm, 25)));
+  const value = sweepMetric(rpm, 'loaded_angle_rms_error_deg');
+  return value === null ? 0 : Number(value.toFixed(3));
 }
 
 function setSource(next) {
@@ -547,9 +548,9 @@ function setSource(next) {
   const note = $('foc-source');
   if (next === 'sensorless') {
     note.className = 'source-note sensorless';
-    note.innerHTML = '<b>Sensorless</b> \u2014 the angle is estimated from the back-EMF. The sensorless '
-      + 'model exists and hands over without an encoder, but it has been measured at <b>one</b> operating '
-      + 'point only, so how the error grows as the motor slows is still an <b>illustration</b>.';
+    note.innerHTML = '<b>Sensorless</b> \u2014 the angle is estimated from back-EMF after an encoder-assisted '
+      + 'startup. The error shown is interpolated from the <b>0.5 N\u00b7m simulation sweep</b>. Below 300 rpm '
+      + 'the display shows fallback rather than inventing a sensorless estimate.';
   } else {
     note.className = 'source-note sensored';
     note.innerHTML = '<b>Sensored</b> \u2014 the encoder measures the angle directly, so the error is '
@@ -662,34 +663,37 @@ function update3d() {
   if (!rig3d) return;
   const rpm = Number($('d3-speed').value), sensorless = $('d3-sensorless').checked;
   const heat = P ? Math.min(1.5 * P.Rs_ohm * Math.pow(rigState().sensorless.current, 2) / 40, 1) : 0;
-  rig3d.setOptions({ rpm, sensorless, heat });
+  const measuredError = sweepMetric(rpm, 'loaded_angle_rms_error_deg');
+  rig3d.setOptions({ rpm, sensorless, heat, errorDeg: sensorless && measuredError !== null ? measuredError : 0 });
   $('d3-speed-out').textContent = Math.round(rpm) + ' rpm';
   const r = rig3d.readout();
   const backEmf = (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb;
   $('d3-numbers').innerHTML = [
     ['Where the controller aims', sensorless ? 'estimated' : 'measured by encoder'],
-    ['Angle error', sensorless ? r.errorDeg.toFixed(0) + '\u00b0' : 'essentially none'],
+    ['Angle error', sensorless ? (measuredError === null ? 'encoder fallback / untested' : r.errorDeg.toFixed(3) + '\u00b0 RMS') : 'essentially none'],
     ['Torque kept', (100 * r.torqueKept).toFixed(0) + ' %'],
     ['Back-EMF to estimate from', backEmf.toFixed(2) + ' V'],
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
 }
 
 // ---- exhibit 5: side by side, measured angle against estimated angle -------------
-// Both sides are the same motor model under the same demand. Only the angle differs,
-// and the angle error shape is illustrative: see the banner on the tab.
+// At 0.5 N.m the angle error comes from the matched sweep. Other loads keep the
+// same explanatory equations but are explicitly outside the measured matrix.
 let sbsLast = 0, sbsSweep = null;
 
 function sbsState() {
   const rpm = Number($('sbs-speed').value), torque = Number($('sbs-load').value);
   const o = operate(rpm, torque);
-  const err = V_deg(Math.min(85, 2500 / Math.max(rpm, 25)));
+  const measuredError = sweepMetric(rpm, 'loaded_angle_rms_error_deg');
+  const sensorlessAvailable = measuredError !== null;
+  const err = V_deg(sensorlessAvailable ? measuredError : 0);
   // To hold the same torque while pushing at the wrong angle, pull more current.
   const wanted = o.iq / Math.max(Math.cos(err), .05);
   const limited = wanted > P.iq_limit_A;
   const current = Math.min(wanted, P.iq_limit_A);
   const delivered = P.Kt_NmPerA * current * Math.cos(err) - P.B_Nms * o.w;
   return {
-    rpm, torque, o, err,
+    rpm, torque, o, err, sensorlessAvailable,
     sensored: { err: 0, current: o.iq, loss: 1.5 * P.Rs_ohm * o.iq * o.iq, torque: torque, limited: o.overCurrent },
     sensorless: { err, current, loss: 1.5 * P.Rs_ohm * current * current, torque: Math.max(delivered, 0), limited },
     backEmf: (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb,
@@ -922,13 +926,13 @@ function gridLines(g, L, R, T, B, rows, cols) {
 // comes apart. Every line is timed against the speed it describes, and the whole
 // thing stops the moment anyone touches a control.
 const FAILURE_SCRIPT = [
-  { until: 1.2, rpm: 1400, line: 'Both machines, same speed, same load. At 1400 rpm you cannot tell them apart.' },
-  { until: 3.0, rpm: 900, line: 'Still nothing to choose between them. The estimate has plenty of back-EMF to work from.' },
-  { until: 5.2, rpm: 420, line: 'Slowing down. Watch the right-hand machine: its field is starting to lag behind the magnets.' },
-  { until: 7.4, rpm: 180, line: 'The wrong coils are lighting now, and it is pulling more current to make the same torque.' },
-  { until: 9.6, rpm: 70, line: 'Well out. Look at the heat bars: the same work, noticeably more heat in the windings.' },
-  { until: 12.5, rpm: 35, line: 'At walking pace the magnets barely generate anything to estimate from, and the guess falls apart.' },
-  { until: 15.0, rpm: 35, line: 'That is the whole investigation: not whether sensorless works, but where it stops working.' },
+  { until: 1.2, rpm: 1500, line: 'At 1500 rpm the sensorless simulation stayed closed loop. Its angle error was 1.698 degrees RMS.' },
+  { until: 3.0, rpm: 1200, line: 'At 1200 rpm it stayed closed loop with 1.360 degrees RMS angle error.' },
+  { until: 5.2, rpm: 800, line: 'At 800 rpm the angle error was 0.909 degrees RMS under the same 0.5 newton-metre load.' },
+  { until: 7.4, rpm: 400, line: 'At 400 rpm it still stayed sensorless: 0.458 degrees RMS angle error.' },
+  { until: 9.6, rpm: 300, line: '300 rpm is the lowest demonstrated sustained sensorless point in this sweep.' },
+  { until: 12.5, rpm: 200, line: 'At 200 rpm handover completed, but the monitor triggered encoder fallback.' },
+  { until: 15.0, rpm: 200, line: 'The present boundary is bracketed between 200 and 300 rpm at 0.5 newton-metres.' },
 ];
 const SCRIPT_LENGTH = FAILURE_SCRIPT[FAILURE_SCRIPT.length - 1].until;
 let scriptClock = 0;
@@ -942,7 +946,7 @@ function startScript() {
 
 function stopScript() {
   sbsSweep = null;
-  $('sbs-sweep').textContent = 'Watch it fail';
+  $('sbs-sweep').textContent = 'Sweep through the tested speeds';
   $('sbs-script').hidden = true;
 }
 
@@ -970,21 +974,14 @@ function runScript(dt) {
 
 function sbsVerdict(s, extra) {
   const head = $('sbs-title'), body = $('sbs-text'), deg = Math.round(s.err * 180 / Math.PI);
-  if (s.sensorless.limited || deg >= 45) {
-    head.textContent = 'The estimate has lost the rotor';
+  if (!s.sensorlessAvailable) {
+    head.textContent = 'Outside the sustained sensorless region';
     head.className = 'verdict bad';
-    body.textContent = `At ${Math.round(s.rpm)} rpm the magnets generate only ${s.backEmf.toFixed(2)} V for the estimator to work from, and it is ${deg} degrees out. `
-      + (s.sensorless.limited
-        ? 'The drive has run into its current limit, so it can no longer hold the torque at all and the shaft slows.'
-        : `Holding the same torque now costs ${s.sensorless.current.toFixed(1)} A instead of ${s.sensored.current.toFixed(1)} A, and ${extra.toFixed(0)} W of extra heat.`);
-  } else if (deg >= 12) {
-    head.textContent = 'Still turning, but paying for it';
-    head.className = 'verdict warn';
-    body.textContent = `${deg} degrees out. Both motors deliver the torque asked of them, but the estimating drive needs ${s.sensorless.current.toFixed(1)} A against ${s.sensored.current.toFixed(1)} A, and puts ${extra.toFixed(1)} W more heat into the windings for exactly the same work.`;
+    body.textContent = `At ${Math.round(s.rpm)} rpm there is no sustained sensorless result to animate. The 200 rpm test handed over and then fell back to the encoder; lower speeds have not been claimed.`;
   } else {
-    head.textContent = 'Both are keeping up';
+    head.textContent = 'Sensorless stayed active';
     head.className = 'verdict ok';
-    body.textContent = `At ${Math.round(s.rpm)} rpm there is plenty of back-EMF (${s.backEmf.toFixed(1)} V) to estimate from, so the two are within ${deg} degree${deg === 1 ? '' : 's'} of each other and cost almost the same. This is the easy end of the range \u2014 drag the speed down.`;
+    body.textContent = `At ${Math.round(s.rpm)} rpm the matched simulation gives ${Math.abs(s.err * 180 / Math.PI).toFixed(3)} degrees RMS electrical-angle error. This interpolation is valid for the tested 0.5 N\u00b7m load; other load settings remain explanatory only.`;
   }
 }
 
@@ -1064,9 +1061,7 @@ function rigGraphFrame() {
 }
 
 // ---- the answer this project is working towards ---------------------------------
-// The grid the investigation will fill in. It is drawn empty on purpose: the
-// sensored half is measured, no sensorless case is, and showing the shape of the
-// finished result is the clearest way to say what the work is for.
+// The 0.5 N.m row is filled from the matched sweep; all untested loads stay empty.
 let plannedDrawn = false;
 
 function drawPlannedMap() {
@@ -1091,14 +1086,17 @@ function drawPlannedMap() {
   for (let row = 0; row < loads.length; row++) {
     for (let col = 0; col < speeds.length; col++) {
       const x = L + col * cw, y = T + row * ch;
-      g.fillStyle = '#121923';
+      const tested = SWEEP && Math.abs(loads[row] - SWEEP.conditions.load_Nm) < 1e-6
+        ? SWEEP.cases.find(k => k.control_mode === 'Sensorless' && Math.round(k.target_speed_rpm) === speeds[col])
+        : null;
+      g.fillStyle = tested ? (tested.fallback_triggered ? '#ef4444' : '#34d399') : '#121923';
       g.fillRect(x + 3, y + 3, cw - 6, ch - 6);
       g.strokeStyle = '#2a3542'; g.lineWidth = 1;
       g.setLineDash([4, 4]);
       g.strokeRect(x + 3.5, y + 3.5, cw - 7, ch - 7);
       g.setLineDash([]);
-      g.fillStyle = '#39414d'; g.font = '13px system-ui'; g.textAlign = 'center';
-      g.fillText('?', x + cw / 2, y + ch / 2 + 5);
+      g.fillStyle = tested ? '#0d1117' : '#39414d'; g.font = '700 12px system-ui'; g.textAlign = 'center';
+      g.fillText(tested ? (tested.fallback_triggered ? 'FB' : '\u2713') : '?', x + cw / 2, y + ch / 2 + 5);
     }
   }
 
@@ -1115,9 +1113,9 @@ function drawPlannedMap() {
 
   // What the colours will mean once there is something to colour.
   const key = [
-    ['#34d399', 'as good as the encoder'],
-    ['#f0b429', tiny ? 'costs more current' : 'works, but costs more current'],
-    ['#ef4444', tiny ? 'unstable or will not start' : 'unstable, or will not start'],
+    ['#34d399', 'sustained sensorless'],
+    ['#f0b429', tiny ? 'works with penalty' : 'works, but with a performance penalty'],
+    ['#ef4444', 'encoder fallback'],
     ['#39414d', 'not measured yet'],
   ];
   g.textAlign = 'left';
@@ -1139,7 +1137,8 @@ function drawPlannedMap() {
   // counter is dropped rather than squeezed on top of the key.
   if (!tiny) {
     g.fillStyle = '#6b7684'; g.font = '11.5px system-ui';
-    g.fillText('24 squares \u00b7 0 filled in',
+    const filled = SWEEP ? speeds.filter(r => SWEEP.cases.some(k => k.control_mode === 'Sensorless' && Math.round(k.target_speed_rpm) === r)).length : 0;
+    g.fillText(`24 squares \u00b7 ${filled} filled in`,
       keyX, narrow ? keyY + 60 : keyY + 20 + key.length * 24 + 10);
   }
 }
@@ -1169,7 +1168,7 @@ function renderMethod() {
     ['Torque at the limit', ratedTorque.toFixed(2) + ' N\u00b7m',
       'Kt \u00d7 current limit: the most this drive can ask for \u2014 the pull of a 2.7 kg weight on the end of a 10 cm spanner'],
     ['Back-EMF at 1500 rpm', (1500 * 2 * Math.PI / 60 * P.pole_pairs * P.flux_Wb).toFixed(1) + ' V',
-      'Falls in proportion to speed, which is why sensorless fails slowly'],
+      'Falls in proportion to speed; the tested low-speed limit appeared as encoder fallback'],
   ];
   $('method-params').innerHTML = '<table class="ptable"><thead><tr><th>Quantity</th><th>Value</th>'
     + '<th>What it means here</th></tr></thead><tbody>'
@@ -1184,21 +1183,146 @@ function renderMethod() {
        ['Loads tested', loads.map(l => l.toFixed(1)).join(', ') + ' N\u00b7m'],
        ['Settling windows', 'unloaded 0.90\u20131.15 s, loaded 1.40\u20131.65 s'],
        ['Worst duty cycle seen', '0.896, at 1500 rpm and 2.0 N\u00b7m \u2014 no saturation anywhere'],
-       ['Sensorless', 'one startup run, handover verified, closed-loop quality failed'],
+       ['Sensorless sweep', '200\u20131500 rpm at 0.5 N\u00b7m; 300\u20131500 sustained, 200 rpm encoder fallback'],
        ['Sensored run', DATA.source.run + ' (' + DATA.source.date + ')'],
       ].map(([a, b]) => `<tr><td>${a}</td><td><b>${b}</b></td></tr>`).join('')
     + '</tbody></table>';
 
-  // Measured on the v0.6 run, not modelled here: stated with their window so they
-  // cannot be confused with the whole-run figures logged by the same model.
   $('method-sensorless').innerHTML = [
-    ['Angle error, settled window', '67.44\u00b0 RMS'],
-    ['Speed variation, settled', '207.42 rpm peak to peak'],
-    ['Mean speed held', '276.87 rpm against 300 rpm asked'],
-    ['Handover', '0.800 s to 1.050 s, no abort'],
-    ['Peak current during startup', '5.29 A'],
-    ['Encoder in the control path', 'none, at any point'],
+    ['Lowest sustained sensorless point', '300 rpm at 0.5 N\u00b7m'],
+    ['200 rpm result', 'handover completed, then fallback to encoder'],
+    ['Angle error over sustained sweep', '0.345\u00b0 to 1.698\u00b0 RMS'],
+    ['True-speed RMS error', '0.0012 to 0.0015 rpm'],
+    ['Observed angle lag', 'approximately 63 \u00b5s (inferred)'],
+    ['Startup', 'encoder-assisted; not standstill sensorless'],
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+
+// ---- actual simulation results -------------------------------------------------
+function sensorlessCases() {
+  return SWEEP ? SWEEP.cases.filter(c => c.control_mode === 'Sensorless').sort((a, b) => a.target_speed_rpm - b.target_speed_rpm) : [];
+}
+
+function sweepMetric(rpm, key) {
+  const ok = sensorlessCases().filter(c => !c.fallback_triggered && c.loaded_settled);
+  if (!ok.length || rpm < ok[0].target_speed_rpm || rpm > ok[ok.length - 1].target_speed_rpm) return null;
+  const hi = ok.find(c => c.target_speed_rpm >= rpm) || ok[ok.length - 1];
+  const lo = [...ok].reverse().find(c => c.target_speed_rpm <= rpm) || ok[0];
+  if (hi.target_speed_rpm === lo.target_speed_rpm) return Number(lo[key]);
+  const u = (rpm - lo.target_speed_rpm) / (hi.target_speed_rpm - lo.target_speed_rpm);
+  return Number(lo[key]) + u * (Number(hi[key]) - Number(lo[key]));
+}
+
+function canvas2d(id) {
+  const c = $(id), dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return null;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  return { c, g, w, h };
+}
+
+function axes(g, box, title, minY, maxY, unit) {
+  const { x, y, w, h } = box;
+  g.fillStyle = '#cfd6df'; g.font = '600 13px system-ui'; g.textAlign = 'left'; g.fillText(title, x, y - 9);
+  g.strokeStyle = '#344050'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h); g.lineTo(x + w, y + h); g.stroke();
+  g.font = '11px system-ui'; g.fillStyle = '#7f8a98';
+  for (let i = 0; i <= 2; i++) {
+    const v = maxY - i * (maxY - minY) / 2, py = y + i * h / 2;
+    g.strokeStyle = '#222d39'; g.beginPath(); g.moveTo(x, py); g.lineTo(x + w, py); g.stroke();
+    g.textAlign = 'right'; g.fillText(v.toFixed(maxY < 10 ? 3 : 1), x - 7, py + 4);
+  }
+  g.save(); g.translate(12, y + h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText(unit, 0, 0); g.restore();
+  return { X: v => x + v, Y: v => y + h - (v - minY) / Math.max(maxY - minY, 1e-12) * h };
+}
+
+function plotSeries(g, points, X, Y, colour, dashed) {
+  if (!points.length) return;
+  g.strokeStyle = colour; g.lineWidth = 2; g.setLineDash(dashed ? [5, 4] : []); g.beginPath();
+  points.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.stroke(); g.setLineDash([]);
+  for (const p of points) { g.fillStyle = colour; g.beginPath(); g.arc(X(p[0]), Y(p[1]), 3, 0, Math.PI * 2); g.fill(); }
+}
+
+function drawResultSweep() {
+  if (!SWEEP) return;
+  const cv = canvas2d('result-sweep'); if (!cv) return;
+  const { g, w, h } = cv, ok = sensorlessCases().filter(c => !c.fallback_triggered);
+  const panels = [
+    ['Electrical-angle RMS error', 'loaded_angle_rms_error_deg', 0, 1.9, 'degrees', '#f0b429'],
+    ['True-speed RMS tracking error', 'loaded_speed_tracking_rms_rpm', 0, .0017, 'rpm', '#34d399'],
+    ['Whole-run peak phase current', 'run_peak_phase_current_A', 0, 7.5, 'A', '#7aa2f7'],
+  ];
+  const gap = 54, panelH = (h - 34 - gap * 2) / 3, L = 58, R = w - 18;
+  panels.forEach((p, i) => {
+    const y = 28 + i * (panelH + gap), box = { x: L, y, w: R - L, h: panelH };
+    const a = axes(g, box, p[0], p[2], p[3], p[4]);
+    const X = rpm => a.X((rpm - 200) / 1300 * box.w);
+    plotSeries(g, ok.map(c => [c.target_speed_rpm, Number(c[p[1]])]), X, a.Y, p[5], false);
+    if (i === panels.length - 1) {
+      g.fillStyle = '#7f8a98'; g.textAlign = 'center'; g.font = '11px system-ui';
+      [200, 400, 600, 800, 1000, 1200, 1500].forEach(r => g.fillText(r, X(r), y + panelH + 17));
+      g.fillText('speed (rpm)', (L + R) / 2, y + panelH + 34);
+    }
+  });
+  const fallback = sensorlessCases().find(c => c.fallback_triggered);
+  if (fallback) { g.fillStyle = '#ef4444'; g.font = '700 12px system-ui'; g.textAlign = 'right'; g.fillText('200 rpm: encoder fallback', R, 15); }
+}
+
+function drawTransient() {
+  if (!TRANSIENT) return;
+  const cv = canvas2d('result-transient'); if (!cv) return;
+  const { g, w, h } = cv, L = 62, R = w - 18, T = 28, B = h - 40;
+  const t = TRANSIENT.time_s, from = t.findIndex(v => v >= 0.85), indices = t.map((_, i) => i).slice(from);
+  const box = { x: L, y: T, w: R - L, h: B - T };
+  const speeds = indices.flatMap(i => [TRANSIENT.sensored_true_speed_rpm[i], TRANSIENT.sensorless_true_speed_rpm[i]]);
+  const minY = Math.min(...speeds) - .02, maxY = Math.max(...speeds) + .02;
+  const a = axes(g, box, 'True shaft speed during the load step', minY, maxY, 'rpm');
+  const X = x => a.X((x - .85) / (.95) * box.w);
+  plotSeries(g, indices.map(i => [t[i], TRANSIENT.sensored_true_speed_rpm[i]]), X, a.Y, '#34d399', false);
+  plotSeries(g, indices.map(i => [t[i], TRANSIENT.sensorless_true_speed_rpm[i]]), X, a.Y, '#f0b429', false);
+  g.fillStyle = '#34d399'; g.fillRect(R - 220, 9, 12, 3); g.fillStyle = '#cfd6df'; g.font = '11px system-ui'; g.textAlign = 'left'; g.fillText('sensored', R - 202, 14);
+  g.fillStyle = '#f0b429'; g.fillRect(R - 120, 9, 12, 3); g.fillStyle = '#cfd6df'; g.fillText('sensorless', R - 102, 14);
+  g.fillStyle = '#7f8a98'; g.textAlign = 'center'; [0.9, 1.2, 1.5, 1.8].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
+}
+
+function startupPhase(i) {
+  if (STARTUP.startup_abort[i]) return 'Aborted';
+  if (STARTUP.closed_loop_active[i]) return 'Estimator closed loop';
+  if (STARTUP.handover_active[i]) return 'Blending to estimator';
+  if (STARTUP.alignment_active[i]) return 'Rotor alignment';
+  return 'Open-loop pull-in';
+}
+
+function drawStartup() {
+  if (!STARTUP) return;
+  const cv = canvas2d('startup-chart'); if (!cv) return;
+  const { g, w, h } = cv, L = 58, R = w - 18, T = 28, B = h - 40, t = STARTUP.time_s;
+  const maxSpeed = Math.max(...STARTUP.true_speed_rpm, ...STARTUP.estimated_speed_rpm, 1);
+  const box = { x: L, y: T, w: R - L, h: B - T }, a = axes(g, box, 'Encoder-assisted startup and handover', 0, maxSpeed * 1.08, 'rpm');
+  const X = x => a.X(x / t[t.length - 1] * box.w);
+  plotSeries(g, t.map((v, i) => [v, STARTUP.true_speed_rpm[i]]), X, a.Y, '#34d399', false);
+  plotSeries(g, t.map((v, i) => [v, STARTUP.estimated_speed_rpm[i]]), X, a.Y, '#f0b429', true);
+  const i = Number($('startup-scrub').value), x = X(t[i]);
+  g.strokeStyle = '#e8eaed'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke();
+  g.fillStyle = '#7f8a98'; g.textAlign = 'center'; g.font = '11px system-ui'; [0, .4, .8, 1.2, 1.6].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
+  $('startup-time').textContent = t[i].toFixed(3) + ' s';
+  $('startup-readout').innerHTML = [
+    ['Control phase', startupPhase(i)], ['True speed', STARTUP.true_speed_rpm[i].toFixed(1) + ' rpm'],
+    ['Estimated speed', STARTUP.estimated_speed_rpm[i].toFixed(1) + ' rpm'], ['Handover blend', (100 * STARTUP.handover_alpha[i]).toFixed(0) + ' %'],
+    ['Observer valid', STARTUP.observer_valid[i] ? 'yes' : 'no'], ['Startup abort', STARTUP.startup_abort[i] ? 'yes' : 'no'],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+
+function renderResults() {
+  if (!SWEEP || !TRANSIENT || !STARTUP) return;
+  const ok = sensorlessCases().filter(c => !c.fallback_triggered), min = ok[0], max = ok[ok.length - 1];
+  $('result-kpis').innerHTML = [
+    ['Sustained sensorless', `${min.target_speed_rpm}\u2013${max.target_speed_rpm} rpm`],
+    ['Lowest failed point', '200 rpm \u00b7 fallback'],
+    ['Angle RMS range', `${min.loaded_angle_rms_error_deg.toFixed(3)}\u2013${max.loaded_angle_rms_error_deg.toFixed(3)}\u00b0`],
+    ['Applied load', `${SWEEP.conditions.load_Nm.toFixed(1)} N\u00b7m`],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  $('startup-scrub').max = String(STARTUP.time_s.length - 1);
+  drawResultSweep(); drawTransient(); drawStartup();
 }
 
 // ---- sound ---------------------------------------------------------------------
@@ -1382,13 +1506,14 @@ const STANDFIRST = {
   envelope: 'Choose a speed and a load. The green area is what the drive can deliver on the configured battery and current limit. White dots are full Simulink runs; the shading is the same physics solved live in this page.',
   foc: 'Why a motor controller has to know where the rotor is, and what it does with that angle once it has it.',
   sbs: 'The same motor twice, under the same load, differing only in where the rotor angle comes from.',
+  results: 'The matched simulation evidence: where sensorless control stayed active, how accurately it tracked, and where it fell back to the encoder.',
   method: 'What is modelled, what every parameter is, which results exist, and what this work does not yet show.',
   game: 'Aim the current by hand and try to keep it a quarter turn ahead of the magnets. This is the job the controller does twenty thousand times a second.',
 };
 
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
-  for (const id of ['envelope', 'foc', '3d', 'sbs', 'method', 'game']) $('tab-' + id).hidden = name !== id;
+  for (const id of ['envelope', 'foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
   if (name === 'sbs') {
@@ -1396,6 +1521,7 @@ function setTab(name) {
     if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }
   }
   if (name === 'envelope') render();
+  if (name === 'results') requestAnimationFrame(renderResults);
   if (name === 'method') renderMethod();
 }
 
@@ -1403,7 +1529,13 @@ function setTab(name) {
 async function start() {
   const warning = document.getElementById('boot-warning');
   if (warning) warning.remove();            // the scripts clearly did run
-  const data = await fetch('data/matrix.json').then(r => r.json());
+  const [data, sweep, transient, startup] = await Promise.all([
+    fetch('data/matrix.json').then(r => r.json()),
+    fetch('data/sensorless_speed_sweep.json').then(r => r.json()),
+    fetch('data/comparison_800rpm.json').then(r => r.json()),
+    fetch('data/sensorless_startup.json').then(r => r.json()),
+  ]);
+  SWEEP = sweep; TRANSIENT = transient; STARTUP = startup;
   P = { ...data.parameters }; CASES = data.cases; DATA = data;
   $('provenance').textContent = `${data.source.cases} simulated cases from ${data.source.run} (${data.source.date}). ${data.source.note}`;
   for (const id of ['speed', 'load', 'vdc', 'imax']) {
@@ -1425,6 +1557,7 @@ async function start() {
     if (e.key === 'f') setTab('foc');
     if (e.key === 'w') setTab('3d');
     if (e.key === 's') setTab('sbs');
+    if (e.key === 'a') setTab('results');
     if (e.key === 'm') setTab('method');
     if (e.key === 'g') setTab('game');
   });
@@ -1481,8 +1614,9 @@ async function start() {
     touched();
     if (sbsSweep === null) startScript(); else stopScript();
   });
+  $('startup-scrub').addEventListener('input', () => { touched(); drawStartup(); });
   document.addEventListener('pointerdown', touched);
-  window.addEventListener('resize', () => { render(); if (plannedDrawn) drawPlannedMap(); });
+  window.addEventListener('resize', () => { render(); if (plannedDrawn) drawPlannedMap(); if (!$('tab-results').hidden) renderResults(); });
   const kiosk = new URLSearchParams(location.search).get('mode') === 'kiosk';
   setMode(kiosk ? 'kiosk' : 'presenter');
   // Unattended visitors need orientation before numbers, so the kiosk opens on the rig.

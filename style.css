@@ -232,6 +232,26 @@ body[data-mode=kiosk] #planned-map{height:260px}
 .script-line.hot{background:#2a1a16;border-color:#ef4444}
 body[data-mode=kiosk] .script-line{font-size:17.5px}
 
+/* Evidence-backed results */
+.results-page{min-width:0}
+.result-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 22px}
+.result-kpis div{display:flex;flex-direction:column;gap:3px;padding:12px 13px;background:#111820;
+  border:1px solid #293544;border-radius:9px}
+.result-kpis span{color:#84909e;font:600 11px/1.3 system-ui;text-transform:uppercase;letter-spacing:.06em}
+.result-kpis b{color:#e8eaed;font:700 17px/1.3 system-ui;font-variant-numeric:tabular-nums}
+.result-chart{width:100%;height:520px;display:block;margin:8px 0 0;background:#121820;border-radius:8px}
+#result-transient{height:300px}
+#startup-chart{height:310px}
+.result-heading{margin-top:28px}
+.scrubber{display:block;margin:12px 4px 2px;color:#cfd6df;font-weight:600}
+.scrubber b{float:right;color:#6ee7a8;font-variant-numeric:tabular-nums}
+@media(max-width:760px){
+  .result-kpis{grid-template-columns:1fr 1fr}
+  .result-kpis b{font-size:15px}
+  .result-chart{height:570px}
+  #result-transient,#startup-chart{height:330px}
+}
+
 /* ---------------------------------------------------------------------------
    Phones. The width of the window decides this, not the make of the device, so
    a narrow laptop window gets the same treatment and nothing has to be guessed.

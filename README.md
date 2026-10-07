@@ -65,9 +65,9 @@ The quickest route is Netlify Drop (drag the folder onto <https://app.netlify.co
 The better one is connecting this GitHub repository to a Netlify site, because then
 every push redeploys it.
 
-Remember what goes public with it: provisional parameters, an unvalidated model, and
-a sensorless comparison that is an illustration rather than a result. The page says
-so, and it needs to keep saying so.
+Remember what goes public with it: provisional parameters and an unvalidated model.
+The sensorless results are simulation evidence only, and the page keeps them separate
+from future hardware measurements.
 
 ## Regenerating the data
 
@@ -81,6 +81,16 @@ That rewrites `data/matrix.json`. The `parameters` block in that script must mat
 `SIMULATION/working_single_motor/single_motor_sensored_parameters.m`, because the page
 solves the same equations live.
 
+To export the matched sensored/sensorless sweep, representative transient and startup
+timeline from the investigation workspace:
+
+```matlab
+export_project_results('C:\path\to\INVESTIGATION')
+```
+
+This rewrites `data/sensorless_speed_sweep.json`, `data/comparison_800rpm.json` and
+`data/sensorless_startup.json`. The exporter deliberately removes absolute source paths.
+
 ## Files
 
 | Path | Purpose |
@@ -93,7 +103,11 @@ solves the same equations live.
 | `compare3d.js` | The two machines on the side-by-side tab |
 | `vendor/three.module.js` | three.js r169 (MIT licence, Copyright 2010-2024 Three.js Authors), vendored so the page works offline |
 | `data/matrix.json` | Exported simulation results and model parameters |
+| `data/sensorless_speed_sweep.json` | Matched 0.5 N.m sensored/sensorless sweep |
+| `data/comparison_800rpm.json` | Matched 800 rpm transient for the results graph |
+| `data/sensorless_startup.json` | Encoder-assisted startup and handover timeline |
 | `tools/export_matrix_json.m` | Regenerates the JSON from a matrix run |
+| `tools/export_project_results.m` | Regenerates the comparison result JSON |
 
 ## The 3D view
 
@@ -113,29 +127,27 @@ who would rather read a list than hunt for the emergency stop on a screen. This 
 earlier flat "What am I looking at?" diagram, which said the same things about a drawing
 instead of about the rig.
 
-The **"estimate the angle instead of measuring it"** switch adds a second arrow for where a
-sensorless controller *thinks* the rotor is. The gap between the arrows grows as the motor
-slows, because the back-EMF it estimates from shrinks with speed.
+The **"estimate the angle instead of measuring it"** switch adds a second arrow using the
+angle-error curve exported from the 0.5 N.m simulation sweep. No error is fabricated below
+the demonstrated sensorless region: the display reports encoder fallback instead.
 
-**What is measured and what is not.** The sensorless model exists (v0.6): it aligns, pulls in
-open loop, and hands over to its own angle estimate at 1.050 s with no encoder in the control
-path, and its settled angle error there is 67.44 deg RMS. What has *not* been measured is how
-that error varies with speed and load, because no sensorless speed-load matrix has been run.
-So the error-against-speed **shape** used in this page is still illustrative, and it should be
-replaced once that matrix exists.
+**What is measured and what is not.** The matched simulation sweep covers 200--1500 rpm at
+0.5 N.m. Sensorless control stayed active from 300 rpm upward; the 200 rpm case completed
+handover and then fell back to the encoder. The startup is encoder-assisted, the other load
+rows have not been run, and no result has been validated against the physical rig.
 
 ## Side by side
 
-The last tab runs the same motor twice at once, under the same speed and the same load,
+The side-by-side tab runs the same motor twice at once, under the same speed and the same load,
 differing only in where the controller gets the rotor angle. It shows what an angle error
 actually costs: the current needed to hold the demanded torque rises as `1/cos e`, the heat
 in the windings as `1/cos^2 e`, and once that current hits the 25 A limit the torque cannot
 be held at all. "Run the speed down" sweeps 1600 rpm to 30 rpm, which is the clearest way to
 show why a low-speed limit exists.
 
-**Both sides are the real model. The estimator's error is not.** How wrong a sensorless
-estimate gets is a stand-in shape, stated as such on the tab, and it should be replaced by
-the sensorless simulation's own error once that simulation works.
+At 0.5 N.m the estimator error is interpolated from the completed sweep. Changing the load
+keeps the explanatory motor equations live, but is not presented as sensorless evidence until
+the remaining load rows have been simulated.
 
 ## Method and limits
 
