@@ -1394,7 +1394,10 @@ async function askBoard(entry) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4000);
   try {
-    const response = await fetch(BOARD_URL, {
+    // A plain GET gets cached by the CDN, which shows a visitor a board that is
+    // a few minutes out of date. The query string makes each read its own.
+    const url = entry ? BOARD_URL : BOARD_URL + '?t=' + Date.now();
+    const response = await fetch(url, {
       method: entry ? 'POST' : 'GET',
       headers: entry ? { 'content-type': 'application/json' } : undefined,
       body: entry ? JSON.stringify(entry) : undefined,

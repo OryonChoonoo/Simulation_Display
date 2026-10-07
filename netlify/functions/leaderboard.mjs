@@ -50,6 +50,19 @@ export default async function handler(request) {
 
   if (request.method === 'OPTIONS') return new Response('', { status: 204, headers });
 
+  // Wiping the board needs a key set on the site, so it can be emptied before
+  // Open Day without anyone who finds the URL being able to do the same. With
+  // no key set, nothing can be deleted at all.
+  if (request.method === 'DELETE') {
+    const key = process.env.BOARD_KEY;
+    const given = request.headers.get('x-board-key');
+    if (!key || given !== key) {
+      return new Response(JSON.stringify({ error: 'not allowed' }), { status: 403, headers });
+    }
+    await store.setJSON(KEY, []);
+    return new Response(JSON.stringify({ list: [] }), { status: 200, headers });
+  }
+
   let list = [];
   try {
     list = (await store.get(KEY, { type: 'json' })) || [];
