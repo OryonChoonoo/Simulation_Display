@@ -1362,7 +1362,7 @@ function hear(rpm, err, current) {
 const game = {
   running: false, demo: false, theta: 0, aim: Math.PI / 2, rpm: 50,
   kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: 0,
-  heat: 0, best: 0, flash: '', flashAt: -9, gentle: true, milestone: 0,
+  heat: 0, best: 0, flash: '', flashAt: -9, gentle: true, milestone: 0, step: 0, saved: true,
 };
 
 // Gentle is the default because the point is to be understood, not to be beaten.
@@ -1371,12 +1371,53 @@ const game = {
 // turns nearly seven times a second, which no hand can follow, so the picture
 // runs at a fraction of it and says so on screen. Every other exhibit on this
 // page is slowed the same way and for the same reason.
+// The speed holds steady for five seconds and then steps up, so a player gets a
+// moment to settle at each one and can feel the jump rather than being pushed
+// along by their own success.
+const STEP_SECONDS = 5;
 const LEVELS = {
-  gentle: { start: 40, ramp: 3.5, bonus: 7, cap: 450, give: .18, grace: 6, band: 38, slow: .10 },
-  normal: { start: 80, ramp: 10, bonus: 22, cap: 1100, give: .30, grace: 4, band: 24, slow: .20 },
+  gentle: { start: 40, step: 1.30, cap: 900, give: .18, grace: 6, band: 38, slow: .10 },
+  normal: { start: 80, step: 1.45, cap: 2000, give: .30, grace: 4, band: 24, slow: .20 },
 };
 function level() { return LEVELS[game.gentle ? 'gentle' : 'normal']; }
 const GAME_BEST_KEY = 'ltc-best-attempt';
+const BOARD_KEY = 'ltc-leaderboard';
+
+// Kept in this browser and nowhere else: no server, no account, nothing sent.
+function board() {
+  try {
+    const raw = localStorage.getItem(BOARD_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+
+function saveBoard(list) {
+  try { localStorage.setItem(BOARD_KEY, JSON.stringify(list.slice(0, 10))); } catch { /* fine */ }
+}
+
+function renderBoard() {
+  const list = board();
+  $('lb-list').innerHTML = list.length
+    ? list.map(row => `<li><span>${escapeHtml(row.name)}</span>`
+        + `<b>${row.seconds.toFixed(1)} s</b>`
+        + `<i>step ${row.step} \u00b7 ${row.percent.toFixed(0)} %</i></li>`).join('')
+    : '<li class="empty">No attempts yet. The first one is free.</li>';
+}
+
+function addToBoard() {
+  if (game.saved) return;
+  const name = ($('lb-name').value || '').trim().slice(0, 14) || 'anonymous';
+  const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
+  const list = board();
+  list.push({ name, seconds: game.elapsed, percent, step: game.step + 1, rpm: Math.round(game.best) });
+  list.sort((a, b) => b.seconds - a.seconds);
+  saveBoard(list);
+  game.saved = true;
+  $('lb-entry').hidden = true;
+  $('lb-name').value = '';
+  renderBoard();
+}
 
 function gameBest() {
   try {
@@ -1393,7 +1434,7 @@ function startGame(demo) {
   Object.assign(game, {
     running: true, demo, theta: 0, aim: Math.PI / 2, rpm: level().start,
     kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: performance.now(),
-    heat: 0, best: 0, flash: '', flashAt: -9, milestone: 0,
+    heat: 0, best: 0, flash: '', flashAt: -9, milestone: 0, step: 0, saved: demo,
   });
   $('game-start').textContent = 'Stop';
   $('game-title').textContent = demo ? 'The controller, doing it properly' : 'Hold it at ninety degrees';
@@ -1422,6 +1463,7 @@ function endGame(reason) {
     if (better) saveGameBest({ seconds: game.elapsed, percent, rpm: game.rpm });
     $('game-title').textContent = reason;
     $('game-title').className = 'verdict bad';
+    $('lb-entry').hidden = false;
     $('game-text').textContent = `You held it for ${game.elapsed.toFixed(1)} seconds, keeping `
       + `${percent.toFixed(0)} % of the torque, up to ${Math.round(game.rpm)} rpm. `
       + (better ? 'That is your best yet. ' : '')
@@ -1444,21 +1486,21 @@ function gameFrame(now) {
     game.kept = Math.cos(error);
     game.elapsed += dt;
     game.score += Math.max(game.kept, 0) * dt;
-    // Doing well speeds the motor up, which is how it beats you in the end.
+    // Every five seconds, another step up. That is what eventually beats you.
     const L = level();
-    game.rpm = Math.min(game.rpm + dt * (L.ramp + L.bonus * Math.max(game.kept, 0)), L.cap);
+    const wantedStep = Math.floor(game.elapsed / STEP_SECONDS);
+    if (wantedStep > game.step) {
+      game.step = wantedStep;
+      game.flash = 'step ' + (game.step + 1) + ' \u00b7 faster';
+      game.flashAt = game.elapsed;
+    }
+    game.rpm = Math.min(L.start * Math.pow(L.step, game.step), L.cap);
     game.best = Math.max(game.best, game.rpm);
     // Current that is not making torque is making heat. Shown, never fatal: the
     // lesson is that being out costs something, not that the game is unfair.
     game.heat = Math.min(Math.max(game.heat + dt * (1 - Math.max(game.kept, 0)) * .5
       - dt * .12, 0), 1);
-    for (const mark of [100, 200, 400, 800, 1200]) {
-      if (game.milestone < mark && game.rpm >= mark) {
-        game.milestone = mark;
-        game.flash = mark + ' rpm \u00b7 still with it';
-        game.flashAt = game.elapsed;
-      }
-    }
+
     // A smoothed average, not an instantaneous threshold. Standing still is not
     // a way to survive: the error sweeps past zero once a revolution, so the
     // instantaneous torque keeps touching 100 % while the average is hopeless.
@@ -1468,6 +1510,11 @@ function gameFrame(now) {
     }
   }
   drawGame();
+  if (game3d) {
+    const ideal = game.theta + Math.PI / 2;
+    const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
+    game3d.update({ theta: game.theta, err: error, amplitude: 1, heat: game.heat });
+  }
 }
 
 function drawGame() {
@@ -1583,6 +1630,8 @@ function updateGameNumbers() {
     ['Average this attempt', percent.toFixed(0) + ' %'],
     ['Held for', game.elapsed.toFixed(1) + ' s'],
     ['Motor speed', Math.round(game.rpm) + ' rpm'],
+    ['Step', (game.step + 1) + ' \u00b7 next in '
+      + Math.max(0, STEP_SECONDS - (game.elapsed % STEP_SECONDS)).toFixed(1) + ' s'],
     ['Your best', best ? best.seconds.toFixed(1) + ' s at ' + best.percent.toFixed(0) + ' %' : 'no attempt yet'],
     ['The controller', 'about 100 %, indefinitely'],
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
@@ -1593,6 +1642,35 @@ function aimAt(event) {
   const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2 + 10;
   game.aim = Math.atan2(cy - event.clientY, event.clientX - cx);
   if (game.demo && game.running) { game.demo = false; $('game-title').textContent = 'Your turn'; }
+}
+
+// The player's own machine, in three dimensions, loaded when the tab is opened.
+let game3d = null, game3dFailed = false;
+async function ensureGame3d() {
+  if (game3d || game3dFailed) return game3d;
+  let module;
+  try {
+    module = await import('./game3d.js?v=' + (window.__build || ''));
+  } catch (err) {
+    game3dFailed = true;
+    console.error('the game 3D view could not load', err);
+    $('game-stage').innerHTML = '<div class="stage3d-error"><p class="err-head">'
+      + 'The 3D view could not load its library</p><p class="err-advice">'
+      + 'The game itself still works.</p></div>';
+    return null;
+  }
+  try {
+    module.init($('game-stage'));
+    game3d = module;
+  } catch (err) {
+    game3dFailed = true;
+    console.error('the game 3D scene failed', err);
+    $('game-stage').innerHTML = '<div class="stage3d-error"><p class="err-head">'
+      + 'The 3D view failed while building its scene</p>'
+      + `<p class="err-msg">${escapeHtml(err.message || String(err))}</p>`
+      + '<p class="err-advice">The game itself still works.</p></div>';
+  }
+  return game3d;
 }
 
 // ---- tabs ----------------------------------------------------------------------
@@ -1613,6 +1691,7 @@ function setTab(name) {
   for (const id of ['envelope', 'foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
+  if (name === 'game') { ensureGame3d(); renderBoard(); }
   if (name === 'sbs') {
     ensureCompare3d();
     if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }
@@ -1670,6 +1749,8 @@ async function start() {
     if (game.running) endGame('Stopped'); else startGame(false);
   });
   $('game-demo').addEventListener('click', () => { touched(); startGame(true); });
+  $('lb-save').addEventListener('click', () => { touched(); addToBoard(); });
+  $('lb-name').addEventListener('keydown', e => { if (e.key === 'Enter') addToBoard(); });
   $('game-level').addEventListener('click', () => {
     touched();
     game.gentle = !game.gentle;

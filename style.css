@@ -306,3 +306,26 @@ body[data-mode=kiosk] .script-line{font-size:17.5px}
 body[data-mode=kiosk] #game{height:560px}
 @media(max-width:1100px){#game{height:420px}}
 @media(max-width:760px){#game{height:360px}}
+
+/* The player's machine in 3D, under the dial */
+.game-stage{width:100%;height:280px;border-radius:10px;overflow:hidden;background:#0b0f16;
+  margin-top:10px;touch-action:none;cursor:grab}
+.game-stage canvas{display:block;width:100%;height:100%}
+@media(max-width:760px){.game-stage{height:220px}}
+
+/* Leaderboard */
+.lb-entry{display:flex;gap:8px;margin-bottom:10px}
+.lb-entry input{flex:1;min-width:0;background:#0d1117;border:1px solid #33404f;border-radius:8px;
+  padding:9px 12px;color:#e8eaed;font:500 14px system-ui}
+.lb-entry input:focus{outline:none;border-color:#34d399}
+.lb-entry .primary-btn{flex:0 0 auto;padding:9px 16px}
+.lb-list{list-style:none;counter-reset:place;margin:0;padding:0}
+.lb-list li{counter-increment:place;display:grid;grid-template-columns:22px 1fr auto;
+  align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px solid #1e2732;
+  color:#cfd6df;font:400 14px system-ui}
+.lb-list li::before{content:counter(place);color:#6b7684;font-weight:600;font-size:12px}
+.lb-list li span{color:#e8eaed;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.lb-list li b{color:#34d399;font-size:14px}
+.lb-list li i{grid-column:2/4;color:#6b7684;font-style:normal;font-size:12px}
+.lb-list li.empty{grid-template-columns:1fr;color:#6b7684}
+.lb-list li.empty::before{content:''}

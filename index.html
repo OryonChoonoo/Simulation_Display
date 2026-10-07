@@ -350,7 +350,11 @@
     <canvas id="game" aria-label="Hold the current vector ninety degrees ahead of the rotor magnets"></canvas>
     <p class="caption">Move your pointer, or your finger, around the motor. You are aiming the current the
       stator makes. Keep it a quarter turn ahead of the red magnet arrow and the motor pulls hard; let it
-      slip and the torque falls away with the cosine of how far out you are.</p>
+      slip and the torque falls away with the cosine of how far out you are. <b>The speed steps up every
+      five seconds</b> until you cannot hold it.</p>
+    <div id="game-stage" class="game-stage"></div>
+    <p class="caption">The same machine, driven by you: each coil lights with the current your aim is
+      sending through it. Drag to turn it, scroll to zoom.</p>
   </section>
 
   <section class="side">
@@ -370,6 +374,16 @@
     <div class="numbers-card">
       <h2>This attempt</h2>
       <div id="game-numbers" class="numbers"></div>
+    </div>
+    <div class="numbers-card">
+      <h2>Leaderboard</h2>
+      <div id="lb-entry" class="lb-entry" hidden>
+        <input id="lb-name" maxlength="14" placeholder="your name" autocomplete="off">
+        <button id="lb-save" class="primary-btn">Add it</button>
+      </div>
+      <ol id="lb-list" class="lb-list"></ol>
+      <p class="hint">Kept in this browser only. Nothing is sent anywhere, and clearing your browser data
+        clears it.</p>
     </div>
     <div class="numbers-card">
       <h2>Why this is hard, and why it matters</h2>
