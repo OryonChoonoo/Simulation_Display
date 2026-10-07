@@ -1,0 +1,8 @@
+{
+  "name": "lets-torque-control",
+  "private": true,
+  "description": "Static page for the BM1109 drive investigation. The only dependency is for the shared-leaderboard function; the page itself has none.",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

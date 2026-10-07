@@ -1376,14 +1376,45 @@ const game = {
 // along by their own success.
 const STEP_SECONDS = 5;
 const LEVELS = {
-  gentle: { start: 40, step: 1.30, cap: 900, give: .18, grace: 6, band: 38, slow: .10 },
-  normal: { start: 80, step: 1.45, cap: 2000, give: .30, grace: 4, band: 24, slow: .20 },
+  gentle: { start: 40, step: 1.50, cap: 1200, give: .18, grace: 6, band: 38, slow: .10 },
+  normal: { start: 80, step: 1.70, cap: 2600, give: .30, grace: 4, band: 24, slow: .20 },
 };
 function level() { return LEVELS[game.gentle ? 'gentle' : 'normal']; }
 const GAME_BEST_KEY = 'ltc-best-attempt';
 const BOARD_KEY = 'ltc-leaderboard';
 
-// Kept in this browser and nowhere else: no server, no account, nothing sent.
+// The shared board, with the browser's own as a fallback. The page is built to
+// work with no internet at all, so a leaderboard that needs a network must
+// never be the only one: if the function cannot be reached, the visitor still
+// gets a board, it just happens to be theirs alone.
+const BOARD_URL = '/.netlify/functions/leaderboard';
+let sharedBoard = null;          // null until we know whether the endpoint works
+
+async function askBoard(entry) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const response = await fetch(BOARD_URL, {
+      method: entry ? 'POST' : 'GET',
+      headers: entry ? { 'content-type': 'application/json' } : undefined,
+      body: entry ? JSON.stringify(entry) : undefined,
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error('status ' + response.status);
+    const data = await response.json();
+    sharedBoard = Array.isArray(data.list) ? data.list : [];
+    return sharedBoard;
+  } catch {
+    sharedBoard = null;          // offline, or the function is not deployed
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function boardIsShared() { return sharedBoard !== null; }
+
+// Kept in this browser, and used whenever the shared one cannot be reached.
 function board() {
   try {
     const raw = localStorage.getItem(BOARD_KEY);
@@ -1396,8 +1427,11 @@ function saveBoard(list) {
   try { localStorage.setItem(BOARD_KEY, JSON.stringify(list.slice(0, 10))); } catch { /* fine */ }
 }
 
-function renderBoard() {
-  const list = board();
+function renderBoard(list) {
+  if (!list) list = boardIsShared() ? sharedBoard : board();
+  $('lb-where').textContent = boardIsShared()
+    ? 'Shared by everyone who opens this page.'
+    : 'This browser only: the shared board could not be reached, so nothing is sent anywhere.';
   $('lb-list').innerHTML = list.length
     ? list.map(row => `<li><span>${escapeHtml(row.name)}</span>`
         + `<b>${row.seconds.toFixed(1)} s</b>`
@@ -1405,18 +1439,26 @@ function renderBoard() {
     : '<li class="empty">No attempts yet. The first one is free.</li>';
 }
 
-function addToBoard() {
+async function addToBoard() {
   if (game.saved) return;
   const name = ($('lb-name').value || '').trim().slice(0, 14) || 'anonymous';
   const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
-  const list = board();
-  list.push({ name, seconds: game.elapsed, percent, step: game.step + 1, rpm: Math.round(game.best) });
-  list.sort((a, b) => b.seconds - a.seconds);
-  saveBoard(list);
+  const entry = { name, seconds: game.elapsed, percent, step: game.step + 1, rpm: Math.round(game.best) };
   game.saved = true;
   $('lb-entry').hidden = true;
   $('lb-name').value = '';
-  renderBoard();
+  $('lb-save').disabled = true;
+
+  // Always keep a copy here, whether or not the shared board took it, so a
+  // visitor's own attempt never disappears because the network did.
+  const mine = board();
+  mine.push(entry);
+  mine.sort((a, b) => b.seconds - a.seconds);
+  saveBoard(mine);
+
+  const shared = await askBoard(entry);
+  $('lb-save').disabled = false;
+  renderBoard(shared || mine);
 }
 
 function gameBest() {
@@ -1691,7 +1733,11 @@ function setTab(name) {
   for (const id of ['envelope', 'foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
-  if (name === 'game') { ensureGame3d(); renderBoard(); }
+  if (name === 'game') {
+    ensureGame3d();
+    renderBoard();
+    askBoard().then(list => renderBoard(list || undefined));
+  }
   if (name === 'sbs') {
     ensureCompare3d();
     if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }

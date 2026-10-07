@@ -10,6 +10,18 @@
   publish = "."
   command = ""
 
+# The shared leaderboard lives here. Everything else on the site is static, and
+# the page falls back to a board kept in the visitor's own browser if this
+# cannot be reached, so an offline laptop still works.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Cache-Control = "no-store"
+
 [[headers]]
   for = "/*.html"
   [headers.values]
