@@ -1360,9 +1360,18 @@ function hear(rpm, err, current) {
 // error - with the controller replaced by a person, which is the point: nobody
 // can do it, and a drive does it every fifty microseconds without trying.
 const game = {
-  running: false, demo: false, theta: 0, aim: Math.PI / 2, rpm: 90,
+  running: false, demo: false, theta: 0, aim: Math.PI / 2, rpm: 50,
   kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: 0,
+  heat: 0, best: 0, flash: '', flashAt: -9, gentle: true, milestone: 0,
 };
+
+// Gentle is the default because the point is to be understood, not to be beaten.
+// Normal is for whoever has already had a go and wants it to fight back.
+const LEVELS = {
+  gentle: { start: 50, ramp: 7, bonus: 14, cap: 700, give: .20, grace: 5, band: 32 },
+  normal: { start: 90, ramp: 14, bonus: 34, cap: 1400, give: .34, grace: 3, band: 20 },
+};
+function level() { return LEVELS[game.gentle ? 'gentle' : 'normal']; }
 const GAME_BEST_KEY = 'ltc-best-attempt';
 
 function gameBest() {
@@ -1378,8 +1387,9 @@ function saveGameBest(next) {
 
 function startGame(demo) {
   Object.assign(game, {
-    running: true, demo, theta: 0, aim: Math.PI / 2, rpm: 90,
+    running: true, demo, theta: 0, aim: Math.PI / 2, rpm: level().start,
     kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: performance.now(),
+    heat: 0, best: 0, flash: '', flashAt: -9, milestone: 0,
   });
   $('game-start').textContent = 'Stop';
   $('game-title').textContent = demo ? 'The controller, doing it properly' : 'Hold it at ninety degrees';
@@ -1431,12 +1441,27 @@ function gameFrame(now) {
     game.elapsed += dt;
     game.score += Math.max(game.kept, 0) * dt;
     // Doing well speeds the motor up, which is how it beats you in the end.
-    game.rpm = Math.min(game.rpm + dt * (18 + 42 * Math.max(game.kept, 0)), 1600);
+    const L = level();
+    game.rpm = Math.min(game.rpm + dt * (L.ramp + L.bonus * Math.max(game.kept, 0)), L.cap);
+    game.best = Math.max(game.best, game.rpm);
+    // Current that is not making torque is making heat. Shown, never fatal: the
+    // lesson is that being out costs something, not that the game is unfair.
+    game.heat = Math.min(Math.max(game.heat + dt * (1 - Math.max(game.kept, 0)) * .5
+      - dt * .12, 0), 1);
+    for (const mark of [100, 200, 400, 800, 1200]) {
+      if (game.milestone < mark && game.rpm >= mark) {
+        game.milestone = mark;
+        game.flash = mark + ' rpm \u00b7 still with it';
+        game.flashAt = game.elapsed;
+      }
+    }
     // A smoothed average, not an instantaneous threshold. Standing still is not
     // a way to survive: the error sweeps past zero once a revolution, so the
     // instantaneous torque keeps touching 100 % while the average is hopeless.
     game.recent += (game.kept - game.recent) * Math.min(dt / .8, 1);
-    if (!game.demo && game.elapsed > 2.5 && game.recent < .35) endGame('You lost the rotor');
+    if (!game.demo && game.elapsed > level().grace && game.recent < level().give) {
+      endGame('You lost the rotor');
+    }
   }
   drawGame();
 }
@@ -1450,16 +1475,44 @@ function drawGame() {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
 
-  const cx = w / 2, cy = h / 2 + 10, r = Math.min(w, h) * .22;
+  const cx = w / 2, cy = h / 2 + 14, r = Math.min(w, h) * .21;
   const ideal = game.theta + Math.PI / 2;
   const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
-  drawMachine(g, cx, cy, r, {
-    theta: game.theta, err: error, peak: 1, bounds: [8, w - 8],
-  });
+  const tolerance = level().band * Math.PI / 180;
 
-  // A bar across the top: how much torque this attempt is making right now.
+  // The target: a band you are trying to keep the green arrow inside. Without
+  // it, a visitor is guessing where ninety degrees ahead actually is.
+  g.save(); g.translate(cx, cy); g.scale(1, -1);
+  const inside = Math.abs(error) <= tolerance;
+  g.fillStyle = inside ? 'rgba(52,211,153,.17)' : 'rgba(52,211,153,.07)';
+  g.beginPath(); g.moveTo(0, 0);
+  g.arc(0, 0, r * 1.78, ideal - tolerance, ideal + tolerance); g.fill();
+  g.strokeStyle = inside ? 'rgba(52,211,153,.55)' : 'rgba(52,211,153,.22)';
+  g.lineWidth = 1.5;
+  g.beginPath(); g.arc(0, 0, r * 1.78, ideal - tolerance, ideal + tolerance); g.stroke();
+  g.restore();
+
+  drawMachine(g, cx, cy, r, { theta: game.theta, err: error, peak: 1, bounds: [8, w - 8] });
+
+  // Your current, split the way the controller splits it: the part across the
+  // magnets that makes torque, and the part along them that makes only heat.
+  if (game.running || game.over) {
+    const useful = Math.cos(error), wasted = Math.sin(error);
+    const comp = (angle, len, colour, label) => {
+      if (Math.abs(len) < .06) return;
+      const x = cx + Math.cos(angle) * r * 1.25 * len, y = cy - Math.sin(angle) * r * 1.25 * len;
+      g.strokeStyle = colour; g.lineWidth = 2; g.setLineDash([4, 4]);
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke(); g.setLineDash([]);
+      g.fillStyle = colour; g.font = '600 11.5px system-ui'; g.textAlign = 'center';
+      g.fillText(label, x, y - 6);
+    };
+    comp(ideal, useful, '#34d399', 'makes torque');
+    comp(game.theta, wasted, '#ef4444', 'makes heat');
+  }
+
+  // Torque bar.
   const kept = Math.max(game.kept, 0);
-  const bw = Math.min(w - 48, 420), bx = (w - bw) / 2, by = 16;
+  const bw = Math.min(w - 48, 420), bx = (w - bw) / 2, by = 18;
   g.fillStyle = '#121923'; g.fillRect(bx, by, bw, 16);
   g.fillStyle = kept > .9 ? '#34d399' : kept > .6 ? '#f0b429' : '#ef4444';
   g.fillRect(bx, by, bw * kept, 16);
@@ -1470,11 +1523,47 @@ function drawGame() {
   g.fillStyle = kept > .9 ? '#34d399' : '#cfd6df';
   g.fillText((100 * kept).toFixed(0) + ' %', bx + bw, by - 5);
 
-  g.textAlign = 'center'; g.fillStyle = '#6b7684'; g.font = '12.5px system-ui';
-  g.fillText(game.running || game.over
-    ? Math.round(game.rpm) + ' rpm \u00b7 ' + game.elapsed.toFixed(1) + ' s'
-    : 'press Start, then move your pointer around the motor', cx, h - 12);
+  // Heat bar underneath it, filling with the current you are wasting.
+  const hy = by + 22;
+  g.fillStyle = '#121923'; g.fillRect(bx, hy, bw, 8);
+  g.fillStyle = game.heat > .7 ? '#ef4444' : '#8a5a2a';
+  g.fillRect(bx, hy, bw * game.heat, 8);
+  g.fillStyle = '#6b7684'; g.font = '11px system-ui'; g.textAlign = 'left';
+  g.fillText('heat from the current you are wasting', bx, hy + 19);
+
+  g.textAlign = 'right'; g.fillStyle = '#6b7684'; g.font = '12px system-ui';
+  g.fillText(Math.round(game.rpm) + ' rpm \u00b7 ' + game.elapsed.toFixed(1) + ' s', bx + bw, hy + 19);
+
+  // A word when you pass a milestone, fading out.
+  const age = game.elapsed - game.flashAt;
+  if (game.flash && age < 2) {
+    g.globalAlpha = Math.max(0, 1 - age / 2);
+    g.fillStyle = '#34d399'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
+    g.fillText(game.flash, cx, cy - r * 2.0);
+    g.globalAlpha = 1;
+  }
+
+  if (!game.running && !game.over) {
+    g.textAlign = 'center'; g.fillStyle = '#6b7684'; g.font = '13px system-ui';
+    g.fillText('press Start, then move your pointer around the motor', cx, h - 14);
+  }
+
+  // The end of a round, said on the picture rather than only in the panel.
+  if (game.over && !game.demo) {
+    const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
+    const pw = Math.min(w - 60, 360), px = (w - pw) / 2, py = cy + r * 1.95;
+    g.fillStyle = 'rgba(13,17,23,.9)'; g.fillRect(px, py, pw, 70);
+    g.strokeStyle = '#ef4444'; g.lineWidth = 1.5; g.strokeRect(px + .5, py + .5, pw - 1, 69);
+    g.textAlign = 'center';
+    g.fillStyle = '#e8eaed'; g.font = 'bold 15px system-ui';
+    g.fillText(game.elapsed.toFixed(1) + ' s at ' + percent.toFixed(0) + ' % of the torque',
+      cx, py + 26);
+    g.fillStyle = '#9aa5b1'; g.font = '12.5px system-ui';
+    g.fillText('you reached ' + Math.round(game.best) + ' rpm \u00b7 the controller holds 100 % to 4000',
+      cx, py + 48);
+  }
 }
+
 
 function updateGameNumbers() {
   if ($('tab-game').hidden) return;
@@ -1483,6 +1572,7 @@ function updateGameNumbers() {
   $('game-numbers').innerHTML = [
     ['Torque right now', (100 * Math.max(game.kept, 0)).toFixed(0) + ' %'],
     ['Last second or so', (100 * Math.max(game.recent, 0)).toFixed(0) + ' %'],
+    ['Heat building up', (100 * game.heat).toFixed(0) + ' %'],
     ['Average this attempt', percent.toFixed(0) + ' %'],
     ['Held for', game.elapsed.toFixed(1) + ' s'],
     ['Motor speed', Math.round(game.rpm) + ' rpm'],
@@ -1573,6 +1663,12 @@ async function start() {
     if (game.running) endGame('Stopped'); else startGame(false);
   });
   $('game-demo').addEventListener('click', () => { touched(); startGame(true); });
+  $('game-level').addEventListener('click', () => {
+    touched();
+    game.gentle = !game.gentle;
+    $('game-level').textContent = game.gentle ? 'Gentle \u00b7 make it harder' : 'Harder \u00b7 make it gentle';
+    if (game.running) startGame(game.demo);
+  });
   for (const type of ['pointermove', 'pointerdown'])
     $('game').addEventListener(type, event => { touched(); aimAt(event); });
   $('game').addEventListener('touchmove', e => e.preventDefault(), { passive: false });
