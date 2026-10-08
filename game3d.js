@@ -13,6 +13,34 @@ let renderer, scene, camera, host, machine, clock;
 let state = { theta: 0, err: 0, amplitude: 1, heat: 0 };
 const orbit = { yaw: .5, pitch: .35, zoom: 1, drag: null };
 
+// While a round is running the pointer aims the current on the machine itself,
+// which is the whole appeal of having it in three dimensions. Between rounds the
+// same drag turns the view instead, so the model can still be looked at.
+let aiming = false, onAim = null;
+const raycaster = new THREE.Raycaster();
+const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.062);
+const hit = new THREE.Vector3();
+
+export function setAiming(on) {
+  aiming = !!on;
+  if (host) host.style.cursor = aiming ? 'crosshair' : 'grab';
+}
+
+export function setAimHandler(fn) { onAim = fn; }
+
+// Screen position to an angle round the shaft: cast a ray through the pointer
+// and see where it crosses the plane the vectors live in.
+function aimFrom(event) {
+  if (!onAim || !camera) return;
+  const rect = host.getBoundingClientRect();
+  raycaster.setFromCamera(new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1), camera);
+  if (!raycaster.ray.intersectPlane(aimPlane, hit)) return;
+  if (Math.hypot(hit.x, hit.y) < .004) return;    // too near the shaft to mean anything
+  onAim(Math.atan2(hit.y, hit.x));
+}
+
 export function init(container) {
   host = container;
   scene = new THREE.Scene();
@@ -47,6 +75,7 @@ export function init(container) {
 
   // Draggable, like every other 3D view here.
   const pointer = e => {
+    if (aiming) { aimFrom(e); return; }           // playing: the pointer is the current
     if (e.type === 'pointerdown') orbit.drag = { x: e.clientX, y: e.clientY };
     else if (e.type === 'pointerup' || e.type === 'pointerleave') orbit.drag = null;
     else if (orbit.drag) {
@@ -57,6 +86,9 @@ export function init(container) {
   };
   for (const t of ['pointerdown', 'pointerup', 'pointermove', 'pointerleave'])
     container.addEventListener(t, pointer);
+  // A finger dragging on the model should aim, not scroll the page away.
+  container.addEventListener('touchmove', e => { if (aiming) e.preventDefault(); },
+    { passive: false });
   container.addEventListener('wheel', e => {
     e.preventDefault();
     orbit.zoom = Math.max(.5, Math.min(2, orbit.zoom * (1 + Math.sign(e.deltaY) * .12)));

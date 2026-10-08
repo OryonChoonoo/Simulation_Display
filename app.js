@@ -1482,6 +1482,7 @@ function startGame(demo) {
     heat: 0, best: 0, flash: '', flashAt: -9, milestone: 0, step: 0, saved: demo,
   });
   $('game-start').textContent = 'Stop';
+  if (game3d) game3d.setAiming(!demo);
   $('game-title').textContent = demo ? 'The controller, doing it properly' : 'Hold it at ninety degrees';
   $('game-title').className = 'verdict ok';
   $('game-text').textContent = demo
@@ -1492,6 +1493,7 @@ function startGame(demo) {
 function endGame(reason) {
   game.running = false;
   game.over = true;
+  if (game3d) game3d.setAiming(false);
   $('game-start').textContent = 'Try again';
   const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
   if (game.demo) {
@@ -1685,8 +1687,17 @@ function updateGameNumbers() {
 function aimAt(event) {
   const c = $('game'), rect = c.getBoundingClientRect();
   const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2 + 10;
-  game.aim = Math.atan2(cy - event.clientY, event.clientX - cx);
-  if (game.demo && game.running) { game.demo = false; $('game-title').textContent = 'Your turn'; }
+  aimTo(Math.atan2(cy - event.clientY, event.clientX - cx));
+}
+
+// Both inputs land here: the 2D dial and the pointer on the 3D machine itself.
+function aimTo(angle) {
+  game.aim = angle;
+  if (game.demo && game.running) {
+    game.demo = false;
+    if (game3d) game3d.setAiming(true);
+    $('game-title').textContent = 'Your turn';
+  }
 }
 
 // The player's own machine, in three dimensions, loaded when the tab is opened.
@@ -1706,6 +1717,8 @@ async function ensureGame3d() {
   }
   try {
     module.init($('game-stage'));
+    module.setAimHandler(angle => { touched(); aimTo(angle); });
+    module.setAiming(game.running && !game.demo);
     game3d = module;
   } catch (err) {
     game3dFailed = true;
