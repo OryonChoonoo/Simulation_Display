@@ -3,8 +3,12 @@
 An interactive page showing what a BM1109 PMSM driven by an ODrive Pro can and cannot do,
 built for the fourth-year investigation Open Day (15 October 2026).
 
-**Live at <https://clever-gecko-55237e.netlify.app>**, redeployed automatically from this
-repository on every push.
+**Runs on the Open Day laptop.** Double-click `start_site.bat`, or see *Running it* below.
+
+The Netlify copy at <https://clever-gecko-55237e.netlify.app> is **frozen at 8 October 2026**:
+that account ran out of free credits, which pauses production deploys until the billing cycle
+resets on 1 November, after Open Day. Pushes still go to this repository; they just do not
+reach that URL. Anything newer than 8 October has to be run locally.
 
 **This is a simulation, not a measurement.** Motor parameters are provisional, the inverter
 is averaged, rotor feedback is ideal, and nothing here has been validated against the
@@ -56,6 +60,39 @@ renders a blank tab with nothing in the console to explain it.
 Then open <http://127.0.0.1:8790/>. For the Open Day laptop, open visitor mode in
 full screen: <http://127.0.0.1:8790/?mode=kiosk>
 
+On Windows, `start_site.bat` does both: it starts the server and opens visitor mode.
+Closing the black window stops the site.
+
+### Letting visitors' phones reach it
+
+```bash
+python serve.py --lan
+```
+
+The server then also listens on the laptop's Wi-Fi address and prints it, for example
+`http://192.168.1.24:8790/?mode=kiosk`. That is the address to put in the QR code. Windows
+asks once whether to allow Python through the firewall: say yes for private networks.
+
+Two things to know. Anyone on that network can then reach the page and post to the
+leaderboard, so leave `--lan` off when you do not need it. And many campus and guest
+networks isolate clients from one another, which blocks this however the laptop is
+configured: test it on the actual network before relying on it.
+
+### The leaderboard, locally
+
+`serve.py` answers the same leaderboard endpoint the Netlify function does, keeping the
+list in `leaderboard_local.json` beside it. So with `--lan`, every phone in the room shares
+one board, with no account and nothing to pay for. The file is not committed.
+
+Emptying it before Open Day, from the laptop itself (a phone on the Wi-Fi cannot):
+
+```bash
+curl -X DELETE http://127.0.0.1:8790/.netlify/functions/leaderboard
+```
+
+If the page cannot reach any leaderboard at all it falls back to one kept in the visitor's
+own browser, so the game still works with no server behind it.
+
 ## Putting it on the web
 
 `netlify.toml` is already here: nothing to build, publish the folder as it is, with
@@ -101,6 +138,11 @@ This rewrites `data/sensorless_speed_sweep.json`, `data/comparison_800rpm.json` 
 | `rig3d.js` | The 3D rig view and the exploded motor |
 | `focmachine.js` | The teaching machine both 3D exhibits are built from |
 | `compare3d.js` | The two machines on the side-by-side tab |
+| `game3d.js` | The machine the player drives in "Beat the controller" |
+| `sound.js` | The synthesised motor |
+| `serve.py` | Local server: no caching, and the shared leaderboard |
+| `start_site.bat` | Double-click launcher for the Open Day laptop |
+| `netlify/functions/leaderboard.mjs` | The same leaderboard, for when the site is hosted again |
 | `vendor/three.module.js` | three.js r169 (MIT licence, Copyright 2010-2024 Three.js Authors), vendored so the page works offline |
 | `data/matrix.json` | Exported simulation results and model parameters |
 | `data/sensorless_speed_sweep.json` | Matched 0.5 N.m sensored/sensorless sweep |
@@ -116,9 +158,12 @@ scale. It is an **illustration of the setup, not CAD and not measured data**: no
 CAD exists for the BM1109, and clean shapes read better on a screen than a borrowed model
 of a different motor.
 
-Two views: the whole rig, which opens with a slow fly-in and can be dragged around, and a
-cutaway of the test motor seen down the shaft, showing the rotor magnets, the stator coils
-and the current vector the controller holds at right angles to the magnets.
+Both views are on screen at once, one above the other: the whole rig, which opens with a
+slow fly-in and can be dragged around, and under it the test motor pulled apart, showing the
+rotor magnets, the stator coils and the current vector the controller holds at right angles
+to the magnets. They are one scene seen by two cameras, each pane applying the visibility its
+view needs just before it renders, so the geometry is built and stepped once. Each pane turns
+and zooms on its own.
 
 **The rig itself is the orientation exhibit.** Clicking a motor, a controller, the chain, the
 battery, the encoder, the laptop or the emergency stop lights that part up and explains what
