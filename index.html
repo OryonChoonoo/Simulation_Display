@@ -48,13 +48,20 @@
 <main id="tab-3d" hidden>
   <section class="plot-card">
     <div id="stage3d" class="stage3d"></div>
-    <p id="stage3d-note" class="caption">Tap any part of the rig to see what it does, drag to turn it
-      around, and scroll or pinch to zoom. Built from simple shapes at roughly rig scale: an illustration of the setup, not a CAD model
-      and not measured data.</p>
+    <p id="stage3d-note" class="caption"><b>The whole rig.</b> Tap any part to see what it does, drag to
+      turn it around, and scroll or pinch to zoom. Built from simple shapes at roughly rig scale: an
+      illustration of the setup, not a CAD model and not measured data.</p>
+    <div id="partbar" class="partbar"></div>
+    <div id="stage3d-inside" class="stage3d inside-stage"></div>
+    <p id="stage3d-inside-note" class="caption"><b>Inside the test motor, at the same instant.</b> The
+      motor is pulled apart: encoder, stator, rotor. Each coil lights with the current the controller is
+      putting through it, so the lit pattern is the magnetic field the stator makes. Watch it stay 90
+      electrical degrees ahead of the red magnet arrow &mdash; that is the whole of field-oriented control,
+      and it is only possible because the angle is known. One pole pair is drawn; the real motor has three,
+      so one turn here is a third of a shaft turn. This view turns and zooms on its own.</p>
     <canvas id="rig-graphs" aria-label="Angle, current vector and angle error for the motor being shown" hidden></canvas>
     <p id="rig-graphs-note" class="caption" hidden>Tracking the same vectors the model is showing, at a
       1.0 N&middot;m load. Live from the model equations, not replayed from a simulation run.</p>
-    <div id="partbar" class="partbar"></div>
   </section>
   <section class="side">
     <div class="verdict-card">
@@ -69,8 +76,6 @@
       <p class="hint">Either one opens the explanation of what the controller then does with that angle.</p>
     </div>
     <div class="controls">
-      <button id="d3-rig" class="primary-btn">Show the whole rig</button>
-      <button id="d3-inside" class="primary-btn">Look inside the motor</button>
       <div class="zoom-row">
         <button id="d3-out" title="Zoom out">&minus;</button>
         <button id="d3-in" title="Zoom in">+</button>

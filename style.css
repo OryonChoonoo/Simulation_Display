@@ -311,6 +311,10 @@ body[data-mode=kiosk] #game{height:560px}
    neither has to be remembered while scrolling to the other. */
 .game-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .game-pair figure{margin:0;min-width:0}
+/* The exploded motor sits under the whole rig, shorter, so both fit on a screen. */
+.inside-stage{height:400px;margin-top:4px}
+@media(max-width:1100px){.inside-stage{height:320px}}
+@media(max-width:760px){.inside-stage{height:260px}}
 .game-pair .game-stage{margin-top:0}
 .game-pair #game,.game-pair .game-stage{height:440px}
 body[data-mode=kiosk] .game-pair #game,

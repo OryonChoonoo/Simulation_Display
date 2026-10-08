@@ -5,10 +5,15 @@ import * as THREE from './vendor/three.module.js';
 import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
 const V = THREE.MathUtils;
-let renderer, scene, camera, clock, host;
+let renderer, scene, camera, clock;
 let motors = [], sprockets = [], chainLinks = [], boards = [], rotorGroup, encoderDisc, housing;
 let insideKeep = [];
 let view = 'rig', spin = 0, intro = 0, orbit = { yaw: 0.75, pitch: 0.22, dist: 1.35, drag: null, zoom: 1 };
+// The rig and the exploded motor are shown at once, one above the other. They are
+// the same scene seen by two cameras: each pane sets the visibility its view needs
+// just before it renders, so nothing has to be built or stepped twice.
+let panes = [];
+const START = { rig: { yaw: 0.75, pitch: 0.22 }, inside: { yaw: Math.PI / 2 - .8, pitch: 0.30 } };
 let opts = { rpm: 400, sensorless: false, errorDeg: 0, slow: 0.04, heat: 0 };
 
 const COLOUR = { steel: 0x8b97a6, dark: 0x2a323d, pcb: 0x1f6b45, magnetN: 0xef4444, magnetS: 0x5b6b7f,
@@ -729,11 +734,12 @@ export function highlight(key) {
 
 function shown(o) { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; }
 
-function partAt(e) {
-  if (view !== 'rig') return null;
-  const r = host.getBoundingClientRect();
+function partAt(e, pane) {
+  if (!pane || pane.view !== 'rig') return null;
+  const r = pane.host.getBoundingClientRect();
+  applyView('rig');
   raycaster.setFromCamera(new THREE.Vector2(
-    ((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+    ((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), pane.camera);
   for (const hit of raycaster.intersectObjects(scene.children, true)) {
     if (!shown(hit.object)) continue;
     if (hit.object.userData.part) return hit.object.userData.part;
@@ -741,16 +747,8 @@ function partAt(e) {
   return null;
 }
 
-export function init(container) {
-  host = container;
+export function init(container, insideContainer) {
   scene = new THREE.Scene(); scene.background = new THREE.Color(0x11161f);
-  camera = new THREE.PerspectiveCamera(42, 2, .01, 20);
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  // Real shadows, so the rig sits on the bench instead of hovering over it.
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  container.appendChild(renderer.domElement);
   scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20262f, 1.15));
   const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(.6, 1, .8);
   key.castShadow = true;
@@ -769,29 +767,54 @@ export function init(container) {
   });
   clock = new THREE.Clock();
 
+  addPane(container, 'rig');
+  if (insideContainer) addPane(insideContainer, 'inside');
+  // One loop drives both panes, off the first renderer.
+  panes[0].renderer.setAnimationLoop(frame);
+  resize(); addEventListener('resize', resize);
+}
+
+// A pane is a renderer, a camera and its own view state, on one container.
+function addPane(container, paneView) {
+  const r = new THREE.WebGLRenderer({ antialias: true });
+  // Real shadows, so the rig sits on the bench instead of hovering over it.
+  r.shadowMap.enabled = true;
+  r.shadowMap.type = THREE.PCFSoftShadowMap;
+  r.setPixelRatio(Math.min(devicePixelRatio, 2));
+  container.appendChild(r.domElement);
+  const pane = {
+    host: container, renderer: r, view: paneView,
+    camera: new THREE.PerspectiveCamera(42, 2, .01, 20),
+    orbit: { yaw: START[paneView].yaw, pitch: START[paneView].pitch, drag: null, zoom: 1 },
+    intro: 0,
+  };
+  panes.push(pane);
+  if (panes.length === 1) { renderer = r; camera = pane.camera; }
+
   let pressed = null;
   const pointer = e => {
-    if (e.type === 'pointerdown') { orbit.drag = { x: e.clientX, y: e.clientY }; pressed = { x: e.clientX, y: e.clientY }; }
+    const o = pane.orbit;
+    if (e.type === 'pointerdown') { o.drag = { x: e.clientX, y: e.clientY }; pressed = { x: e.clientX, y: e.clientY }; }
     else if (e.type === 'pointerup' || e.type === 'pointerleave') {
       // A press that did not turn the view is a tap on a part, not a drag.
       if (e.type === 'pointerup' && pressed && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < 5) {
-        const key = partAt(e);
+        const key = partAt(e, pane);
         if (key && onPick) onPick(key);
       }
-      pressed = null; orbit.drag = null;
+      pressed = null; o.drag = null;
     }
-    else if (!orbit.drag) host.style.cursor = partAt(e) ? 'pointer' : 'grab';
-    else if (orbit.drag) {
-      orbit.yaw -= (e.clientX - orbit.drag.x) * .006;
-      orbit.pitch = V.clamp(orbit.pitch + (e.clientY - orbit.drag.y) * .004, -.2, 1.1);
-      orbit.drag = { x: e.clientX, y: e.clientY }; intro = 99;
+    else if (!o.drag) container.style.cursor = partAt(e, pane) ? 'pointer' : 'grab';
+    else {
+      o.yaw -= (e.clientX - o.drag.x) * .006;
+      o.pitch = V.clamp(o.pitch + (e.clientY - o.drag.y) * .004, -.2, 1.1);
+      o.drag = { x: e.clientX, y: e.clientY }; pane.intro = 99;
     }
   };
   for (const t of ['pointerdown', 'pointerup', 'pointermove', 'pointerleave']) container.addEventListener(t, pointer);
   // Scroll to zoom. The page must not scroll underneath, so the event is claimed.
   container.addEventListener('wheel', e => {
     e.preventDefault();
-    zoomBy(1 + Math.sign(e.deltaY) * .12);
+    paneZoom(pane, 1 + Math.sign(e.deltaY) * .12);
   }, { passive: false });
   // Pinch on a touch screen, which is what a visitor will try first.
   let pinch = 0;
@@ -799,18 +822,19 @@ export function init(container) {
     if (e.touches.length !== 2) return;
     const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                          e.touches[0].clientY - e.touches[1].clientY);
-    if (pinch) zoomBy(pinch / d);
+    if (pinch) paneZoom(pane, pinch / d);
     pinch = d;
   }, { passive: true });
   container.addEventListener('touchend', () => { pinch = 0; });
-  resize(); addEventListener('resize', resize);
-  renderer.setAnimationLoop(frame);
 }
 
 function resize() {
-  if (!host.clientWidth) return;
-  renderer.setSize(host.clientWidth, host.clientHeight, false);
-  camera.aspect = host.clientWidth / Math.max(host.clientHeight, 1); camera.updateProjectionMatrix();
+  for (const pane of panes) {
+    if (!pane.host.clientWidth) continue;
+    pane.renderer.setSize(pane.host.clientWidth, pane.host.clientHeight, false);
+    pane.camera.aspect = pane.host.clientWidth / Math.max(pane.host.clientHeight, 1);
+    pane.camera.updateProjectionMatrix();
+  }
 }
 
 // Zoom is a multiplier on the framing each view asks for, so switching view
@@ -818,24 +842,47 @@ function resize() {
 // The graphs under the view plot the same angle the machine is turning at.
 export function angle() { return spin; }
 
+function paneZoom(pane, factor) {
+  pane.orbit.zoom = V.clamp(pane.orbit.zoom * factor, .35, 2.6);
+  pane.intro = 99;                  // the viewer has taken over from the fly-in
+  return pane.orbit.zoom;
+}
+
+// The buttons beside the view act on both panes, so a press always does something
+// visible wherever the viewer is looking.
 export function zoomBy(factor) {
-  orbit.zoom = V.clamp(orbit.zoom * factor, .35, 2.6);
-  intro = 99;                       // the viewer has taken over from the fly-in
-  return orbit.zoom;
+  for (const pane of panes) paneZoom(pane, factor);
 }
 
 export function resetView() {
-  orbit.zoom = 1; orbit.yaw = 0.75; orbit.pitch = 0.22; intro = 0;
+  for (const pane of panes) {
+    pane.orbit.zoom = 1;
+    pane.orbit.yaw = START[pane.view].yaw;
+    pane.orbit.pitch = START[pane.view].pitch;
+    pane.intro = 0;
+  }
 }
 
-export function setView(next) {
-  view = next; intro = 0; orbit.zoom = 1;
+// Show the scene as one view needs it. Both panes share the scene, so this runs
+// once per pane per frame rather than once per view change.
+function applyView(next) {
+  if (view === next && applied) return;
+  view = next; applied = true;
   const inside = next === 'inside';
   for (const child of scene.children) {
     if (child.isLight) continue;
     child.visible = inside ? insideKeep.includes(child) : !insideKeep.includes(child);
   }
   housing.visible = !inside; housing.userData.cap.visible = !inside;
+  machine.setExplode(inside ? explode : 0);
+}
+let applied = false;
+
+// Kept for callers that still ask for a single view; with both panes on screen
+// there is nothing to switch between.
+export function setView(next) {
+  if (panes.length > 1) return;
+  applyView(next);
 }
 
 export function setOptions(next) {
@@ -850,48 +897,52 @@ export function readout() {
 
 function frame() {
   const dt = Math.min(clock.getDelta(), .05);
-  intro += dt;
   // Redraw the operator's screen a few times a second: often enough to look live,
   // rarely enough that it costs nothing.
   screenClock += dt;
-  if (screenTexture && view === 'rig' && screenClock > .07) {
+  if (screenTexture && screenClock > .07) {
     drawScreen(clock.elapsedTime); screenTexture.needsUpdate = true; screenClock = 0;
   }
   spin += dt * (opts.rpm * 2 * Math.PI / 60) * opts.slow;
   for (const s of sprockets) s.rotation.z = spin;
   machine.rotorGroup.rotation.z = spin; encoderDisc.rotation.y = spin;
-  // Slide the assembly apart on entering the inside view, back when leaving.
-  explode += ((view === 'inside' ? 1 : 0) - explode) * Math.min(dt * 1.6, 1);
-  machine.setExplode(explode);
+  // The motor slides apart once, on the way in, and stays apart.
+  explode += (1 - explode) * Math.min(dt * 1.6, 1);
   for (const child of scene.children) {
     if (!child.userData || child.userData.explodeZ === undefined) continue;
     child.position.z = child.userData.explodeZ * explode;
   }
   positionChain(spin * .05);
+  for (const pane of panes) drawPane(pane, dt);
+}
 
+function drawPane(pane, dt) {
+  if (!pane.host.clientWidth) return;
+  pane.intro += dt;
+  applied = false;                 // the other pane left the scene in its own state
+  applyView(pane.view);
+  const inside = pane.view === 'inside';
   const err = opts.sensorless ? estimateError(opts.rpm, clock.elapsedTime) : 0;
   // One pole pair is drawn, so the electrical angle is the angle you can see.
   machine.update({
     theta: spin, err,
     amplitude: .55 + .45 * Math.min(opts.rpm / 900, 1),
-    showEstimate: view === 'inside' && opts.sensorless,
+    showEstimate: inside && opts.sensorless,
     heat: opts.heat || 0,
   });
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
-  const target = view === 'inside' ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .26, 0);
-  const wanted = view === 'inside' ? .44 : 1.80;
-  const ease = Math.min(intro / 3.5, 1);
-  const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * orbit.zoom;
-  if (intro < 8 && !orbit.drag && view === 'rig') orbit.yaw += dt * .12;
-  // Three-quarter view inside: straight down the shaft the parts would sit on top
-  // of one another and the explosion would be invisible, but turn too far and the
-  // angle between the two vectors stops reading.
-  if (view === 'inside' && intro < .05) { orbit.yaw = Math.PI / 2 - .8; orbit.pitch = .30; }
-  camera.position.set(
-    target.x + Math.cos(orbit.yaw) * Math.cos(orbit.pitch) * dist,
-    target.y + Math.sin(orbit.pitch) * dist,
-    target.z + Math.sin(orbit.yaw) * Math.cos(orbit.pitch) * dist);
-  camera.lookAt(target);
-  renderer.render(scene, camera);
+  const o = pane.orbit;
+  const target = inside ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .26, 0);
+  const wanted = inside ? .36 : 1.80;   // its pane is shorter than the old full-height view
+  const ease = Math.min(pane.intro / 3.5, 1);
+  const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * o.zoom
+    / Math.min(1, pane.camera.aspect);
+  if (pane.intro < 8 && !o.drag && !inside) o.yaw += dt * .12;
+  pane.camera.position.set(
+    target.x + Math.cos(o.yaw) * Math.cos(o.pitch) * dist,
+    target.y + Math.sin(o.pitch) * dist,
+    target.z + Math.sin(o.yaw) * Math.cos(o.pitch) * dist);
+  pane.camera.lookAt(target);
+  pane.renderer.render(scene, pane.camera);
 }
