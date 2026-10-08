@@ -347,16 +347,22 @@
 
 <main id="tab-game" hidden>
   <section class="plot-card">
-    <canvas id="game" aria-label="Hold the current vector ninety degrees ahead of the rotor magnets"></canvas>
-    <p class="caption">Move your pointer, or your finger, around the motor. You are aiming the current the
-      stator makes. Keep it a quarter turn ahead of the red magnet arrow and the motor pulls hard; let it
-      slip and the torque falls away with the cosine of how far out you are. <b>The speed steps up every
-      five seconds</b> until you cannot hold it.</p>
-    <div id="game-stage" class="game-stage"></div>
-    <p class="caption">The same machine, driven by you: each coil lights with the current your aim is
-      sending through it. <b>While a round is running you can aim on the machine itself</b> &mdash; move
-      your pointer or finger around it. Between rounds the same drag turns the view, and the wheel
-      zooms.</p>
+    <div class="game-pair">
+      <figure>
+        <canvas id="game" aria-label="Hold the current vector ninety degrees ahead of the rotor magnets"></canvas>
+        <figcaption class="caption"><b>The dial.</b> Move your pointer, or your finger, around it. You are
+          aiming the current the stator makes. Keep it a quarter turn ahead of the red magnet arrow and the
+          motor pulls hard; let it slip and the torque falls away with the cosine of how far out you are.
+          <b>The speed steps up every five seconds</b> until you cannot hold it.</figcaption>
+      </figure>
+      <figure>
+        <div id="game-stage" class="game-stage"></div>
+        <figcaption class="caption"><b>The machine, at the same instant.</b> Each coil lights with the
+          current your aim is sending through it, so you can watch the dial and the iron together. You can
+          aim here too while a round is running; between rounds the same drag turns the view and the wheel
+          zooms.</figcaption>
+      </figure>
+    </div>
   </section>
 
   <section class="side">

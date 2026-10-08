@@ -115,7 +115,9 @@ function frame() {
     theta: state.theta, err: state.err,
     amplitude: state.amplitude, heat: state.heat,
   });
-  const dist = .30 * orbit.zoom;
+  // Beside the dial the view is taller than it is wide, so the horizontal field
+  // is the binding one: back off enough that the machine still fits across.
+  const dist = .30 * orbit.zoom / Math.min(1, camera.aspect);
   camera.position.set(
     Math.sin(orbit.yaw) * Math.cos(orbit.pitch) * dist,
     Math.sin(orbit.pitch) * dist,
