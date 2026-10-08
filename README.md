@@ -61,6 +61,7 @@ Then open <http://127.0.0.1:8790/>. For the Open Day laptop, open visitor mode i
 full screen: <http://127.0.0.1:8790/?mode=kiosk>
 
 On Windows, `start_site.bat` does both: it starts the server and opens visitor mode.
+`start_site_wifi.bat` does the same and also opens it to the Wi-Fi, for the QR code.
 Closing the black window stops the site.
 
 ### Letting visitors' phones reach it
@@ -142,6 +143,7 @@ This rewrites `data/sensorless_speed_sweep.json`, `data/comparison_800rpm.json` 
 | `sound.js` | The synthesised motor |
 | `serve.py` | Local server: no caching, and the shared leaderboard |
 | `start_site.bat` | Double-click launcher for the Open Day laptop |
+| `start_site_wifi.bat` | The same, reachable from phones on the same Wi-Fi |
 | `netlify/functions/leaderboard.mjs` | The same leaderboard, for when the site is hosted again |
 | `vendor/three.module.js` | three.js r169 (MIT licence, Copyright 2010-2024 Three.js Authors), vendored so the page works offline |
 | `data/matrix.json` | Exported simulation results and model parameters |
