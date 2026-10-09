@@ -1385,7 +1385,10 @@ const BOARD_KEY = 'ltc-leaderboard';
 // work with no internet at all, so a leaderboard that needs a network must
 // never be the only one: if the function cannot be reached, the visitor still
 // gets a board, it just happens to be theirs alone.
-const BOARD_URL = '/.netlify/functions/leaderboard';
+// Relative, so the page still finds its leaderboard when the site is served
+// from a subfolder — GitHub Pages puts it under /Simulation_Display/. On a host
+// with no leaderboard behind it this simply 404s and the local board takes over.
+const BOARD_URL = '.netlify/functions/leaderboard';
 let sharedBoard = null;          // null until we know whether the endpoint works
 
 async function askBoard(entry) {

@@ -223,3 +223,20 @@ page gives 355.1 W input against the simulation's 355.05 W, and 0.896 maximum du
 Data from `SIMULATION/results/single_motor_sensored/matrix_20260928_132634`, produced by
 `SIMULATION/run_single_motor_sensored_matrix.m`. See `SIMULATION/SENSORED_MODEL_GUIDE.md`
 for what each block of the model does, and `SIMULATION/CHANGES.md` for the model history.
+
+## Running it from GitHub Pages
+
+The site is static, so GitHub can serve it directly with no build and no account
+limits. In the repository: **Settings → Pages → Source: Deploy from a branch →
+Branch: `main`, folder `/ (root)` → Save**. A minute later it is live at
+<https://oryonchoonoo.github.io/Simulation_Display/>.
+
+`.nojekyll` at the repository root is required: without it GitHub runs the page
+through Jekyll, which ignores files and folders whose names begin with an
+underscore.
+
+The one thing that does not come across is the **shared leaderboard**. It is a
+serverless function, and GitHub Pages serves static files only, so the request
+404s and the page falls back to a board kept in each visitor's own browser. For
+one shared board in the room, run the site from the laptop with
+`start_site_wifi.bat` instead.
