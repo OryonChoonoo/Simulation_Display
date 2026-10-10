@@ -131,7 +131,7 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
         with board_lock:
             entries = read_board()
             entries.append(clean(entry))
-            entries.sort(key=lambda e: e.get('seconds', 0), reverse=True)
+            entries.sort(key=lambda e: e.get('rpm', 0), reverse=True)
             entries = entries[:MAX_ENTRIES]
             write_board(entries)
         self.send_json({'list': entries})

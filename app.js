@@ -4,6 +4,9 @@
    24 Simulink cases in data/matrix.json; the live model reproduces them to about four
    digits, which is the point of showing both. */
 
+import { PHYSICS, newRotor, stepRotor, rpmOf, wrapAngle, estimateAngle }
+  from './gamephysics.js';
+
 const $ = id => document.getElementById(id);
 let P = null, CASES = [], mode = 'presenter', idleTimer = 0, attract = null, selected = null;
 let SWEEP = null, TRANSIENT = null, STARTUP = null;
@@ -243,6 +246,25 @@ function drawMachine(g, cx, cy, r, o) {
   g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.arc(cx, cy, r * 1.06, 0, 7, true); g.fill();
 
   // --- rotor: two shaded magnet halves, a boundary and a shaft -----------------
+  // The sensorless round hides it entirely: a drive without a position sensor
+  // does not get to look at the rotor either.
+  if (o.hideRotor) {
+    g.save(); g.translate(cx, cy);
+    g.strokeStyle = '#2b3545'; g.lineWidth = 2; g.setLineDash([5, 7]);
+    g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#5b6b7f'; g.beginPath(); g.arc(0, 0, r * 0.2, 0, 7); g.fill();
+    if (o.dashedRotor) {
+      // Where the estimator thinks the magnets are.
+      g.rotate(-theta);
+      g.fillStyle = 'rgba(239,68,68,.22)';
+      g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2); g.fill();
+      g.strokeStyle = 'rgba(239,68,68,.55)'; g.lineWidth = 2; g.setLineDash([6, 5]);
+      g.beginPath(); g.arc(0, 0, r, -Math.PI / 2, Math.PI / 2); g.stroke();
+      g.setLineDash([]);
+    }
+    g.restore();
+  }
+  if (!o.hideRotor) {
   g.save(); g.translate(cx, cy); g.rotate(-theta);
   for (const [from, colour, dark] of [[-Math.PI / 2, '#ef4444', '#8f2420'], [Math.PI / 2, '#64748b', '#39434f']]) {
     const grad = g.createLinearGradient(0, -r, 0, r);
@@ -265,6 +287,7 @@ function drawMachine(g, cx, cy, r, o) {
   g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(r * 0.3) + 'px system-ui'; g.textAlign = 'center';
   g.fillText('N', cx + Math.cos(theta) * r * 0.6, cy - Math.sin(theta) * r * 0.6 + r * 0.1);
   g.fillText('S', cx - Math.cos(theta) * r * 0.6, cy + Math.sin(theta) * r * 0.6 + r * 0.1);
+  }
 
   // --- the wasted wedge: the angle the current is away from where it should be --
   if (live && Math.abs(err) > 0.02) {
@@ -280,7 +303,11 @@ function drawMachine(g, cx, cy, r, o) {
   // Labels sit outside the stator, and are kept inside the panel they belong to
   // so a vector pointing sideways cannot push its label off the edge.
   const labelR = r * 2.1, bounds = o.bounds;
-  arrowOn(g, cx, cy, theta, r * 1.0, '#ef4444', 'magnets (d)', false, false, labelR, bounds);
+  if (!o.hideRotor) {
+    arrowOn(g, cx, cy, theta, r * 1.0, '#ef4444', 'magnets (d)', false, false, labelR, bounds);
+  } else if (o.dashedRotor) {
+    arrowOn(g, cx, cy, theta, r * 1.0, '#ef4444', 'estimated magnets', true, false, labelR, bounds);
+  }
   if (live) {
     const ideal = theta + Math.PI / 2;
     if (Math.abs(err) < 0.01) {
@@ -1357,27 +1384,38 @@ function hear(rpm, err, current) {
 // same arithmetic as the rest of the page - torque follows cos of the angle
 // error - with the controller replaced by a person, which is the point: nobody
 // can do it, and a drive does it every fifty microseconds without trying.
+// The rotor is a real simulation now, not a speed read off a timer: you make
+// the torque, the torque makes the acceleration, and the inertia carries it.
+// Aim badly and you genuinely brake it, stop it, and drive it backwards.
+// Every number that decides how it feels lives in gamephysics.js.
 const game = {
-  running: false, demo: false, theta: 0, aim: Math.PI / 2, rpm: 50,
-  kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: 0,
-  heat: 0, best: 0, flash: '', flashAt: -9, gentle: true, milestone: 0, step: 0, saved: true,
+  running: false, demo: false, mode: 'sensored',
+  rotor: newRotor(), aim: Math.PI / 2, lastAim: Math.PI / 2,
+  theta: 0,                         // the rotor angle the drawings read
+  kept: 1, recent: 1, score: 0, elapsed: 0, countdown: 0, over: false, last: 0,
+  heat: 0, best: 0, peakTorque: 0, distance: 0, estimate: null, lostSeconds: 0,
+  flash: '', flashAt: -9, gentle: true, saved: true,
 };
 
-// Gentle is the default because the point is to be understood, not to be beaten.
-// Normal is for whoever has already had a go and wants it to fight back.
-// `slow` is how much of the real rotation you are shown. A motor at 400 rpm
-// turns nearly seven times a second, which no hand can follow, so the picture
-// runs at a fraction of it and says so on screen. Every other exhibit on this
-// page is slowed the same way and for the same reason.
-// The speed holds steady for five seconds and then steps up, so a player gets a
-// moment to settle at each one and can feel the jump rather than being pushed
-// along by their own success.
-const STEP_SECONDS = 5;
+// Gentle widens the target band and softens the motor; normal is for whoever
+// has already had a go and wants it to fight back. The band is guidance only —
+// being outside it costs torque, not the round.
 const LEVELS = {
-  gentle: { start: 40, step: 1.50, cap: 1200, give: .18, grace: 6, band: 38, slow: .10 },
-  normal: { start: 80, step: 1.70, cap: 2600, give: .30, grace: 4, band: 24, slow: .20 },
+  gentle: { band: 38, torque: 0.80, inertia: 1.25 },
+  normal: { band: 24, torque: 1.00, inertia: 1.00 },
 };
 function level() { return LEVELS[game.gentle ? 'gentle' : 'normal']; }
+
+// The physics config for the current difficulty, built from the shared one.
+function physics() {
+  const L = level();
+  return Object.assign({}, PHYSICS, {
+    maxTorque: PHYSICS.maxTorque * L.torque,
+    rotorInertia: PHYSICS.rotorInertia * L.inertia,
+  });
+}
+
+function gameRpm() { return rpmOf(game.rotor.omega); }
 const GAME_BEST_KEY = 'ltc-best-attempt';
 const BOARD_KEY = 'ltc-leaderboard';
 
@@ -1436,10 +1474,11 @@ function renderBoard(list) {
   $('lb-where').textContent = boardIsShared()
     ? 'Shared by everyone who opens this page.'
     : 'This browser only: the shared board could not be reached, so nothing is sent anywhere.';
-  $('lb-list').innerHTML = list.length
-    ? list.map(row => `<li><span>${escapeHtml(row.name)}</span>`
-        + `<b>${row.seconds.toFixed(1)} s</b>`
-        + `<i>step ${row.step} \u00b7 ${row.percent.toFixed(0)} %</i></li>`).join('')
+  const ranked = list.slice().sort((a, b) => (b.rpm || 0) - (a.rpm || 0));
+  $('lb-list').innerHTML = ranked.length
+    ? ranked.map(row => `<li><span>${escapeHtml(row.name)}</span>`
+        + `<b>${Math.round(row.rpm || 0)} rpm</b>`
+        + `<i>${(row.percent || 0).toFixed(0)} % of the torque</i></li>`).join('')
     : '<li class="empty">No attempts yet. The first one is free.</li>';
 }
 
@@ -1447,7 +1486,7 @@ async function addToBoard() {
   if (game.saved) return;
   const name = ($('lb-name').value || '').trim().slice(0, 14) || 'anonymous';
   const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
-  const entry = { name, seconds: game.elapsed, percent, step: game.step + 1, rpm: Math.round(game.best) };
+  const entry = { name, seconds: game.elapsed, percent, step: 1, rpm: Math.round(game.best) };
   game.saved = true;
   $('lb-entry').hidden = true;
   $('lb-name').value = '';
@@ -1457,7 +1496,7 @@ async function addToBoard() {
   // visitor's own attempt never disappears because the network did.
   const mine = board();
   mine.push(entry);
-  mine.sort((a, b) => b.seconds - a.seconds);
+  mine.sort((a, b) => (b.rpm || 0) - (a.rpm || 0));
   saveBoard(mine);
 
   const shared = await askBoard(entry);
@@ -1478,18 +1517,32 @@ function saveGameBest(next) {
 
 function startGame(demo) {
   Object.assign(game, {
-    running: true, demo, theta: 0, aim: Math.PI / 2, rpm: level().start,
-    kept: 1, score: 0, elapsed: 0, recent: 1, over: false, last: performance.now(),
-    heat: 0, best: 0, flash: '', flashAt: -9, milestone: 0, step: 0, saved: demo,
+    running: true, demo, rotor: newRotor(physics()), theta: 0,
+    aim: Math.PI / 2, lastAim: Math.PI / 2,
+    kept: 0, recent: 0, score: 0, elapsed: 0, over: false, last: performance.now(),
+    countdown: demo ? 0 : PHYSICS.countdownSeconds,
+    heat: 0, best: 0, peakTorque: 0, distance: 0, estimate: null, lostSeconds: 0,
+    flash: '', flashAt: -9, saved: demo,
   });
   $('game-start').textContent = 'Stop';
   if (game3d) game3d.setAiming(!demo);
-  $('game-title').textContent = demo ? 'The controller, doing it properly' : 'Hold it at ninety degrees';
+  const sensorless = game.mode === 'sensorless';
+  $('game-title').textContent = demo ? 'The controller, doing it properly'
+    : sensorless ? 'No rotor to look at' : 'Spin it up as fast as you can';
   $('game-title').className = 'verdict ok';
   $('game-text').textContent = demo
     ? 'Perfectly on target, at any speed, for as long as you like. This is what you are up against.'
-    : 'Keep the green arrow a quarter turn ahead of the red one. The motor speeds up as you do better.';
+    : sensorless
+      ? 'The rotor is hidden. Below ' + PHYSICS.estimatorMinRpm + ' rpm there is no estimate at '
+        + 'all, so you have to get it moving blind before the dashed arrow appears.'
+      : 'Stay a quarter turn ahead of the red arrow and the motor accelerates. Fall behind it '
+        + 'and you are braking. Your score is the fastest you get it.';
 }
+
+// The run ends on the clock, not on a mistake. Losing the rotor is its own
+// punishment — it slows down — and ending the round for it taught people that
+// the game was unfair rather than that the angle matters.
+function runRemaining() { return Math.max(0, PHYSICS.runSeconds - game.elapsed); }
 
 function endGame(reason) {
   game.running = false;
@@ -1507,15 +1560,17 @@ function endGame(reason) {
       + 'ahead of the red one.';
   } else {
     const best = gameBest();
-    const better = !best || game.elapsed > best.seconds;
-    if (better) saveGameBest({ seconds: game.elapsed, percent, rpm: game.rpm });
+    const score = Math.round(game.best);
+    const better = !best || score > (best.rpm || 0);
+    if (better) saveGameBest({ seconds: game.elapsed, percent, rpm: score });
     $('game-title').textContent = reason;
     $('game-title').className = 'verdict bad';
     $('lb-entry').hidden = false;
-    $('game-text').textContent = `You held it for ${game.elapsed.toFixed(1)} seconds, keeping `
-      + `${percent.toFixed(0)} % of the torque, up to ${Math.round(game.rpm)} rpm. `
-      + (better ? 'That is your best yet. ' : '')
-      + 'A drive with an encoder would still be at 100 % at four thousand.';
+    $('game-text').textContent = `Your best was ${score} rpm, holding ${percent.toFixed(0)} % of `
+      + `the torque on average. `
+      + (better ? 'That is your fastest yet. ' : '')
+      + 'The measured sensored drive holds the angle to a fraction of a degree at 1500 rpm, '
+      + 'twenty thousand times a second, and never gets bored.';
   }
 }
 
@@ -1526,43 +1581,129 @@ function gameFrame(now) {
   game.last = now;
 
   if (game.running) {
-    // One pole pair drawn, so the picture turns at the electrical rate.
-    game.theta = (game.theta + dt * game.rpm / 60 * 2 * Math.PI * level().slow) % (2 * Math.PI);
-    const ideal = game.theta + Math.PI / 2;
-    if (game.demo) game.aim = ideal;
-    const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
-    game.kept = Math.cos(error);
-    game.elapsed += dt;
-    game.score += Math.max(game.kept, 0) * dt;
-    // Every five seconds, another step up. That is what eventually beats you.
-    const L = level();
-    const wantedStep = Math.floor(game.elapsed / STEP_SECONDS);
-    if (wantedStep > game.step) {
-      game.step = wantedStep;
-      game.flash = 'step ' + (game.step + 1) + ' \u00b7 faster';
-      game.flashAt = game.elapsed;
-    }
-    game.rpm = Math.min(L.start * Math.pow(L.step, game.step), L.cap);
-    game.best = Math.max(game.best, game.rpm);
-    // Current that is not making torque is making heat. Shown, never fatal: the
-    // lesson is that being out costs something, not that the game is unfair.
-    game.heat = Math.min(Math.max(game.heat + dt * (1 - Math.max(game.kept, 0)) * .5
-      - dt * .12, 0), 1);
+    const cfg = physics();
+    if (game.countdown > 0) {
+      // Three, two, one. The rotor is held still and the aim is ignored, so
+      // nobody starts the clock while they are still finding the screen.
+      const was = Math.ceil(game.countdown);
+      game.countdown -= dt;
+      const now_ = Math.ceil(Math.max(game.countdown, 0));
+      if (now_ !== was) { game.flash = now_ > 0 ? String(now_) : 'GO'; game.flashAt = game.elapsed; }
+      game.lastAim = game.aim;
+    } else {
+      // The controller keeps itself exactly a quarter turn ahead; a person has
+      // to chase it. It aims at where the rotor will be halfway through the
+      // frame rather than where it is now, which is the difference between
+      // 100 % of the torque and the 77 % a once-per-frame aim would get at
+      // speed — and is roughly what a 20 kHz loop achieves for real.
+      if (game.demo) {
+        game.aim = game.rotor.angle + game.rotor.omega * dt / 2 + Math.PI / 2;
+        game.lastAim = game.aim;
+      }
+      stepRotor(game.rotor, game.aim, dt, cfg, game.lastAim);
+      game.lastAim = game.aim;
+      game.elapsed += dt;
 
-    // A smoothed average, not an instantaneous threshold. Standing still is not
-    // a way to survive: the error sweeps past zero once a revolution, so the
-    // instantaneous torque keeps touching 100 % while the average is hopeless.
-    game.recent += (game.kept - game.recent) * Math.min(dt / .8, 1);
-    if (!game.demo && game.elapsed > level().grace && game.recent < level().give) {
-      endGame('You lost the rotor');
+      const rpm = rpmOf(game.rotor.omega);
+      game.theta = game.rotor.angle;
+      game.best = Math.max(game.best, Math.abs(rpm));
+      game.peakTorque = Math.max(game.peakTorque, game.rotor.torque / cfg.maxTorque);
+      // Signed, so the kart runs backwards when the rotor does.
+      game.distance += rpm / 60 * dt;
+
+      // sin(delta) is the torque; cos(error) is the same number written the way
+      // the rest of the page writes it, with error measured from the ideal.
+      game.kept = game.rotor.torque / cfg.maxTorque;
+      game.recent += (game.kept - game.recent) * Math.min(dt / .8, 1);
+
+      // Current that is not making torque is making heat. Shown, never fatal.
+      game.heat = Math.min(Math.max(game.heat + dt * (1 - Math.max(game.kept, 0)) * .35
+        - dt * .12, 0), 1);
+
+      // In the sensorless round the rotor is hidden and you steer off an
+      // estimate that falls apart as the motor slows.
+      game.estimate = game.mode === 'sensorless'
+        ? estimateAngle(game.rotor.angle, game.rotor.omega, cfg) : null;
+      if (game.estimate && !game.estimate.valid) game.lostSeconds += dt;
+
+      if (game.elapsed >= PHYSICS.runSeconds) endGame('Time');
     }
   }
   drawGame();
+  drawKart();
   if (game3d) {
     const ideal = game.theta + Math.PI / 2;
-    const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
+    const error = wrapAngle(game.aim - ideal);
     game3d.update({ theta: game.theta, err: error, amplitude: 1, heat: game.heat });
   }
+}
+
+/* The kart: a sideways view of the signed rotor speed.
+
+   It is a game visualisation, not a drivetrain calculation. Sprocket ratio,
+   wheel diameter and a real road speed would slot in where `distance` is
+   turned into metres, and nothing else here would have to change. */
+function drawKart() {
+  const c = $('game-kart'); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (w < 80 || h < 20) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const rpm = gameRpm(), speed = rpm / PHYSICS.maxDisplayRpm;   // -1 .. 1 ish
+  const road = h - 16;
+
+  g.fillStyle = '#0c1118'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#243040'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, road + .5); g.lineTo(w, road + .5); g.stroke();
+
+  // Markings slide the other way to the kart, and reverse when it does.
+  const pitch = 54, shift = ((-game.distance * 120) % pitch + pitch) % pitch;
+  g.strokeStyle = '#2f3d4e'; g.lineWidth = 3;
+  for (let x = -pitch + shift; x < w + pitch; x += pitch) {
+    g.beginPath(); g.moveTo(x, road + 7); g.lineTo(x + 26, road + 7); g.stroke();
+  }
+
+  // Speed streaks, more of them the faster it goes, trailing the right way.
+  const streaks = Math.min(Math.round(Math.abs(speed) * 22), 22);
+  g.strokeStyle = 'rgba(122,162,247,.45)'; g.lineWidth = 1.5;
+  for (let i = 0; i < streaks; i++) {
+    const y = 6 + (i * 37 % Math.max(road - 10, 1));
+    const x = (i * 97 - game.distance * 420) % (w + 120);
+    const len = 14 + Math.abs(speed) * 46;
+    const px = ((x % (w + 120)) + w + 120) % (w + 120) - 60;
+    g.beginPath(); g.moveTo(px, y); g.lineTo(px + (rpm >= 0 ? -len : len), y); g.stroke();
+  }
+
+  // The kart sits still and the world moves, so it never runs off the end.
+  const kx = w * .5, ky = road, facing = rpm >= 0 ? 1 : -1;
+  g.save(); g.translate(kx, ky); g.scale(facing, 1);
+  g.fillStyle = '#e07b16';
+  g.beginPath();
+  g.moveTo(-22, -6); g.lineTo(-13, -15); g.lineTo(4, -15); g.lineTo(10, -6);
+  g.lineTo(20, -6); g.lineTo(20, -1); g.lineTo(-22, -1); g.closePath(); g.fill();
+  g.fillStyle = '#f0b429';
+  g.beginPath(); g.moveTo(-11, -15); g.lineTo(-4, -22); g.lineTo(1, -15); g.closePath(); g.fill();
+  const spin = game.distance * 6;
+  for (const wx of [-14, 13]) {
+    g.fillStyle = '#1b222c';
+    g.beginPath(); g.arc(wx, -1, 6.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#7d8794'; g.lineWidth = 1.6;
+    g.beginPath();
+    g.moveTo(wx + Math.cos(spin) * 5, -1 + Math.sin(spin) * 5);
+    g.lineTo(wx - Math.cos(spin) * 5, -1 - Math.sin(spin) * 5);
+    g.stroke();
+  }
+  g.restore();
+
+  g.fillStyle = rpm < -1 ? '#f0b429' : '#6b7684';
+  g.font = '600 12px system-ui'; g.textAlign = 'left';
+  g.fillText(rpm < -1 ? 'running backwards' : 'kart speed is the motor speed, drawn',
+    10, 16);
+  g.textAlign = 'right'; g.fillStyle = '#cfd6df';
+  g.fillText(Math.round(rpm) + ' rpm', w - 10, 16);
 }
 
 function drawGame() {
@@ -1576,22 +1717,45 @@ function drawGame() {
 
   const cx = w / 2, cy = h / 2 + 14, r = Math.min(w, h) * .21;
   const ideal = game.theta + Math.PI / 2;
-  const error = Math.atan2(Math.sin(game.aim - ideal), Math.cos(game.aim - ideal));
+  const error = wrapAngle(game.aim - ideal);
   const tolerance = level().band * Math.PI / 180;
+  // In the sensorless round the player cannot see the rotor, so the target
+  // band has to be drawn around the estimate instead — or not at all.
+  const est = game.estimate;
+  const shownRotor = game.mode === 'sensorless'
+    ? (est && est.valid ? est.angle : null) : game.theta;
+  const shownIdeal = shownRotor === null ? null : shownRotor + Math.PI / 2;
 
   // The target: a band you are trying to keep the green arrow inside. Without
   // it, a visitor is guessing where ninety degrees ahead actually is.
-  g.save(); g.translate(cx, cy); g.scale(1, -1);
-  const inside = Math.abs(error) <= tolerance;
-  g.fillStyle = inside ? 'rgba(52,211,153,.17)' : 'rgba(52,211,153,.07)';
-  g.beginPath(); g.moveTo(0, 0);
-  g.arc(0, 0, r * 1.78, ideal - tolerance, ideal + tolerance); g.fill();
-  g.strokeStyle = inside ? 'rgba(52,211,153,.55)' : 'rgba(52,211,153,.22)';
-  g.lineWidth = 1.5;
-  g.beginPath(); g.arc(0, 0, r * 1.78, ideal - tolerance, ideal + tolerance); g.stroke();
-  g.restore();
+  if (shownIdeal !== null) {
+    g.save(); g.translate(cx, cy); g.scale(1, -1);
+    const inside = Math.abs(error) <= tolerance;
+    g.fillStyle = inside ? 'rgba(52,211,153,.17)' : 'rgba(52,211,153,.07)';
+    g.beginPath(); g.moveTo(0, 0);
+    g.arc(0, 0, r * 1.78, shownIdeal - tolerance, shownIdeal + tolerance); g.fill();
+    g.strokeStyle = inside ? 'rgba(52,211,153,.55)' : 'rgba(52,211,153,.22)';
+    g.lineWidth = 1.5;
+    g.beginPath(); g.arc(0, 0, r * 1.78, shownIdeal - tolerance, shownIdeal + tolerance); g.stroke();
+    g.restore();
+  }
 
-  drawMachine(g, cx, cy, r, { theta: game.theta, err: error, peak: 1, bounds: [8, w - 8] });
+  // The machine. In the sensorless round the real rotor is not drawn at all:
+  // the player gets the estimate, when there is one, and nothing when there
+  // is not. That is the whole difference the investigation is about.
+  drawMachine(g, cx, cy, r, {
+    theta: shownRotor === null ? game.theta : shownRotor,
+    err: error, peak: 1, bounds: [8, w - 8],
+    hideRotor: game.mode === 'sensorless',
+    dashedRotor: game.mode === 'sensorless' && shownRotor !== null,
+  });
+
+  if (game.mode === 'sensorless' && shownRotor === null && (game.running || game.over)) {
+    g.textAlign = 'center'; g.fillStyle = '#f0b429'; g.font = 'bold 14px system-ui';
+    g.fillText('no estimate below ' + PHYSICS.estimatorMinRpm + ' rpm', cx, cy - r * 1.35);
+    g.fillStyle = '#9aa5b1'; g.font = '12px system-ui';
+    g.fillText('push it round blind until the dashed arrow appears', cx, cy - r * 1.35 + 18);
+  }
 
   // Your current, split the way the controller splits it: the part across the
   // magnets that makes torque, and the part along them that makes only heat.
@@ -1630,11 +1794,28 @@ function drawGame() {
   g.fillStyle = '#6b7684'; g.font = '11px system-ui'; g.textAlign = 'left';
   g.fillText('heat from the current you are wasting', bx, hy + 19);
 
-  g.textAlign = 'right'; g.fillStyle = '#6b7684'; g.font = '12px system-ui';
-  g.fillText(Math.round(game.rpm) + ' rpm \u00b7 ' + game.elapsed.toFixed(1) + ' s', bx + bw, hy + 19);
-  g.textAlign = 'center'; g.fillStyle = '#4a545f'; g.font = '11.5px system-ui';
-  g.fillText('shown at ' + Math.round(level().slow * 100) + ' % of real speed, so a hand can follow it',
-    cx, hy + 36);
+  const rpmNow = gameRpm();
+  g.textAlign = 'right'; g.font = 'bold 20px system-ui';
+  g.fillStyle = Math.abs(rpmNow) < 1 ? '#6b7684' : rpmNow > 0 ? '#e8eaed' : '#f0b429';
+  g.fillText(Math.round(rpmNow) + ' rpm', bx + bw, hy + 30);
+  g.textAlign = 'left'; g.fillStyle = '#6b7684'; g.font = '12px system-ui';
+  g.fillText('best this run ' + Math.round(game.best) + ' rpm \u00b7 '
+    + runRemaining().toFixed(1) + ' s left', bx, hy + 19);
+  g.fillStyle = '#4a545f'; g.font = '11.5px system-ui';
+  g.fillText('torque angle ' + Math.round(game.rotor.delta * 180 / Math.PI) + '\u00b0 \u00b7 '
+    + 'torque ' + (game.kept >= 0 ? '+' : '\u2212')
+    + Math.round(Math.abs(game.kept) * 100) + ' %', bx, hy + 36);
+
+  if (game.running && game.countdown > 0) {
+    g.textAlign = 'center';
+    g.fillStyle = 'rgba(13,17,23,.72)';
+    g.beginPath(); g.arc(cx, cy, r * 2.0, 0, 7); g.fill();
+    const n = Math.ceil(game.countdown);
+    g.fillStyle = '#34d399'; g.font = 'bold ' + Math.round(r * 1.1) + 'px system-ui';
+    g.fillText(n > 0 ? String(n) : 'GO', cx, cy + r * 0.38);
+    g.fillStyle = '#cfd6df'; g.font = '13px system-ui';
+    g.fillText('get your finger on the motor', cx, cy + r * 1.3);
+  }
 
   // A word when you pass a milestone, fading out.
   const age = game.elapsed - game.flashAt;
@@ -1647,7 +1828,7 @@ function drawGame() {
 
   if (!game.running && !game.over) {
     g.textAlign = 'center'; g.fillStyle = '#6b7684'; g.font = '13px system-ui';
-    g.fillText('press Start, then move your pointer around the motor', cx, h - 14);
+    g.fillText('press Start, then drag around the motor to spin it up', cx, h - 14);
   }
 
   // The end of a round, said on the picture rather than only in the panel.
@@ -1657,12 +1838,11 @@ function drawGame() {
     g.fillStyle = 'rgba(13,17,23,.9)'; g.fillRect(px, py, pw, 70);
     g.strokeStyle = '#ef4444'; g.lineWidth = 1.5; g.strokeRect(px + .5, py + .5, pw - 1, 69);
     g.textAlign = 'center';
-    g.fillStyle = '#e8eaed'; g.font = 'bold 15px system-ui';
-    g.fillText(game.elapsed.toFixed(1) + ' s at ' + percent.toFixed(0) + ' % of the torque',
-      cx, py + 26);
+    g.fillStyle = '#e8eaed'; g.font = 'bold 19px system-ui';
+    g.fillText(Math.round(game.best) + ' rpm', cx, py + 28);
     g.fillStyle = '#9aa5b1'; g.font = '12.5px system-ui';
-    g.fillText('you reached ' + Math.round(game.best) + ' rpm \u00b7 the controller holds 100 % to 4000',
-      cx, py + 48);
+    g.fillText('max motor speed \u00b7 ' + percent.toFixed(0)
+      + ' % of the torque on average', cx, py + 50);
   }
 }
 
@@ -1671,18 +1851,26 @@ function updateGameNumbers() {
   if ($('tab-game').hidden) return;
   const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
   const best = gameBest();
-  $('game-numbers').innerHTML = [
-    ['Torque right now', (100 * Math.max(game.kept, 0)).toFixed(0) + ' %'],
-    ['Last second or so', (100 * Math.max(game.recent, 0)).toFixed(0) + ' %'],
+  const rpm = gameRpm();
+  const rows = [
+    ['Motor speed', Math.round(rpm) + ' rpm' + (rpm < -1 ? ' (backwards)' : '')],
+    ['Best this run', Math.round(game.best) + ' rpm'],
+    ['Torque angle', Math.round(game.rotor.delta * 180 / Math.PI) + '\u00b0 of 90\u00b0'],
+    ['Torque right now', (game.kept >= 0 ? '+' : '\u2212')
+      + Math.round(Math.abs(game.kept) * 100) + ' %'],
     ['Heat building up', (100 * game.heat).toFixed(0) + ' %'],
-    ['Average this attempt', percent.toFixed(0) + ' %'],
-    ['Held for', game.elapsed.toFixed(1) + ' s'],
-    ['Motor speed', Math.round(game.rpm) + ' rpm'],
-    ['Step', (game.step + 1) + ' \u00b7 next in '
-      + Math.max(0, STEP_SECONDS - (game.elapsed % STEP_SECONDS)).toFixed(1) + ' s'],
-    ['Your best', best ? best.seconds.toFixed(1) + ' s at ' + best.percent.toFixed(0) + ' %' : 'no attempt yet'],
-    ['The controller', 'about 100 %, indefinitely'],
-  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+    ['Time left', runRemaining().toFixed(1) + ' s'],
+  ];
+  if (game.mode === 'sensorless') {
+    const e = game.estimate;
+    rows.push(['Estimate', !e ? '\u2014' : e.valid
+      ? 'within ' + e.errorDeg.toFixed(1) + '\u00b0' : 'none, too slow']);
+    rows.push(['Blind for', game.lostSeconds.toFixed(1) + ' s of this run']);
+  }
+  rows.push(['Your best', best && best.rpm ? best.rpm + ' rpm' : 'no attempt yet']);
+  rows.push(['The controller', 'about 100 %, at any speed']);
+  $('game-numbers').innerHTML = rows
+    .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
 }
 
 function aimAt(event) {
@@ -1693,6 +1881,9 @@ function aimAt(event) {
 
 // Both inputs land here: the 2D dial and the pointer on the 3D machine itself.
 function aimTo(angle) {
+  // During the count-in the field is parked, so nobody starts the round by
+  // accident while they are still working out where to put their finger.
+  if (game.running && game.countdown > 0) return;
   game.aim = angle;
   if (game.demo && game.running) {
     game.demo = false;
@@ -1819,6 +2010,13 @@ async function start() {
     game.gentle = !game.gentle;
     $('game-level').textContent = game.gentle ? 'Gentle \u00b7 make it harder' : 'Harder \u00b7 make it gentle';
     if (game.running) startGame(game.demo);
+  });
+  $('game-mode').addEventListener('click', () => {
+    touched();
+    game.mode = game.mode === 'sensored' ? 'sensorless' : 'sensored';
+    $('game-mode').textContent = game.mode === 'sensored'
+      ? 'Try it without the sensor' : 'Back to seeing the rotor';
+    if (game.running) startGame(game.demo); else drawGame();
   });
   for (const type of ['pointermove', 'pointerdown'])
     $('game').addEventListener(type, event => { touched(); aimAt(event); });

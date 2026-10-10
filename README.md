@@ -224,6 +224,52 @@ Data from `SIMULATION/results/single_motor_sensored/matrix_20260928_132634`, pro
 `SIMULATION/run_single_motor_sensored_matrix.m`. See `SIMULATION/SENSORED_MODEL_GUIDE.md`
 for what each block of the model does, and `SIMULATION/CHANGES.md` for the model history.
 
+## The game, and its motor
+
+"Beat the controller" is a real simulation, not an animation on a timer. The
+player aims the stator field with a finger; torque follows the sine of the angle
+between that field and the rotor's magnetic axis, and the rotor has inertia:
+
+    T = Tmax * sin(delta)
+    J * domega/dt = T - B*omega - Tc*sign(omega)
+
+Nothing clamps the torque positive, so aiming badly genuinely brakes the rotor,
+stops it, and drives it backwards. **The score is the highest speed reached**,
+and a run lasts 30 seconds — losing the angle costs speed, not the round.
+
+**All the tuning lives in `gamephysics.js`**, with a comment on each constant
+saying what happens when you raise or lower it: inertia, peak torque, viscous
+and dry friction, time scale, run length, count-in, and the sensorless
+estimator's threshold, noise and lag. The ceiling a flawless player could reach
+is `(maxTorque - coulombFriction) / viscousFriction`, about 580 rpm as shipped,
+which no hand gets near — that is deliberate, so the leaderboard does not fill
+up with people tied at the top.
+
+This is **not** the BM1109 and not the Simulink model. It is a teaching motor
+whose numbers were chosen so that a human finger is the limiting factor.
+
+### The sensorless round
+
+"Try it without the sensor" hides the rotor. The player steers off an estimate
+that gets worse as the motor slows and disappears below `estimatorMinRpm`, so
+the round has to start blind — which is the project's actual finding, reduced to
+something you can feel. It is illustrative, not a model of any real estimator.
+
+### Testing the physics
+
+Open `physics_test.html` through the local server. Fourteen checks run in the
+browser and report pass or fail: the torque at 0, +90 and -90 degrees, that
+positive torque accelerates and negative torque reverses, that friction alone
+slows the rotor, angle wrapping either side of 180 degrees, that the result is
+independent of frame rate, that a stalled frame stays on track, that a 30 Hz
+display is not penalised against a 120 Hz one, and that a flawless player
+converges on the predicted ceiling.
+
+```bash
+python serve.py
+# then open http://127.0.0.1:8790/physics_test.html
+```
+
 ## Running it from GitHub Pages
 
 The site is static, so GitHub can serve it directly with no build and no account

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game physics tests</title>
+<style>
+  body { font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; background: #0f131a;
+         color: #e6eaf0; margin: 0; padding: 24px 20px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lead { color: #9aa5b1; margin: 0 0 20px; }
+  li { list-style: none; padding: 6px 0; border-bottom: 1px solid #1d232d; }
+  .pass::before { content: 'PASS  '; color: #34d399; font-weight: 700; }
+  .fail::before { content: 'FAIL  '; color: #f87171; font-weight: 700; }
+  .detail { color: #7d8794; display: block; padding-left: 50px; }
+  #summary { margin-top: 20px; font-size: 17px; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>Game physics tests</h1>
+<p class="lead">Open this page with the site's own server. Every check runs against
+  <code>gamephysics.js</code>, the same module the game uses.</p>
+<ul id="out"></ul>
+<div id="summary">running…</div>
+
+<script type="module">
+import { PHYSICS, wrapAngle, torqueFor, newRotor, stepRotor, rpmOf, omegaOf }
+  from './gamephysics.js';
+
+const out = document.getElementById('out');
+let passed = 0, failed = 0;
+
+function check(name, ok, detail = '') {
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = name;
+  if (detail) {
+    const span = document.createElement('span');
+    span.className = 'detail';
+    span.textContent = detail;
+    li.appendChild(span);
+  }
+  out.appendChild(li);
+  ok ? passed++ : failed++;
+}
+
+const near = (a, b, tol) => Math.abs(a - b) <= tol;
+const D = Math.PI / 180;
+
+// A perfect player: the field is held a fixed angle ahead of the rotor. The
+// input is therefore resampled every frame, exactly as a real finger is.
+function run(seconds, offsetRad, dt, cfg = PHYSICS, rotor = newRotor(cfg)) {
+  let previous = rotor.angle + offsetRad;
+  for (let t = 0; t < seconds; t += dt) {
+    const field = rotor.angle + offsetRad;
+    stepRotor(rotor, field, Math.min(dt, seconds - t), cfg, previous);
+    previous = field;
+  }
+  return rotor;
+}
+
+// A field trajectory that does not depend on the frame rate at all: it sweeps
+// at a fixed commanded speed. This is the fair way to ask whether the
+// integrator itself cares about dt.
+function runTrajectory(seconds, field, dt, cfg = PHYSICS) {
+  const rotor = newRotor(cfg);
+  let t = 0;
+  while (t < seconds) {
+    const h = Math.min(dt, seconds - t);
+    stepRotor(rotor, field(t + h), h, cfg, field(t));
+    t += h;
+  }
+  return rotor;
+}
+
+// 1
+check('0 degrees gives no torque',
+  near(torqueFor(0), 0, 1e-12),
+  `T(0) = ${torqueFor(0).toExponential(2)} N.m`);
+
+// 2
+check('+90 degrees gives maximum positive torque',
+  near(torqueFor(Math.PI / 2), PHYSICS.maxTorque, 1e-12),
+  `T(+90) = ${torqueFor(Math.PI / 2).toFixed(4)} of max ${PHYSICS.maxTorque}`);
+
+// 3
+check('-90 degrees gives maximum negative torque',
+  near(torqueFor(-Math.PI / 2), -PHYSICS.maxTorque, 1e-12),
+  `T(-90) = ${torqueFor(-Math.PI / 2).toFixed(4)}`);
+
+// 4
+{
+  const r = run(2, 90 * D, 1 / 120);
+  check('positive torque accelerates the rotor forwards',
+    r.omega > 0 && rpmOf(r.omega) > 50,
+    `after 2 s at +90 deg: ${rpmOf(r.omega).toFixed(1)} rpm`);
+}
+
+// 5
+{
+  const r = newRotor();
+  r.omega = omegaOf(300);
+  const before = rpmOf(r.omega);
+  for (let t = 0; t < 4; t += 1 / 120) stepRotor(r, r.angle - Math.PI / 2, 1 / 120);
+  check('negative torque decelerates and then reverses the rotor',
+    r.omega < 0,
+    `from ${before.toFixed(0)} rpm to ${rpmOf(r.omega).toFixed(1)} rpm at -90 deg`);
+}
+
+// 6
+{
+  const r = newRotor();
+  r.omega = omegaOf(300);
+  const before = rpmOf(r.omega);
+  // Field held on the rotor axis: sin(0) = 0, so only friction acts.
+  for (let t = 0; t < 2; t += 1 / 120) stepRotor(r, r.angle, 1 / 120);
+  const after = rpmOf(r.omega);
+  check('friction alone slows the rotor when there is no torque',
+    after < before && after > 0,
+    `${before.toFixed(0)} rpm -> ${after.toFixed(1)} rpm in 2 s, no torque applied`);
+}
+
+// 7
+{
+  const cases = [
+    [Math.PI + 0.1, -Math.PI + 0.1],
+    [-Math.PI - 0.1, Math.PI - 0.1],
+    [3 * Math.PI, Math.PI],
+    [0, 0],
+    [7 * Math.PI / 4, -Math.PI / 4],
+  ];
+  const bad = cases.filter(([input, want]) => !near(wrapAngle(input), want, 1e-9));
+  check('angle wrapping is continuous across +/-180 degrees',
+    bad.length === 0,
+    bad.length ? `failed for ${bad.map(c => c[0].toFixed(3)).join(', ')}`
+               : 'all five wrap cases correct');
+  // And a torque check either side of the discontinuity.
+  const a = torqueFor(wrapAngle(Math.PI - 0.01));
+  const b = torqueFor(wrapAngle(-Math.PI + 0.01));
+  check('torque has no jump at the wrap point',
+    near(a, -b, 1e-9) && Math.abs(a) < 0.02,
+    `T just below +180 = ${a.toFixed(5)}, just above -180 = ${b.toFixed(5)}`);
+}
+
+// 8  Same field trajectory, four frame rates.
+{
+  const seconds = 6;
+  // A ramped sweep, the way an open-loop start is actually done: held at a
+  // steady 200 rpm from rest the rotor simply slips, which is realistic but
+  // chaotic, and a chaotic scenario cannot tell you anything about dt.
+  const target = omegaOf(220);
+  const field = t => 0.5 * (target / seconds) * t * t + Math.PI / 2;
+  const rates = [1 / 30, 1 / 60, 1 / 90, 1 / 120];
+  const results = rates.map(dt => rpmOf(runTrajectory(seconds, field, dt).omega));
+  const spread = Math.max(...results) - Math.min(...results);
+  const mean = results.reduce((s, v) => s + v, 0) / results.length;
+  const tol = Math.max(0.5, Math.abs(mean) * 0.01);
+  check('the simulation is independent of frame rate',
+    spread <= tol,
+    rates.map((dt, i) => `${Math.round(1 / dt)} Hz: ${results[i].toFixed(2)} rpm`).join('   ')
+      + `   spread ${spread.toFixed(3)} rpm, allowed ${tol.toFixed(3)}`);
+
+  // A stalled browser. The game clamps a long frame to 50 ms rather than
+  // integrating the whole gap, because the input between the two frames is
+  // simply not known: the clamped result must track the smooth one, and a
+  // single unclamped 750 ms frame must still be finite and sane.
+  const smooth = rpmOf(runTrajectory(0.75, field, 1 / 120).omega);
+  const clamped = rpmOf(runTrajectory(0.75, field, 0.05).omega);
+  check('a stalled frame, clamped the way the game clamps it, stays on track',
+    Math.abs(clamped - smooth) <= Math.abs(smooth) * 0.05 + 0.5,
+    `50 ms frames: ${clamped.toFixed(2)} rpm, 120 Hz: ${smooth.toFixed(2)} rpm`);
+
+  const unclamped = rpmOf(runTrajectory(0.75, field, 0.75).omega);
+  check('even an unclamped 750 ms frame cannot blow the integrator up',
+    Number.isFinite(unclamped) && Math.abs(unclamped) < PHYSICS.maxDisplayRpm,
+    `one 750 ms frame: ${unclamped.toFixed(2)} rpm — substepped at `
+      + `${(PHYSICS.maxSubStep * 1000).toFixed(1)} ms, so bounded, though the input `
+      + `between the two frames is unknowable`);
+}
+
+// Whether the shared leaderboard is fair across devices. A real player reacts
+// to what they saw a moment ago, and that delay is far longer than the gap
+// between one frame and the next, so it is what decides the answer.
+{
+  const seconds = 6, offset = 70 * D, reaction = 0.15;
+  function withReaction(dt) {
+    const cfg = PHYSICS, rotor = newRotor(cfg);
+    const history = [];
+    let previous = rotor.angle + offset, t = 0;
+    while (t < seconds) {
+      history.push({ t, angle: rotor.angle });
+      // Aim at where the rotor was one reaction time ago.
+      const seen = history.find(h => h.t >= t - reaction) || history[0];
+      const field = seen.angle + offset;
+      stepRotor(rotor, field, dt, cfg, previous);
+      previous = field;
+      t += dt;
+    }
+    return rpmOf(rotor.omega);
+  }
+  const slow = withReaction(1 / 30), fast = withReaction(1 / 120);
+  check('the leaderboard is not decided by the phone refresh rate',
+    Math.abs(slow - fast) <= Math.abs(fast) * 0.15 + 1,
+    `with a 150 ms reaction time — 30 Hz: ${slow.toFixed(1)} rpm, `
+      + `120 Hz: ${fast.toFixed(1)} rpm, `
+      + `${(100 * Math.abs(slow - fast) / Math.abs(fast)).toFixed(2)} % apart`);
+}
+
+// Extra: the ceiling a perfect player would reach, which is what stops the
+// leaderboard filling up with ties.
+{
+  // Sampled finely, so the 90 degrees is not eroded by the rotor turning
+  // between one look and the next.
+  const r = run(120, 90 * D, 1 / 1000);
+  // Dry friction eats into the ceiling as well, so it is (Tmax - Tc)/B.
+  const terminal = (PHYSICS.maxTorque - PHYSICS.coulombFriction) / PHYSICS.viscousFriction;
+  check('a flawless player converges on the predicted terminal speed',
+    near(rpmOf(r.omega), rpmOf(terminal), rpmOf(terminal) * 0.03),
+    `reached ${rpmOf(r.omega).toFixed(0)} rpm, predicted (Tmax-Tc)/B = `
+      + `${rpmOf(terminal).toFixed(0)} rpm — the ceiling no human will meet`);
+}
+
+// Extra: at rest with no useful torque it must stay at rest, not creep.
+{
+  const r = newRotor();
+  for (let t = 0; t < 3; t += 1 / 120) stepRotor(r, r.angle, 1 / 120);
+  check('a rotor at rest with no torque stays at rest',
+    Math.abs(rpmOf(r.omega)) < 1e-6,
+    `${rpmOf(r.omega).toExponential(2)} rpm after 3 s`);
+}
+
+const el = document.getElementById('summary');
+el.textContent = `${passed} passed, ${failed} failed`;
+el.style.color = failed ? '#f87171' : '#34d399';
+</script>
+</body>
+</html>

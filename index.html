@@ -352,6 +352,10 @@
 
 <main id="tab-game" hidden>
   <section class="plot-card">
+    <canvas id="game-kart" aria-label="A go-kart moving at the motor's signed speed"></canvas>
+    <p class="caption"><b>The kart runs at whatever the motor does.</b> Spin the rotor backwards and
+      it reverses. This is a drawing of the simulated motor speed, not a calculated road speed:
+      the sprocket ratio and wheel size are not in it yet.</p>
     <div class="game-pair">
       <figure>
         <canvas id="game" aria-label="Hold the current vector ninety degrees ahead of the rotor magnets"></canvas>
@@ -380,6 +384,7 @@
       <button id="game-start" class="primary-btn">Start</button>
       <button id="game-demo" class="primary-btn ghost">Watch the controller do it</button>
       <button id="game-level" class="primary-btn ghost">Gentle &middot; make it harder</button>
+      <button id="game-mode" class="primary-btn ghost">Try it without the sensor</button>
       <p class="hint">Keep the green arrow inside the shaded band. The motor speeds up the better you do,
         so getting good is what eventually beats you. The dashed lines show your current split in two: the
         part across the magnets that makes torque, and the part along them that only makes heat.</p>

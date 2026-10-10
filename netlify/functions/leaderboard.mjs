@@ -76,7 +76,7 @@ export default async function handler(request) {
     try { body = await request.json(); } catch { body = null; }
     if (!body) return new Response(JSON.stringify({ error: 'bad request' }), { status: 400, headers });
     list.push(clean(body));
-    list.sort((a, b) => b.seconds - a.seconds);
+    list.sort((a, b) => (b.rpm || 0) - (a.rpm || 0));   // fastest motor wins
     list = list.slice(0, MAX_ENTRIES);
     await store.setJSON(KEY, list);
   }

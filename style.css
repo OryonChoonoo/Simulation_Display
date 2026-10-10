@@ -310,6 +310,12 @@ body[data-mode=kiosk] #game{height:560px}
 /* The dial and the machine beside each other: the same instant, two views, so
    neither has to be remembered while scrolling to the other. */
 .game-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+/* The kart strip sits above the motor, short enough that the motor still owns
+   the screen on a phone. */
+#game-kart{width:100%;height:96px;display:block;border-radius:10px;background:#0c1118;
+  border:1px solid #1d2531}
+@media(max-width:760px){#game-kart{height:78px}}
+
 .game-pair figure{margin:0;min-width:0}
 /* The exploded motor sits under the whole rig, shorter, so both fit on a screen. */
 .inside-stage{height:400px;margin-top:4px}
