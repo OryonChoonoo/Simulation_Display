@@ -131,6 +131,287 @@ index 49add80..dc57735 100644
      return null;
    }
  
+diff --git a/lib/screens/game_screen.dart b/lib/screens/game_screen.dart
+index fd98c9d..580d37e 100644
+--- a/lib/screens/game_screen.dart
++++ b/lib/screens/game_screen.dart
+@@ -135,7 +135,7 @@ class _SpeedReadout extends StatelessWidget {
+             Text(
+               'TORQUE  ${torque >= 0 ? '+' : ''}${(torque * 100).round()}%',
+               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+-                color: torque >= 0 ? const Color.fromARGB(255, 46, 161, 50) : GameColors.coral,
++                color: torque >= 0 ? GameColors.torque : GameColors.coral,
+                 fontWeight: FontWeight.w800,
+               ),
+             ),
+@@ -191,7 +191,7 @@ class _MotorControl extends StatelessWidget {
+                       vertical: 14,
+                     ),
+                     decoration: BoxDecoration(
+-                      color: GameColors.ink.withValues(alpha: 0.94),
++                      color: GameColors.surface.withValues(alpha: 0.94),
+                       borderRadius: BorderRadius.circular(6),
+                       border: Border.all(color: GameColors.mint),
+                     ),
+diff --git a/lib/screens/home_screen.dart b/lib/screens/home_screen.dart
+index 8c15c9a..be81d0b 100644
+--- a/lib/screens/home_screen.dart
++++ b/lib/screens/home_screen.dart
+@@ -132,7 +132,7 @@ class HomeScreen extends StatelessWidget {
+   //Widget build(BuildContext context) => Container(
+   //  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+   //  decoration: BoxDecoration(
+-  //    color: GameColors.ink.withValues(alpha: 0.94),
++  //    color: GameColors.surface.withValues(alpha: 0.94),
+   //    borderRadius: BorderRadius.circular(6),
+   //    border: Border.all(color: GameColors.line),
+   //  ),
+diff --git a/lib/screens/leaderboard_screen.dart b/lib/screens/leaderboard_screen.dart
+index 3fc75bc..c930277 100644
+--- a/lib/screens/leaderboard_screen.dart
++++ b/lib/screens/leaderboard_screen.dart
+@@ -82,7 +82,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
+                                     style: TextStyle(
+                                       color:
+                                           index < 3
+-                                              ? GameColors.ink
++                                              ? GameColors.onAccent
+                                               : GameColors.cream,
+                                       fontWeight: FontWeight.w900,
+                                     ),
+diff --git a/lib/theme/game_theme.dart b/lib/theme/game_theme.dart
+index a77f1bb..37f420e 100644
+--- a/lib/theme/game_theme.dart
++++ b/lib/theme/game_theme.dart
+@@ -1,40 +1,65 @@
+ import 'package:flutter/material.dart';
+ 
++/// Race-livery palette, matching the Let's Torque Control dashboard the game is
++/// embedded in: warm near-black rather than cold slate, one hot orange leading,
++/// cyan answering it, and the physics keeping its own meanings — red for the
++/// magnets, green for the current that is actually making torque.
++///
++/// The old warm-beige 2048 palette is in the git history if it is ever wanted
++/// back; only the twelve constants below and the two web files changed.
+ abstract final class GameColors {
+-  // Warm board and tile tones from the original 2048 visual language.
+-  static const ink = Color(0xFFFAF8EF);
+-  static const panel = Color(0xFFEEE4DA);
+-  static const raised = Color(0xFFDDD0C2);
+-  static const line = Color(0xFFBBADA0);
+-  static const cream = Color(0xFF776E65);
+-  static const muted = Color(0xFF8F7A66);
+-  static const mint = Color(0xFFAD5732);
+-  static const coral = Color(0xFFC94F38);
+-  static const gold = Color(0xFF936B0A);
+-  static const button = Color(0xFF8F7A66);
+-  static const road = Color(0xFF42403E);
+-  static const curbRed = Color(0xFFD65045);
++  // Surfaces, darkest first.
++  static const surface = Color(0xFF11100E); // page and scaffold
++  static const panel = Color(0xFF1B1916); // cards, the ground behind the track
++  static const raised = Color(0xFF232019); // inputs, unhighlighted avatars
++  static const line = Color(0xFF4A423A); // borders and stator detail
++  static const road = Color(0xFF3A332C); // the track surface
++
++  // Text.
++  static const cream = Color(0xFFF5F1EA); // primary text
++  static const muted = Color(0xFFA2998C); // secondary text
++
++  /// Drawn *on top of* a coloured or dark shape — the N and S pole letters, the
++  /// kerb dashes, the kart outline, the start-line squares. It must stay light
++  /// whatever the background does, which is why it is no longer the same
++  /// constant as the page colour.
++  static const onDark = Color(0xFFF5F1EA);
++
++  /// Text and icons sitting on one of the accents below, which are bright
++  /// enough to need something dark on them.
++  static const onAccent = Color(0xFF1A0D04);
++
++  // Signals.
++  static const mint = Color(0xFFFF6B1A); // the lead accent (orange)
++  static const coral = Color(0xFFFF2D55); // magnets, and negative torque
++  static const gold = Color(0xFFFFB020); // highlights, top three
++  static const button = Color(0xFFFF6B1A);
++  static const curbRed = Color(0xFFFF2D55);
++
++  /// Positive torque. Was four slightly different hard-coded greens scattered
++  /// through the painters; one name now, so it cannot drift again.
++  static const torque = Color(0xFF00E693);
+ }
+ 
+ ThemeData gameTheme() {
+   final scheme = ColorScheme.fromSeed(
+     seedColor: GameColors.mint,
+-    brightness: Brightness.light,
++    brightness: Brightness.dark,
+   ).copyWith(
+     primary: GameColors.mint,
+-    onPrimary: GameColors.ink,
+-    secondary: GameColors.coral,
+-    onSecondary: GameColors.ink,
+-    surface: GameColors.ink,
++    onPrimary: GameColors.onAccent,
++    secondary: GameColors.gold,
++    onSecondary: GameColors.onAccent,
++    surface: GameColors.surface,
+     onSurface: GameColors.cream,
+     outline: GameColors.line,
+   );
+   return ThemeData(
+     useMaterial3: true,
+     colorScheme: scheme,
+-    scaffoldBackgroundColor: GameColors.ink,
++    scaffoldBackgroundColor: GameColors.surface,
+     appBarTheme: const AppBarTheme(
+-      backgroundColor: GameColors.ink,
++      backgroundColor: GameColors.surface,
+       foregroundColor: GameColors.cream,
+       surfaceTintColor: Colors.transparent,
+     ),
+@@ -42,17 +67,21 @@ ThemeData gameTheme() {
+       color: GameColors.panel,
+       surfaceTintColor: Colors.transparent,
+       shape: RoundedRectangleBorder(
+-        borderRadius: BorderRadius.circular(6),
++        borderRadius: BorderRadius.circular(4),
+         side: const BorderSide(color: GameColors.line),
+       ),
+     ),
+     filledButtonTheme: FilledButtonThemeData(
+       style: FilledButton.styleFrom(
+         backgroundColor: GameColors.button,
+-        foregroundColor: GameColors.ink,
++        foregroundColor: GameColors.onAccent,
+         minimumSize: const Size(0, 54),
+-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
++        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
++        textStyle: const TextStyle(
++          fontSize: 16,
++          fontWeight: FontWeight.w800,
++          letterSpacing: 0.6,
++        ),
+       ),
+     ),
+     outlinedButtonTheme: OutlinedButtonThemeData(
+@@ -60,14 +89,15 @@ ThemeData gameTheme() {
+         foregroundColor: GameColors.cream,
+         side: const BorderSide(color: GameColors.line),
+         minimumSize: const Size(0, 50),
+-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
++        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+       ),
+     ),
+     inputDecorationTheme: InputDecorationTheme(
+       filled: true,
+       fillColor: GameColors.raised,
++      hintStyle: const TextStyle(color: GameColors.muted),
+       border: OutlineInputBorder(
+-        borderRadius: BorderRadius.circular(6),
++        borderRadius: BorderRadius.circular(3),
+         borderSide: const BorderSide(color: GameColors.line),
+       ),
+     ),
+diff --git a/lib/widgets/kart_track.dart b/lib/widgets/kart_track.dart
+index 3798a7b..d01e5cf 100644
+--- a/lib/widgets/kart_track.dart
++++ b/lib/widgets/kart_track.dart
+@@ -69,7 +69,7 @@ class _KartPainter extends CustomPainter {
+       metric,
+       dash: 9,
+       gap: 9,
+-      color: GameColors.ink,
++      color: GameColors.onDark,
+       strokeWidth: roadWidth + 7,
+     );
+     canvas.drawPath(
+@@ -84,7 +84,7 @@ class _KartPainter extends CustomPainter {
+       metric,
+       dash: 9,
+       gap: 9,
+-      color: GameColors.ink.withValues(alpha: 0.88),
++      color: GameColors.onDark.withValues(alpha: 0.88),
+       strokeWidth: 1.5,
+     );
+ 
+@@ -100,7 +100,8 @@ class _KartPainter extends CustomPainter {
+             roadWidth / 6,
+           ),
+           Paint()
+-            ..color = (row + column).isEven ? GameColors.ink : GameColors.road,
++            ..color =
++                (row + column).isEven ? GameColors.onDark : GameColors.road,
+         );
+       }
+     }
+@@ -160,12 +161,12 @@ class _KartPainter extends CustomPainter {
+     // steering wheel and a seat. It stays legible over the road at phone size.
+     final outline =
+         Paint()
+-          ..color = GameColors.ink
++          ..color = GameColors.onDark
+           ..style = PaintingStyle.stroke
+           ..strokeWidth = 2.1
+           ..strokeCap = StrokeCap.round
+           ..strokeJoin = StrokeJoin.round;
+-    final wheelFill = Paint()..color = GameColors.ink;
++    final wheelFill = Paint()..color = GameColors.onDark;
+     for (final x in [-10.0, 10.0]) {
+       for (final y in [-7.5, 7.5]) {
+         canvas.drawRRect(
+diff --git a/lib/widgets/motor_painter.dart b/lib/widgets/motor_painter.dart
+index 058b7f8..996563b 100644
+--- a/lib/widgets/motor_painter.dart
++++ b/lib/widgets/motor_painter.dart
+@@ -24,7 +24,7 @@ class MotorPainter extends CustomPainter {
+     final strong = torque > 0.78;
+     final glow =
+         Paint()
+-          ..color = (torque >= 0 ? const Color.fromARGB(255, 83, 173, 50) : GameColors.coral)
++          ..color = (torque >= 0 ? GameColors.torque : GameColors.coral)
+               .withValues(alpha: strong ? 0.12 : 0.06)
+           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28);
+     canvas.drawCircle(center, radius * 0.87, glow);
+@@ -64,12 +64,16 @@ class MotorPainter extends CustomPainter {
+           ..color =
+               i.isEven
+                   ? GameColors.coral.withValues(alpha: 0.7)
+-                  : const Color.fromARGB(255, 9, 135, 41).withValues(alpha: 0.75),
++                  : GameColors.torque.withValues(alpha: 0.75),
+       );
+       canvas.restore();
+     }
+ 
+-    canvas.drawCircle(center, radius * 0.64, Paint()..color = GameColors.ink);
++    canvas.drawCircle(
++      center,
++      radius * 0.64,
++      Paint()..color = GameColors.surface,
++    );
+     for (var i = 0; i < 3; i++) {
+       canvas.drawCircle(
+         center,
+@@ -101,8 +105,8 @@ class MotorPainter extends CustomPainter {
+       radius * 0.11,
+       Paint()..color = GameColors.cream,
+     );
+-    _label(canvas, 'N', rotorTip, radius * 0.12, GameColors.ink);
+-    _label(canvas, 'S', rotorTail, radius * 0.12, GameColors.ink);
++    _label(canvas, 'N', rotorTip, radius * 0.12, GameColors.onDark);
++    _label(canvas, 'S', rotorTail, radius * 0.12, GameColors.onDark);
+ 
+     final arcRadius = radius * 0.60;
+     canvas.drawArc(
+@@ -111,7 +115,7 @@ class MotorPainter extends CustomPainter {
+       torqueAngle,
+       false,
+       Paint()
+-        ..color = torque >= 0 ? const Color.fromARGB(255, 10, 147, 46) : GameColors.coral
++        ..color = torque >= 0 ? GameColors.torque : GameColors.coral
+         ..style = PaintingStyle.stroke
+         ..strokeWidth = radius * 0.035
+         ..strokeCap = StrokeCap.round,
 diff --git a/supabase/name_filter.sql b/supabase/name_filter.sql
 new file mode 100644
 index 0000000..058d6b7
@@ -389,3 +670,35 @@ index e9aefd8..2cb3159 100644
 +  });
 +
  }
+diff --git a/web/index.html b/web/index.html
+index 30d4960..ead61c8 100644
+--- a/web/index.html
++++ b/web/index.html
+@@ -19,10 +19,10 @@
+   <meta charset="UTF-8">
+   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+   <meta name="description" content="FOC FAST: a quick, hands-on game about field-oriented motor control.">
+-  <meta name="theme-color" content="#FAF8EF">
++  <meta name="theme-color" content="#11100E">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+   <style>
+-    html, body { margin: 0; height: 100%; overscroll-behavior: none; background: #FAF8EF; }
++    html, body { margin: 0; height: 100%; overscroll-behavior: none; background: #11100E; }
+     body { touch-action: none; }
+   </style>
+ 
+diff --git a/web/manifest.json b/web/manifest.json
+index 398faaf..72c757d 100644
+--- a/web/manifest.json
++++ b/web/manifest.json
+@@ -5,8 +5,8 @@
+     "scope": "./",
+     "start_url": ".",
+     "display": "standalone",
+-    "background_color": "#FAF8EF",
+-    "theme_color": "#FAF8EF",
++    "background_color": "#11100E",
++    "theme_color": "#11100E",
+     "description": "A hands-on field-oriented motor control game.",
+     "orientation": "portrait-primary",
+     "prefer_related_applications": false,

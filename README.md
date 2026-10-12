@@ -239,6 +239,15 @@ should not pay for a download they never asked for. A **Full screen** link sits
 beside it for anyone whose browser struggles with the embed, and for installing
 it to a phone's home screen, which only works from its own tab.
 
+`tools/foc-game-livery-and-name-filter.patch` carries two changes for his
+repository: the race-livery palette, so the game matches the page it is embedded
+in, and the nickname screening below. Apply it with `git apply`, push, and his CI
+rebuilds. His theme was already in one place, so the recolour is twelve constants
+plus the two web files — except that `ink` was doing two jobs, page background
+and the light drawn on top of coloured shapes, which pull apart once the theme
+goes dark. It is now `surface`, `onDark` and `onAccent`, and the four hand-mixed
+greens that all meant "positive torque" are one named constant.
+
 Nicknames are screened by a trigger on the Supabase table, not in the client:
 the publishable key is compiled into the game's public JavaScript bundle, so
 anyone can post straight to the REST endpoint without going through the app. A
