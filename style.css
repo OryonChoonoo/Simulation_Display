@@ -361,6 +361,32 @@ body[data-mode=kiosk] #game{height:560px}
 /* The dial and the machine beside each other: the same instant, two views, so
    neither has to be remembered while scrolling to the other. */
 .game-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+/* The game runs inside the page. It gets the whole width and most of the
+   height, because it is the thing people came to the stand to do. */
+.game-tab{grid-template-columns:minmax(0,1fr)}
+.game-hosted{padding:12px 12px 10px}
+.game-bar{display:flex;align-items:center;gap:18px;padding:4px 6px 12px;flex-wrap:wrap}
+.game-bar-title{margin:0;font-family:var(--display);font-size:30px;line-height:1;
+  text-transform:uppercase;color:var(--text);letter-spacing:.01em}
+.game-bar-note{margin:0;flex:1 1 320px;color:var(--muted);font-size:14px;min-width:220px}
+.game-bar-open{flex:0 0 auto;margin:0;width:auto}
+.game-embed-wrap{position:relative;width:100%;height:min(76vh,780px);min-height:520px;
+  border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#faf8ef;
+  touch-action:none}
+#game-embed{position:relative;z-index:1;width:100%;height:100%;border:0;display:block;
+  opacity:0;transition:opacity .25s}
+#game-embed.ready{opacity:1}
+.game-embed-fallback{position:absolute;inset:0;display:grid;place-items:center;
+  color:#8a7f72;font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;
+  font-size:15px;background:#faf8ef}
+.game-below{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:16px;grid-column:1/-1}
+@media(max-width:760px){
+  .game-embed-wrap{height:min(82vh,700px);min-height:460px}
+  .game-bar-note{display:none}
+  .game-bar-title{font-size:24px}
+}
+
 /* The hand-off to the game. One thing to press, sized so nobody has to look
    for it, and the credit for whose game it is sits right under it. */
 .game-launch{display:flex;flex-direction:column;align-items:center;text-align:center;

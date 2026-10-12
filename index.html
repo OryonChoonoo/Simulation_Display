@@ -350,30 +350,31 @@
   </section>
 </main>
 
-<main id="tab-game" hidden>
-  <section class="plot-card game-launch">
-    <p class="eyebrow">the game</p>
-    <h1 class="launch-title">FOC FAST</h1>
-    <p class="launch-lead">Drag the stator field around the rotor and keep it a quarter turn ahead.
-      Hold it there and the motor accelerates. Fall behind and the same field brakes it, stops it, and
-      drives it backwards. <b>Twenty-five seconds. Your score is the fastest you get it.</b></p>
-    <a id="play-link" class="primary-btn play-link"
-       href="https://joaopedra-amdg.github.io/FOC-game/" target="_blank" rel="noopener">Play now</a>
-    <p class="caption">Opens in a new tab, and works on any phone &mdash; no sign-in and nothing to
-      install, though it will offer to add itself to your home screen if you want it there.</p>
-    <p class="caption launch-credit">Built in Flutter by <b>Jo&atilde;o Pedra</b> for this
-      investigation. The scores below are the live shared board from inside that game.</p>
+<main id="tab-game" hidden class="game-tab">
+  <section class="plot-card game-hosted">
+    <div class="game-bar">
+      <div>
+        <p class="eyebrow">the game</p>
+        <h2 class="game-bar-title">FOC FAST</h2>
+      </div>
+      <p class="game-bar-note">Drag the stator field a quarter turn ahead of the rotor. Hold it there
+        and the motor accelerates; fall behind and the same field brakes it. Twenty-five seconds.</p>
+      <a id="play-link" class="primary-btn ghost game-bar-open"
+         href="https://joaopedra-amdg.github.io/FOC-game/" target="_blank" rel="noopener">Full screen</a>
+    </div>
+    <div class="game-embed-wrap">
+      <div id="game-embed-fallback" class="game-embed-fallback">
+        <p>Loading the game&hellip;</p>
+      </div>
+      <iframe id="game-embed" title="FOC FAST, the field-oriented control game"
+              allow="fullscreen; autoplay" loading="lazy"></iframe>
+    </div>
+    <p class="caption">Built in Flutter by <b>Jo&atilde;o Pedra</b> for this investigation, and running
+      here inside the page. It plays the same in its own tab if you prefer, and it will offer to add
+      itself to a phone&rsquo;s home screen from there.</p>
   </section>
 
-  <section class="side">
-    <div class="verdict-card">
-      <p class="verdict ok">You are the controller</p>
-      <p class="explain">Field-oriented control does one thing continuously: it holds the stator current
-        at right angles to the rotor magnets. Only the part at right angles makes torque, so being
-        <i>&epsilon;</i> degrees out costs you cos&nbsp;<i>&epsilon;</i> of it and the rest becomes heat.
-        The game hands that job to you, at human speed, so you can feel why it is hard.</p>
-    </div>
-
+  <section class="game-below">
     <div class="numbers-card">
       <h2>Live leaderboard</h2>
       <ol id="sb-list" class="lb-list"><li class="empty">Loading the shared board&hellip;</li></ol>
@@ -382,13 +383,21 @@
     </div>
 
     <div class="numbers-card">
+      <h2>You are the controller</h2>
+      <p class="explain">Field-oriented control does one thing continuously: it holds the stator current
+        at right angles to the rotor magnets. Only the part at right angles makes torque, so being
+        <i>&epsilon;</i> degrees out costs you cos&nbsp;<i>&epsilon;</i> of it and the rest becomes heat.
+        The game hands that job to you, at human speed, so you can feel why it is hard.</p>
+    </div>
+
+    <div class="numbers-card">
       <h2>What it is really showing you</h2>
-      <p class="explain">The controller manages this because an encoder tells it exactly where the rotor
-        is, every 50 microseconds. <strong>Take the encoder away and it has to work the angle out from
-        the voltage the magnets generate</strong> &mdash; which is the whole of this investigation.</p>
-      <p class="explain">The game simplifies the motor on purpose. Torque follows the sine of the angle
-        between the field and the magnets, with inertia and friction, and nothing else. It is not a
-        model of a PMSM, and it is not the simulation the results on this site come from.</p>
+      <p class="explain">A real controller manages this because an encoder tells it exactly where the
+        rotor is, every 50 microseconds. <strong>Take the encoder away and it has to work the angle out
+        from the voltage the magnets generate</strong> &mdash; which is the whole of this investigation.</p>
+      <p class="explain">The game simplifies the motor on purpose: torque follows the sine of the angle
+        between the field and the magnets, with inertia and friction, and nothing else. It is not a model
+        of a PMSM, and it is not the simulation the results on this site come from.</p>
     </div>
   </section>
 </main>

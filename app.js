@@ -1890,6 +1890,30 @@ function on(id, type, handler, options) {
    insert that the table's row-level security allows, nothing more. Names are
    screened by a trigger on the table, not here. */
 const FOC_GAME_URL = 'https://joaopedra-amdg.github.io/FOC-game/';
+
+/* The game is a few megabytes of Flutter, so it is not fetched until somebody
+   actually opens the tab. A visitor who scans the QR code and reads the rig
+   page never pays for it. */
+let gameMounted = false;
+function mountGame() {
+  const frame = $('game-embed');
+  if (!frame || gameMounted) return;
+  gameMounted = true;
+  const note = $('game-embed-fallback');
+  frame.addEventListener('load', () => {
+    frame.classList.add('ready');
+    if (note) note.hidden = true;
+  });
+  // If it has not come up in fifteen seconds, say so rather than leaving a
+  // blank panel: on a bad connection this is a big download.
+  setTimeout(() => {
+    if (!frame.classList.contains('ready') && note) {
+      note.innerHTML = '<p>The game is taking a while to load.<br>'
+        + '<a href="' + FOC_GAME_URL + '" target="_blank" rel="noopener">Open it in its own tab</a></p>';
+    }
+  }, 15000);
+  frame.src = FOC_GAME_URL;
+}
 const SUPABASE_URL = 'https://qiihwpffmkotsjausztc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_E2zIp3Y7Cr6eJDL3dlsKXQ_C0QuYWa8';
 let boardLoadedAt = 0;
@@ -1990,7 +2014,7 @@ function setTab(name) {
   for (const id of ['envelope', 'foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
-  if (name === 'game') loadSharedBoard();
+  if (name === 'game') { mountGame(); loadSharedBoard(); }
   if (name === 'sbs') {
     ensureCompare3d();
     if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }

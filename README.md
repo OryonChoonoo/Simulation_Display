@@ -226,12 +226,18 @@ for what each block of the model does, and `SIMULATION/CHANGES.md` for the model
 
 ## The game
 
-The **Play the game** tab hands off to **FOC FAST**, the Flutter game written by
-Joao Pedra for this investigation, at
-<https://joaopedra-amdg.github.io/FOC-game/>. It is deployed from its own
-repository by its own CI, and its leaderboard lives in Supabase. This page reads
-that leaderboard and shows the top ten; the game is what writes to it, so there
-is one shared board rather than two.
+The **Play the game** tab runs **FOC FAST**, the Flutter game written by Joao
+Pedra for this investigation, inside the page in an iframe. It is served from
+its own repository, deployed by its own CI, so a change he pushes appears here
+without anything being copied across. Its leaderboard lives in Supabase; this
+page reads the same table and lists the top ten beside the game, so there is one
+shared board rather than two.
+
+The iframe's `src` is set only when somebody opens that tab. The game is several
+megabytes of Flutter, and a visitor who scans the QR code and reads the rig page
+should not pay for a download they never asked for. A **Full screen** link sits
+beside it for anyone whose browser struggles with the embed, and for installing
+it to a phone's home screen, which only works from its own tab.
 
 Nicknames are screened by a trigger on the Supabase table, not in the client:
 the publishable key is compiled into the game's public JavaScript bundle, so
