@@ -10,7 +10,7 @@
    stator field. Watching it stay 90 electrical degrees ahead of the magnets is
    watching field-oriented control work. */
 
-export const PHASE_COLOUR = [0x34d399, 0xf0b429, 0x7aa2f7];
+export const PHASE_COLOUR = [0xff6b1a, 0x00d4ff, 0xb36bff];
 export const PHASE_NAME = ['A', 'B', 'C'];
 
 // A soft disc, drawn once and shared, used additively so a lit coil reads as
@@ -85,7 +85,7 @@ export function calloutSprite(THREE, text, colour, width, opts = {}) {
     g.arcTo(w - 1.5, h - 1.5, 1.5, h - 1.5, r); g.arcTo(1.5, h - 1.5, 1.5, 1.5, r);
     g.arcTo(1.5, 1.5, w - 1.5, 1.5, r); g.closePath();
     g.fill(); g.stroke();
-    g.font = font; g.textBaseline = 'middle'; g.fillStyle = '#e8eaed';
+    g.font = font; g.textBaseline = 'middle'; g.fillStyle = '#edebe8';
     g.textAlign = align === 'center' ? 'center' : 'left';
     lines.forEach((l, k) => {
       g.fillText(l, align === 'center' ? w / 2 : pad, pad + lineHeight * (k + .5));
@@ -181,41 +181,41 @@ export function buildFocMachine(THREE, opts = {}) {
   };
 
   // ---- rotor -------------------------------------------------------------------
-  cylAt(.014, .18, 0x6c7787, 0, rotorGroup, 20);                     // shaft
-  cylAt(.028, .1, 0x39414d, 0, rotorGroup, 30);                      // back iron
-  for (const [k, colour] of [[0, 0xef4444], [1, 0x5b6b7f]]) {
+  cylAt(.014, .18, 0x857a6e, 0, rotorGroup, 20);                     // shaft
+  cylAt(.028, .1, 0x4a433c, 0, rotorGroup, 30);                      // back iron
+  for (const [k, colour] of [[0, 0xff2d55], [1, 0x786e62]]) {
     const magnet = mesh(new THREE.CylinderGeometry(.032, .032, .096, 24, 1, false,
       k * Math.PI + .05, Math.PI - .1), colour, rotorGroup, { roughness: .45 });
     magnet.rotation.x = Math.PI / 2;
   }
-  const sleeve = ringAt(.0332, .098, 0x9aa5b1, 0, rotorGroup, 36,
+  const sleeve = ringAt(.0332, .098, 0xaea69d, 0, rotorGroup, 36,
     { transparent: true, opacity: .3 });
   for (const bz of [-.054, .054]) {                                  // bearings
-    cylAt(.0105, .011, 0x8d97a4, bz, rotorGroup, 20);
-    ringAt(.019, .011, 0x8d97a4, bz, rotorGroup, 24);
+    cylAt(.0105, .011, 0xa2998f, bz, rotorGroup, 20);
+    ringAt(.019, .011, 0xa2998f, bz, rotorGroup, 24);
     for (let b = 0; b < 9; b++) {
       const a = b / 9 * Math.PI * 2;
-      const ball = mesh(new THREE.SphereGeometry(.0035, 10, 8), 0xd7dde5, rotorGroup,
+      const ball = mesh(new THREE.SphereGeometry(.0035, 10, 8), 0xe1dedb, rotorGroup,
         { roughness: .25, metalness: .85 });
       ball.position.set(Math.cos(a) * .0145, Math.sin(a) * .0145, bz);
     }
   }
-  boxAt(.004, .004, .022, 0x7d8896, 0, .015, .066, rotorGroup);      // shaft key
-  const balance = boxAt(.01, .004, .006, 0xb9c2cd, .026, 0, .047, rotorGroup);  // balance weight
+  boxAt(.004, .004, .022, 0x948a7f, 0, .015, .066, rotorGroup);      // shaft key
+  const balance = boxAt(.01, .004, .006, 0xc9c3bd, .026, 0, .047, rotorGroup);  // balance weight
 
   // ---- stator ------------------------------------------------------------------
-  ringAt(.050, .09, 0x4e5866, 0, statorGroup, 48);                   // back iron
+  ringAt(.050, .09, 0x635b51, 0, statorGroup, 48);                   // back iron
   for (let lam = 0; lam < 9; lam++)                                   // lamination stripes
-    ringAt(.0505, .002, 0x3c4450, -.04 + lam * .01, statorGroup, 48);
+    ringAt(.0505, .002, 0x4d463f, -.04 + lam * .01, statorGroup, 48);
 
   const coils = [];
   for (let k = 0; k < 6; k++) {
     const phase = k % 3, sign = k < 3 ? 1 : -1;
     const a = phase * 2 * Math.PI / 3 + (sign > 0 ? 0 : Math.PI);
-    const tooth = boxAt(.016, .020, .088, 0x707b89,
+    const tooth = boxAt(.016, .020, .088, 0x887d71,
       Math.cos(a) * .036, Math.sin(a) * .036, 0, statorGroup);
     tooth.rotation.z = a;
-    const shoe = boxAt(.022, .006, .088, 0x707b89,
+    const shoe = boxAt(.022, .006, .088, 0x887d71,
       Math.cos(a) * .0275, Math.sin(a) * .0275, 0, statorGroup);
     shoe.rotation.z = a;                                             // pole shoe
     const coil = boxAt(.020, .030, .070, PHASE_COLOUR[phase],
@@ -223,11 +223,11 @@ export function buildFocMachine(THREE, opts = {}) {
       { emissive: PHASE_COLOUR[phase], emissiveIntensity: 0, metalness: .25, roughness: .5 });
     coil.rotation.z = a;
     for (const turn of [-.022, -.011, 0, .011, .022]) {               // visible turns
-      const wire = boxAt(.021, .0022, .0045, 0x1b2430,
+      const wire = boxAt(.021, .0022, .0045, 0x221e18,
         Math.cos(a) * .0425, Math.sin(a) * .0425, turn, statorGroup);
       wire.rotation.z = a;
     }
-    const liner = boxAt(.0022, .030, .074, 0xc8a06a,
+    const liner = boxAt(.0022, .030, .074, 0xd4a76a,
       Math.cos(a) * .0415, Math.sin(a) * .0415, 0, statorGroup,
       { roughness: .85, metalness: .05 });
     liner.rotation.z = a;                                            // slot insulation
@@ -235,8 +235,8 @@ export function buildFocMachine(THREE, opts = {}) {
     // The classic dot and cross: which way the current is going in that coil.
     let dot = null, cross = null;
     if (withLabels) {
-      dot = labelSprite(THREE, '⊙', '#e8eaed', .024 * labelScale);
-      cross = labelSprite(THREE, '⊗', '#e8eaed', .024 * labelScale);
+      dot = labelSprite(THREE, '⊙', '#edebe8', .024 * labelScale);
+      cross = labelSprite(THREE, '⊗', '#edebe8', .024 * labelScale);
       for (const sprite of [dot, cross]) {
         sprite.position.set(Math.cos(a) * .0415, Math.sin(a) * .0415, .042);
         statorGroup.add(sprite);
@@ -257,7 +257,7 @@ export function buildFocMachine(THREE, opts = {}) {
                  base: new THREE.Color(PHASE_COLOUR[phase]) });
   }
   for (const ez of [-.048, .048])                                     // end windings
-    ringAt(.0455, .012, 0xb87333, ez, statorGroup, 32);
+    ringAt(.0455, .012, 0xc87d2e, ez, statorGroup, 32);
   // Three leads leaving the stator, which is all a motor cable ever is.
   for (let phase = 0; phase < 3; phase++) {
     const lead = boxAt(.004, .004, .05, PHASE_COLOUR[phase],
@@ -270,40 +270,40 @@ export function buildFocMachine(THREE, opts = {}) {
   const fluxArrows = [];
   for (let k = 0; k < 12; k++) {
     const a = k / 12 * Math.PI * 2;
-    const f = mesh(new THREE.ConeGeometry(.0045, .013, 10), 0x34d399, statorGroup,
-      { emissive: 0x34d399, emissiveIntensity: .6, transparent: true, opacity: 0 });
+    const f = mesh(new THREE.ConeGeometry(.0045, .013, 10), 0x00e693, statorGroup,
+      { emissive: 0x00e693, emissiveIntensity: .6, transparent: true, opacity: 0 });
     f.position.set(Math.cos(a) * .0345, Math.sin(a) * .0345, .02);
     f.rotation.z = -a - Math.PI / 2;
     fluxArrows.push({ mesh: f, angle: a });
   }
 
   // ---- the vectors --------------------------------------------------------------
-  const dArrow = arrow(THREE, 0xef4444);
-  const qArrow = arrow(THREE, 0x34d399);
-  const estimateArrow = arrow(THREE, 0xf0b429);
+  const dArrow = arrow(THREE, 0xff2d55);
+  const qArrow = arrow(THREE, 0x00e693);
+  const estimateArrow = arrow(THREE, 0xffb020);
   for (const a of [dArrow, qArrow, estimateArrow]) vectors.add(a);
   estimateArrow.visible = false;
 
   const quadMarker = new THREE.Group(); vectors.add(quadMarker);
-  quadMarker.add(arcLine(THREE, .072, 0, Math.PI / 2, 0x34d399, 0));
+  quadMarker.add(arcLine(THREE, .072, 0, Math.PI / 2, 0x00e693, 0));
 
   const angleGroup = new THREE.Group(); vectors.add(angleGroup);
   angleGroup.add(new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(
       [new THREE.Vector3(0, 0, 0), new THREE.Vector3(.085, 0, 0)]),
-    new THREE.LineBasicMaterial({ color: 0x5b6b7f })));
+    new THREE.LineBasicMaterial({ color: 0x786e62 })));
   let thetaArc = null;
 
   if (withLabels) {
-    const dTag = labelSprite(THREE, 'd · magnets', '#ef4444', .062 * labelScale);
+    const dTag = labelSprite(THREE, 'd · magnets', '#ff2d55', .062 * labelScale);
     dTag.position.set(0, .118, 0); dArrow.add(dTag);
-    const qTag = labelSprite(THREE, 'q · stator field', '#34d399', .072 * labelScale);
+    const qTag = labelSprite(THREE, 'q · stator field', '#00e693', .072 * labelScale);
     qTag.position.set(0, .118, 0); qArrow.add(qTag);
-    const eTag = labelSprite(THREE, 'where it thinks', '#f0b429', .07 * labelScale);
+    const eTag = labelSprite(THREE, 'where it thinks', '#ffb020', .07 * labelScale);
     eTag.position.set(0, .118, 0); estimateArrow.add(eTag);
-    const quadTag = labelSprite(THREE, '90°', '#34d399', .036 * labelScale);
+    const quadTag = labelSprite(THREE, '90°', '#00e693', .036 * labelScale);
     quadTag.position.set(.055, .055, 0); quadMarker.add(quadTag);
-    const thetaTag = labelSprite(THREE, 'θe', '#f0b429', .03 * labelScale);
+    const thetaTag = labelSprite(THREE, 'θe', '#ffb020', .03 * labelScale);
     thetaTag.position.set(.098, -.012, 0); angleGroup.add(thetaTag);
   }
 
@@ -312,18 +312,18 @@ export function buildFocMachine(THREE, opts = {}) {
     const housing = new THREE.Group();
     housing.userData.explode = .17;
     group.add(housing);
-    const shell = ringAt(.056, .132, 0x8b97a6, 0, housing, 44,
+    const shell = ringAt(.056, .132, 0xa3998e, 0, housing, 44,
       { transparent: true, opacity: .20, side: THREE.DoubleSide });
     shell.material.metalness = .6;
     for (let f = 0; f < 18; f++) {                                   // cooling fins
       const a = f / 18 * Math.PI * 2;
-      const fin = boxAt(.006, .012, .12, 0x7d8896,
+      const fin = boxAt(.006, .012, .12, 0x948a7f,
         Math.cos(a) * .059, Math.sin(a) * .059, 0, housing,
         { transparent: true, opacity: .45 });
       fin.rotation.z = a;
     }
     if (withLabels) {
-      const tag = labelSprite(THREE, 'housing', '#8b97a6', .05 * labelScale);
+      const tag = labelSprite(THREE, 'housing', '#a3998e', .05 * labelScale);
       tag.position.set(0, .075, 0); housing.add(tag);
     }
 
@@ -331,17 +331,17 @@ export function buildFocMachine(THREE, opts = {}) {
     const frontCap = new THREE.Group();
     frontCap.userData.explode = .25;
     group.add(frontCap);
-    ringAt(.052, .012, 0x6c7787, 0, frontCap, 32);
-    cylAt(.052, .010, 0x7d8896, -.004, frontCap, 32);
-    cylAt(.021, .016, 0x6c7787, .012, frontCap, 20);                 // bearing boss
-    cylAt(.0115, .018, 0x0d1117, .013, frontCap, 16);                // shaft hole
+    ringAt(.052, .012, 0x857a6e, 0, frontCap, 32);
+    cylAt(.052, .010, 0x948a7f, -.004, frontCap, 32);
+    cylAt(.021, .016, 0x857a6e, .012, frontCap, 20);                 // bearing boss
+    cylAt(.0115, .018, 0x11100e, .013, frontCap, 16);                // shaft hole
     for (let b = 0; b < 4; b++) {
       const a = Math.PI / 4 + b / 4 * Math.PI * 2;
-      cylAt(.004, .006, 0x4e5866,
+      cylAt(.004, .006, 0x635b51,
         .009, frontCap, 8).position.set(Math.cos(a) * .042, Math.sin(a) * .042, .009);
     }
     if (withLabels) {
-      const tag = labelSprite(THREE, 'front cap and bearing', '#9aa5b1', .085 * labelScale);
+      const tag = labelSprite(THREE, 'front cap and bearing', '#aea69d', .085 * labelScale);
       tag.position.set(0, .068, .012); frontCap.add(tag);
     }
 
@@ -350,7 +350,7 @@ export function buildFocMachine(THREE, opts = {}) {
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, -.30), new THREE.Vector3(0, 0, .34)]),
-      new THREE.LineDashedMaterial({ color: 0x4a545f, dashSize: .012, gapSize: .01,
+      new THREE.LineDashedMaterial({ color: 0x5d554c, dashSize: .012, gapSize: .01,
         transparent: true, opacity: .8 }));
     line.computeLineDistances();
     group.add(line);
@@ -364,12 +364,12 @@ export function buildFocMachine(THREE, opts = {}) {
 
       // The air gap: a millimetre or so of nothing, and the reason the whole
       // machine has to be built accurately.
-      const gap = labelSprite(THREE, 'air gap', '#6b7684', .05 * labelScale);
+      const gap = labelSprite(THREE, 'air gap', '#83786c', .05 * labelScale);
       gap.position.set(.058, .030, .048); statorGroup.add(gap);
       statorGroup.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
           new THREE.Vector3(.0335, .0335, .048), new THREE.Vector3(.050, .026, .048)]),
-        new THREE.LineBasicMaterial({ color: 0x6b7684, transparent: true, opacity: .7 })));
+        new THREE.LineBasicMaterial({ color: 0x83786c, transparent: true, opacity: .7 })));
     }
   }
 
@@ -382,7 +382,7 @@ export function buildFocMachine(THREE, opts = {}) {
     }
   }
 
-  const HOT = new THREE.Color(0xff5a2a);
+  const HOT = new THREE.Color(0xff6b1a);
 
   function update(state) {
     const { theta = 0, err = 0, amplitude = 1, showEstimate = false, heat = 0 } = state;
@@ -395,7 +395,7 @@ export function buildFocMachine(THREE, opts = {}) {
     quadMarker.rotation.z = theta;
     // Red when the current is so far off that it is fighting the magnets.
     const bad = Math.abs(err) > Math.PI / 3;
-    qArrow.traverse(m => { if (m.material && m.material.emissive) m.material.color.setHex(bad ? 0xef4444 : 0x34d399); });
+    qArrow.traverse(m => { if (m.material && m.material.emissive) m.material.color.setHex(bad ? 0xff2d55 : 0x00e693); });
 
     // Copper that is working gets hot, and hot copper is not green. The coil
     // colour runs toward a dull orange as the loss climbs, which is the same
@@ -426,7 +426,7 @@ export function buildFocMachine(THREE, opts = {}) {
 
     const wrapped = ((theta % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     if (thetaArc) { angleGroup.remove(thetaArc); thetaArc.geometry.dispose(); }
-    thetaArc = arcLine(THREE, .062, 0, wrapped, 0xf0b429, 0);
+    thetaArc = arcLine(THREE, .062, 0, wrapped, 0xffb020, 0);
     angleGroup.add(thetaArc);
   }
 
