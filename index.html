@@ -42,7 +42,7 @@
   <button class="tab" data-tab="sbs" role="tab" aria-selected="false">Side by side</button>
   <button class="tab" data-tab="results" role="tab" aria-selected="false">Actual results</button>
   <button class="tab" data-tab="method" role="tab" aria-selected="false">Method and limits</button>
-  <button class="tab" data-tab="game" role="tab" aria-selected="false">Beat the controller</button>
+  <button class="tab" data-tab="game" role="tab" aria-selected="false">Play the game</button>
 </nav>
 
 <main id="tab-3d" hidden>
@@ -351,67 +351,44 @@
 </main>
 
 <main id="tab-game" hidden>
-  <section class="plot-card">
-    <canvas id="game-kart" aria-label="A go-kart moving at the motor's signed speed"></canvas>
-    <p class="caption"><b>The kart runs at whatever the motor does.</b> Spin the rotor backwards and
-      it reverses. This is a drawing of the simulated motor speed, not a calculated road speed:
-      the sprocket ratio and wheel size are not in it yet.</p>
-    <div class="game-pair">
-      <figure>
-        <canvas id="game" aria-label="Hold the current vector ninety degrees ahead of the rotor magnets"></canvas>
-        <figcaption class="caption"><b>The dial.</b> Move your pointer, or your finger, around it. You are
-          aiming the current the stator makes. Keep it a quarter turn ahead of the red magnet arrow and the
-          motor accelerates; let it slip and the torque falls away with the cosine of how far out you are.
-          <b>Fall behind the magnets and you are braking it</b> &mdash; far enough and it stops and runs
-          backwards. Your score is the fastest you get it, in thirty seconds.</figcaption>
-      </figure>
-      <figure>
-        <div id="game-stage" class="game-stage"></div>
-        <figcaption class="caption"><b>The machine, at the same instant.</b> Each coil lights with the
-          current your aim is sending through it, so you can watch the dial and the iron together. You can
-          aim here too while a round is running; between rounds the same drag turns the view and the wheel
-          zooms.</figcaption>
-      </figure>
-    </div>
+  <section class="plot-card game-launch">
+    <p class="eyebrow">the game</p>
+    <h1 class="launch-title">FOC FAST</h1>
+    <p class="launch-lead">Drag the stator field around the rotor and keep it a quarter turn ahead.
+      Hold it there and the motor accelerates. Fall behind and the same field brakes it, stops it, and
+      drives it backwards. <b>Twenty-five seconds. Your score is the fastest you get it.</b></p>
+    <a id="play-link" class="primary-btn play-link"
+       href="https://joaopedra-amdg.github.io/FOC-game/" target="_blank" rel="noopener">Play now</a>
+    <p class="caption">Opens in a new tab, and works on any phone &mdash; no sign-in and nothing to
+      install, though it will offer to add itself to your home screen if you want it there.</p>
+    <p class="caption launch-credit">Built in Flutter by <b>Jo&atilde;o Pedra</b> for this
+      investigation. The scores below are the live shared board from inside that game.</p>
   </section>
 
   <section class="side">
     <div class="verdict-card">
-      <p class="verdict ok" id="game-title">Beat the controller</p>
-      <p class="explain" id="game-text">A real drive does this twenty thousand times a second, for hours,
-        without ever being more than a fraction of a degree out. See how long you last.</p>
+      <p class="verdict ok">You are the controller</p>
+      <p class="explain">Field-oriented control does one thing continuously: it holds the stator current
+        at right angles to the rotor magnets. Only the part at right angles makes torque, so being
+        <i>&epsilon;</i> degrees out costs you cos&nbsp;<i>&epsilon;</i> of it and the rest becomes heat.
+        The game hands that job to you, at human speed, so you can feel why it is hard.</p>
     </div>
-    <div class="controls">
-      <button id="game-start" class="primary-btn">Start</button>
-      <button id="game-demo" class="primary-btn ghost">Watch the controller do it</button>
-      <button id="game-level" class="primary-btn ghost">Gentle &middot; make it harder</button>
-      <button id="game-mode" class="primary-btn ghost">Try it without the sensor</button>
-      <p class="hint">Keep the green arrow inside the shaded band. The motor speeds up the better you do,
-        so getting good is what eventually beats you. The dashed lines show your current split in two: the
-        part across the magnets that makes torque, and the part along them that only makes heat.</p>
-    </div>
+
     <div class="numbers-card">
-      <h2>This attempt</h2>
-      <div id="game-numbers" class="numbers"></div>
+      <h2>Live leaderboard</h2>
+      <ol id="sb-list" class="lb-list"><li class="empty">Loading the shared board&hellip;</li></ol>
+      <p class="hint" id="sb-where">Everyone who plays, on any phone, appears here.</p>
+      <button id="sb-refresh" class="primary-btn ghost">Refresh</button>
     </div>
+
     <div class="numbers-card">
-      <h2>Leaderboard</h2>
-      <div id="lb-entry" class="lb-entry" hidden>
-        <input id="lb-name" maxlength="14" placeholder="your name" autocomplete="off">
-        <button id="lb-save" class="primary-btn">Add it</button>
-      </div>
-      <ol id="lb-list" class="lb-list"></ol>
-      <p class="hint" id="lb-where">Checking the shared board&hellip;</p>
-    </div>
-    <div class="numbers-card">
-      <h2>Why this is hard, and why it matters</h2>
-      <p class="explain">You are doing by hand what field-oriented control does continuously: keeping the
-        stator current at right angles to the rotor magnets. Only the part of the current at right angles
-        makes torque, so being <i>&epsilon;</i> degrees out costs you cos&nbsp;<i>&epsilon;</i> of it, and
-        the rest turns into heat.</p>
-      <p class="explain">The controller manages it because an encoder tells it exactly where the rotor is,
-        every 50 microseconds. <strong>Take the encoder away and it has to work the angle out from the
-        voltage the magnets generate</strong> &mdash; which is what this whole investigation is about.</p>
+      <h2>What it is really showing you</h2>
+      <p class="explain">The controller manages this because an encoder tells it exactly where the rotor
+        is, every 50 microseconds. <strong>Take the encoder away and it has to work the angle out from
+        the voltage the magnets generate</strong> &mdash; which is the whole of this investigation.</p>
+      <p class="explain">The game simplifies the motor on purpose. Torque follows the sine of the angle
+        between the field and the magnets, with inertia and friction, and nothing else. It is not a
+        model of a PMSM, and it is not the simulation the results on this site come from.</p>
     </div>
   </section>
 </main>

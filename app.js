@@ -1575,6 +1575,7 @@ function endGame(reason) {
 }
 
 function gameFrame(now) {
+  if (!$('game')) return;                 // the canvas game is no longer on the page
   requestAnimationFrame(gameFrame);
   if ($('tab-game').hidden) { game.last = now; return; }
   const dt = Math.min((now - game.last) / 1000, .05);
@@ -1848,7 +1849,7 @@ function drawGame() {
 
 
 function updateGameNumbers() {
-  if ($('tab-game').hidden) return;
+  if (!$('game-numbers') || $('tab-game').hidden) return;
   const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
   const best = gameBest();
   const rpm = gameRpm();
@@ -1871,6 +1872,54 @@ function updateGameNumbers() {
   rows.push(['The controller', 'about 100 %, at any speed']);
   $('game-numbers').innerHTML = rows
     .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+}
+
+// Wiring that cannot be broken by markup. Before this, removing one element
+// from the page threw during start-up and took every tab with it.
+function on(id, type, handler, options) {
+  const el = $(id);
+  if (el) el.addEventListener(type, handler, options);
+  return el;
+}
+
+/* The shared leaderboard, read straight from the game's own Supabase table.
+
+   The game writes to it; this page only reads. The key below is the project's
+   publishable key, which is already compiled into the game's public JavaScript
+   bundle and is designed to be public — it grants exactly the select and
+   insert that the table's row-level security allows, nothing more. Names are
+   screened by a trigger on the table, not here. */
+const FOC_GAME_URL = 'https://joaopedra-amdg.github.io/FOC-game/';
+const SUPABASE_URL = 'https://qiihwpffmkotsjausztc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_E2zIp3Y7Cr6eJDL3dlsKXQ_C0QuYWa8';
+let boardLoadedAt = 0;
+
+async function loadSharedBoard(force) {
+  const list = $('sb-list'), where = $('sb-where');
+  if (!list) return;
+  if (!force && Date.now() - boardLoadedAt < 20000) return;   // opening a tab is not a reason to refetch
+  boardLoadedAt = Date.now();
+  const query = '?select=nickname,max_rpm,created_at&order=max_rpm.desc,created_at.asc&limit=10';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const response = await fetch(SUPABASE_URL + '/rest/v1/torque_chase_scores' + query, {
+      headers: { apikey: SUPABASE_KEY }, signal: controller.signal,
+    });
+    if (!response.ok) throw new Error('status ' + response.status);
+    const rows = await response.json();
+    list.innerHTML = rows.length
+      ? rows.map((row, i) => `<li><span>${i + 1}. ${escapeHtml(String(row.nickname))}</span>`
+          + `<b>${Math.round(row.max_rpm)} rpm</b></li>`).join('')
+      : '<li class="empty">Nobody has played yet. Go first.</li>';
+    if (where) where.textContent = 'Live from the game. Everyone who plays appears here.';
+  } catch {
+    list.innerHTML = '<li class="empty">The shared board could not be reached.</li>';
+    if (where) where.textContent = 'The scores live online, so this needs a connection. '
+      + 'The game itself still works without one.';
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function aimAt(event) {
@@ -1941,11 +1990,7 @@ function setTab(name) {
   for (const id of ['envelope', 'foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
-  if (name === 'game') {
-    ensureGame3d();
-    renderBoard();
-    askBoard().then(list => renderBoard(list || undefined));
-  }
+  if (name === 'game') loadSharedBoard();
   if (name === 'sbs') {
     ensureCompare3d();
     if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }
@@ -1996,31 +2041,8 @@ async function start() {
   }
   $('frame-toggle').addEventListener('click', () => { touched(); setFrame(!rotorFrame); });
   requestAnimationFrame(rigGraphFrame);
-  requestAnimationFrame(gameFrame);
-  setInterval(updateGameNumbers, 150);
-  $('game-start').addEventListener('click', () => {
-    touched();
-    if (game.running) endGame('Stopped'); else startGame(false);
-  });
-  $('game-demo').addEventListener('click', () => { touched(); startGame(true); });
-  $('lb-save').addEventListener('click', () => { touched(); addToBoard(); });
-  $('lb-name').addEventListener('keydown', e => { if (e.key === 'Enter') addToBoard(); });
-  $('game-level').addEventListener('click', () => {
-    touched();
-    game.gentle = !game.gentle;
-    $('game-level').textContent = game.gentle ? 'Gentle \u00b7 make it harder' : 'Harder \u00b7 make it gentle';
-    if (game.running) startGame(game.demo);
-  });
-  $('game-mode').addEventListener('click', () => {
-    touched();
-    game.mode = game.mode === 'sensored' ? 'sensorless' : 'sensored';
-    $('game-mode').textContent = game.mode === 'sensored'
-      ? 'Try it without the sensor' : 'Back to seeing the rotor';
-    if (game.running) startGame(game.demo); else drawGame();
-  });
-  for (const type of ['pointermove', 'pointerdown'])
-    $('game').addEventListener(type, event => { touched(); aimAt(event); });
-  $('game').addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  on('play-link', 'click', touched);
+  on('sb-refresh', 'click', () => { touched(); loadSharedBoard(true); });
   for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
   $('d3-in').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1 / 1.25); });
   $('d3-out').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1.25); });

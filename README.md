@@ -224,7 +224,31 @@ Data from `SIMULATION/results/single_motor_sensored/matrix_20260928_132634`, pro
 `SIMULATION/run_single_motor_sensored_matrix.m`. See `SIMULATION/SENSORED_MODEL_GUIDE.md`
 for what each block of the model does, and `SIMULATION/CHANGES.md` for the model history.
 
-## The game, and its motor
+## The game
+
+The **Play the game** tab hands off to **FOC FAST**, the Flutter game written by
+Joao Pedra for this investigation, at
+<https://joaopedra-amdg.github.io/FOC-game/>. It is deployed from its own
+repository by its own CI, and its leaderboard lives in Supabase. This page reads
+that leaderboard and shows the top ten; the game is what writes to it, so there
+is one shared board rather than two.
+
+Nicknames are screened by a trigger on the Supabase table, not in the client:
+the publishable key is compiled into the game's public JavaScript bundle, so
+anyone can post straight to the REST endpoint without going through the app. A
+check in Dart alone would be decorative. See `tools/leaderboard_name_filter.sql`,
+which is the authoritative list, and `tools/foc-game-name-filter.patch`, which
+adds the matching client-side hint and its tests to the game.
+
+### The earlier browser game, retained
+
+The canvas game that used to live on that tab is still in this repository:
+the motor model in `gamephysics.js`, its tests in `physics_test.html`, and the
+drawing and loop in `app.js`. Nothing starts it any more. It is kept because the
+physics is written down there and tested, and because putting the tab back is a
+small change rather than a rewrite. `git log` has the version where it was live.
+
+## That game's motor
 
 "Beat the controller" is a real simulation, not an animation on a timer. The
 player aims the stator field with a finger; torque follows the sine of the angle

@@ -1,0 +1,391 @@
+diff --git a/lib/leaderboard/banned_words.dart b/lib/leaderboard/banned_words.dart
+new file mode 100644
+index 0000000..10995a3
+--- /dev/null
++++ b/lib/leaderboard/banned_words.dart
+@@ -0,0 +1,98 @@
++/// Nickname screening for the shared leaderboard.
++///
++/// This is the friendly half of the job: it tells a player straight away that
++/// a name will not be accepted, instead of letting them submit and watch it
++/// fail. It is **not** the control. The publishable key is compiled into the
++/// public JavaScript bundle, so anyone can post to the REST endpoint without
++/// going near this code. The enforcement is a Postgres trigger on
++/// `torque_chase_scores`; see `supabase/name_filter.sql`, which uses the same
++/// two lists and the same folding.
++///
++/// Two lists, because one is not enough:
++///
++/// * [bannedAnywhere] is for words long and specific enough that finding them
++///   inside a longer string is almost certainly deliberate.
++/// * [bannedAsWholeWord] is for the short ones. Matching those as substrings
++///   rejects Cassandra, Essex, Weedon and Scunthorpe, which on a public stand
++///   is a worse failure than the thing it prevents.
++library;
++
++/// Rejected wherever they appear, after folding.
++const List<String> bannedAnywhere = <String>[
++  // sexual and scatological
++  'fuck', 'fuk', 'shit', 'cunt', 'asshole', 'bastard', 'bitch', 'whore',
++  'slut', 'wank', 'jerkoff', 'blowjob', 'handjob', 'semen', 'penis',
++  'vagina', 'pussy', 'boobs', 'porn', 'horny', 'rapist', 'masturbat',
++  // slurs
++  'nigger', 'nigga', 'niger', 'kaffir', 'kaffer', 'coolie', 'wetback',
++  'faggot', 'fagot', 'tranny', 'shemale', 'retard', 'spastic', 'mongoloid',
++  'hottentot', 'boesman', 'kwerekwere', 'hymie', 'pikey',
++  // hate and violence
++  'hitler', 'nazi', 'genocide', 'terrorist', 'jihad', 'lynch', 'suicide',
++  'selfharm', 'killyou',
++  // drugs
++  'cocaine', 'heroin', 'nyaope',
++  // impersonating the stand
++  'administrator', 'moderator', 'lecturer', 'professor', 'supervisor',
++  'examiner',
++];
++
++/// Rejected only when they are the whole of one word in the name. Short, or
++/// common inside ordinary words and names.
++const List<String> bannedAsWholeWord = <String>[
++  'ass', 'arse', 'crap', 'piss', 'twat', 'dick', 'cock', 'tits', 'fag',
++  'cum', 'sex', 'rape', 'nude', 'naked', 'dyke', 'spaz', 'kike', 'spic',
++  'gook', 'chink', 'paki', 'yid', 'gypo', 'honky', 'kkk', 'isis', 'fck',
++  'poes', 'doos', 'kak', 'fok', 'naai', 'piel', 'moer', 'kffr',
++  'meth', 'tik', 'weed', 'murder', 'admin', 'staff', 'official', 'wits',
++];
++
++/// Leetspeak and punctuation dodges, folded before matching. The identical
++/// mapping is applied by `normalise_nickname()` in Postgres.
++const Map<String, String> _foldings = <String, String>{
++  '4': 'a', '@': 'a',
++  '0': 'o', '(': 'c',
++  '1': 'i', '!': 'i', '|': 'i',
++  '3': 'e',
++  '8': 'b',
++  '\$': 's', '5': 's',
++  '7': 't', '+': 't',
++};
++
++String _fold(String value) {
++  var folded = value.toLowerCase();
++  _foldings.forEach((from, to) => folded = folded.replaceAll(from, to));
++  return folded;
++}
++
++/// Every letter of the name, run together. `F.U.C.K` and `f u c k` both
++/// collapse to `fuck`, which is what catches a word split up to sneak past.
++String normaliseNickname(String value) =>
++    _fold(value).replaceAll(RegExp(r'[^a-z]'), '');
++
++/// The name as separate words, each reduced to its letters. Used for the
++/// short words, so `ass` is caught but `Cassandra` is not.
++List<String> nicknameTokens(String value) => _fold(value)
++    .replaceAll(RegExp(r'[^a-z]+'), ' ')
++    .trim()
++    .split(' ')
++    .where((token) => token.isNotEmpty)
++    .toList();
++
++/// True when the nickname contains something that should not go on a screen
++/// in a public hall.
++bool containsBannedWord(String value) {
++  final folded = normaliseNickname(value);
++  if (folded.isEmpty) return false;          // handled separately: no letters
++  for (final word in bannedAnywhere) {
++    if (folded.contains(word)) return true;
++  }
++  final tokens = nicknameTokens(value);
++  for (final word in bannedAsWholeWord) {
++    if (tokens.contains(word)) return true;
++    // A name with no spaces at all is one token, so a short word typed on its
++    // own still has to be caught: "sh1t" folds to a single token "shit".
++    if (tokens.length == 1 && folded == word) return true;
++  }
++  return false;
++}
+diff --git a/lib/leaderboard/leaderboard_service.dart b/lib/leaderboard/leaderboard_service.dart
+index 49add80..dc57735 100644
+--- a/lib/leaderboard/leaderboard_service.dart
++++ b/lib/leaderboard/leaderboard_service.dart
+@@ -2,6 +2,8 @@ import 'dart:convert';
+ 
+ import 'package:http/http.dart' as http;
+ 
++import 'banned_words.dart';
++
+ class ScoreEntry {
+   const ScoreEntry({
+     required this.nickname,
+@@ -51,6 +53,15 @@ class LeaderboardService {
+     if (!RegExp(r'^[A-Za-z0-9 _-]+$').hasMatch(name)) {
+       return 'Use letters, numbers, spaces, _ or -.';
+     }
++    if (normaliseNickname(name).isEmpty) {
++      return 'Please include at least one letter.';
++    }
++    // Checked again by a trigger on the table, because the publishable key is
++    // public and anyone can post without going through this app. Here it only
++    // saves the player a round trip and a confusing server error.
++    if (containsBannedWord(name)) {
++      return 'Please choose a different nickname for a public screen.';
++    }
+     return null;
+   }
+ 
+diff --git a/supabase/name_filter.sql b/supabase/name_filter.sql
+new file mode 100644
+index 0000000..058d6b7
+--- /dev/null
++++ b/supabase/name_filter.sql
+@@ -0,0 +1,169 @@
++-- Nickname filtering for the FOC FAST leaderboard.
++--
++-- Run this once in the Supabase SQL editor for project qiihwpffmkotsjausztc.
++-- It is safe to run more than once.
++--
++-- WHY IT HAS TO BE HERE AND NOT ONLY IN THE APP
++-- The publishable key is compiled into the public JavaScript bundle, which is
++-- what it is for, and the insert policy accepts anything. So anybody who opens
++-- the bundle can POST a nickname straight to the REST endpoint and never touch
++-- the game. Checking the name in Dart is still worth doing, for instant
++-- feedback, but it is not a control. This trigger is the control: it runs on
++-- every insert whatever the client is.
++--
++-- TWO LISTS, BECAUSE ONE IS NOT ENOUGH
++--   exact = false  matches anywhere in the name. For words long and specific
++--                  enough that finding them inside something longer is almost
++--                  certainly deliberate.
++--   exact = true   matches only a whole word. For the short ones. Matching
++--                  those as substrings rejects Cassandra, Essex, Weedon and
++--                  Sexton, which on a public stand is a worse failure than the
++--                  thing it prevents.
++--
++-- One known false positive is accepted: Scunthorpe. Keeping 'cunt' matching
++-- anywhere is worth more than that one place name.
++--
++-- The same two lists and the same folding are mirrored in the Flutter app, in
++-- lib/leaderboard/banned_words.dart. If they drift the database wins, and the
++-- player sees a server error instead of a hint. That is a worse experience,
++-- not a hole.
++
++-- ---------------------------------------------------------------------------
++-- 1. The list. Edit this table, not the code.
++-- ---------------------------------------------------------------------------
++create table if not exists public.banned_words (
++  word  text primary key,
++  exact boolean not null default false
++);
++
++alter table public.banned_words enable row level security;
++-- Deliberately no policy for anon: visitors can neither read nor change the
++-- list. The trigger below is security definer and sees it regardless.
++
++insert into public.banned_words (word, exact) values
++  -- matched anywhere -------------------------------------------------------
++  ('fuck', false), ('fuk', false), ('shit', false), ('cunt', false),
++  ('asshole', false), ('bastard', false), ('bitch', false), ('whore', false),
++  ('slut', false), ('wank', false), ('jerkoff', false), ('blowjob', false),
++  ('handjob', false), ('semen', false), ('penis', false), ('vagina', false),
++  ('pussy', false), ('boobs', false), ('porn', false), ('horny', false),
++  ('rapist', false), ('masturbat', false),
++  ('nigger', false), ('nigga', false), ('niger', false), ('kaffir', false),
++  ('kaffer', false), ('coolie', false), ('wetback', false), ('faggot', false),
++  ('fagot', false), ('tranny', false), ('shemale', false), ('retard', false),
++  ('spastic', false), ('mongoloid', false), ('hottentot', false),
++  ('boesman', false), ('kwerekwere', false), ('hymie', false), ('pikey', false),
++  ('hitler', false), ('nazi', false), ('genocide', false), ('terrorist', false),
++  ('jihad', false), ('lynch', false), ('suicide', false), ('selfharm', false),
++  ('killyou', false), ('cocaine', false), ('heroin', false), ('nyaope', false),
++  ('administrator', false), ('moderator', false), ('lecturer', false),
++  ('professor', false), ('supervisor', false), ('examiner', false),
++  -- matched only as a whole word -------------------------------------------
++  ('ass', true), ('arse', true), ('crap', true), ('piss', true), ('twat', true),
++  ('dick', true), ('cock', true), ('tits', true), ('fag', true), ('cum', true),
++  ('sex', true), ('rape', true), ('nude', true), ('naked', true),
++  ('dyke', true), ('spaz', true), ('kike', true), ('spic', true),
++  ('gook', true), ('chink', true), ('paki', true), ('yid', true),
++  ('gypo', true), ('honky', true), ('kkk', true), ('isis', true),
++  ('fck', true), ('poes', true), ('doos', true), ('kak', true), ('fok', true),
++  ('naai', true), ('piel', true), ('moer', true), ('kffr', true),
++  ('meth', true), ('tik', true), ('weed', true), ('murder', true),
++  ('admin', true), ('staff', true), ('official', true), ('wits', true)
++on conflict (word) do update set exact = excluded.exact;
++
++-- ---------------------------------------------------------------------------
++-- 2. Folding: undo the obvious dodges before matching.
++-- ---------------------------------------------------------------------------
++-- 4->a @->a 0->o (->c 1->i !->i |->i 3->e 8->b $->s 5->s 7->t +->t
++create or replace function public.fold_nickname(value text)
++returns text language sql immutable as $$
++  select translate(lower(coalesce(value, '')), '40138$57@!|(+', 'aoiebsstaiict');
++$$;
++
++-- Every letter run together, so "F.U.C.K" and "f u c k" both become "fuck".
++create or replace function public.normalise_nickname(value text)
++returns text language sql immutable as $$
++  select regexp_replace(public.fold_nickname(value), '[^a-z]', '', 'g');
++$$;
++
++-- The name as separate words, each reduced to its letters.
++create or replace function public.nickname_tokens(value text)
++returns text[] language sql immutable as $$
++  select coalesce(
++           array_remove(
++             string_to_array(
++               btrim(regexp_replace(public.fold_nickname(value), '[^a-z]+', ' ', 'g')),
++               ' '),
++             ''),
++           '{}')::text[];
++$$;
++
++-- ---------------------------------------------------------------------------
++-- 3. The check itself, on every insert and update.
++-- ---------------------------------------------------------------------------
++create or replace function public.reject_banned_nickname()
++returns trigger language plpgsql security definer set search_path = public as $$
++declare
++  folded text;
++  tokens text[];
++  hit    text;
++begin
++  folded := public.normalise_nickname(new.nickname);
++  tokens := public.nickname_tokens(new.nickname);
++
++  if folded = '' then
++    raise exception 'Please include at least one letter in the nickname.'
++      using errcode = 'check_violation';
++  end if;
++
++  select word into hit
++  from public.banned_words
++  where (not exact and folded like '%' || word || '%')
++     or (exact and (word = any(tokens)
++                    or (array_length(tokens, 1) = 1 and folded = word)))
++  limit 1;
++
++  if hit is not null then
++    -- The offending word is deliberately not echoed back to the client.
++    raise exception 'Please choose a different nickname for a public screen.'
++      using errcode = 'check_violation';
++  end if;
++
++  -- Collapse runs of whitespace so a name cannot be padded out to push other
++  -- people off the visible part of the board.
++  new.nickname := regexp_replace(btrim(new.nickname), '\s+', ' ', 'g');
++  return new;
++end;
++$$;
++
++drop trigger if exists check_nickname on public.torque_chase_scores;
++create trigger check_nickname
++  before insert or update on public.torque_chase_scores
++  for each row execute function public.reject_banned_nickname();
++
++-- ---------------------------------------------------------------------------
++-- 4. Tidy up what is already in the table.
++-- ---------------------------------------------------------------------------
++-- The row Claude inserted while demonstrating that the endpoint was open.
++delete from public.torque_chase_scores where nickname = 'ZZ test bypass';
++
++-- Anything already on the board that the new rule would have refused.
++delete from public.torque_chase_scores s
++where exists (
++  select 1 from public.banned_words b
++  where (not b.exact and public.normalise_nickname(s.nickname) like '%' || b.word || '%')
++     or (b.exact and b.word = any(public.nickname_tokens(s.nickname)))
++);
++
++-- ---------------------------------------------------------------------------
++-- 5. Check it. The first four must fail; the last four must succeed.
++-- ---------------------------------------------------------------------------
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('sh1t', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('F.U.C.K', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('big ass', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('admin', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('Cassandra', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('Sexton', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('Clara P', 10);
++-- insert into public.torque_chase_scores (nickname, max_rpm) values ('Oryon', 10);
++-- delete from public.torque_chase_scores where max_rpm = 10;
+diff --git a/test/leaderboard_service_test.dart b/test/leaderboard_service_test.dart
+index e9aefd8..2cb3159 100644
+--- a/test/leaderboard_service_test.dart
++++ b/test/leaderboard_service_test.dart
+@@ -3,6 +3,7 @@ import 'dart:convert';
+ import 'package:flutter_test/flutter_test.dart';
+ import 'package:http/http.dart' as http;
+ import 'package:http/testing.dart';
++import 'package:torque_chase/leaderboard/banned_words.dart';
+ import 'package:torque_chase/leaderboard/leaderboard_service.dart';
+ 
+ void main() {
+@@ -55,4 +56,70 @@ void main() {
+     await service.submit(' Ace ', 122.7);
+     expect(LeaderboardService.validateNickname('<script>'), isNotNull);
+   });
++
++  group('nickname screening', () {
++    test('accepts an ordinary name', () {
++      expect(LeaderboardService.validateNickname('Oryon'), isNull);
++      expect(LeaderboardService.validateNickname('Clara P'), isNull);
++      expect(LeaderboardService.validateNickname('kart_42'), isNull);
++    });
++
++    test('still enforces length and character rules', () {
++      expect(LeaderboardService.validateNickname('a'), isNotNull);
++      expect(LeaderboardService.validateNickname('x' * 17), isNotNull);
++      expect(LeaderboardService.validateNickname('nope!'), isNotNull);
++    });
++
++    test('rejects a banned word on its own', () {
++      expect(LeaderboardService.validateNickname('shit'), isNotNull);
++    });
++
++    test('rejects a long word inside a longer name', () {
++      expect(LeaderboardService.validateNickname('big shit 1'), isNotNull);
++    });
++
++    test('sees through leetspeak and spacing', () {
++      for (final dodge in ['sh1t', 'SH!T', 's h i t', 'f u c k', 'fvck me']) {
++        expect(
++          LeaderboardService.validateNickname(dodge),
++          isNotNull,
++          reason: 'should have rejected "$dodge"',
++        );
++      }
++    });
++
++    test('rejects a name with no letters at all', () {
++      expect(LeaderboardService.validateNickname('12 34'), isNotNull);
++    });
++
++    test('does not reject ordinary names containing short words', () {
++      for (final name in ['Cassandra', 'Essex', 'Weedon', 'Sexton', 'Dickson',
++                          'Hancock', 'Alexis', 'Massive', 'Witsie']) {
++        expect(
++          LeaderboardService.validateNickname(name),
++          isNull,
++          reason: 'should have accepted "$name"',
++        );
++      }
++    });
++
++    test('still catches a short word standing on its own', () {
++      for (final name in ['ass', '@ss', 'big ass', 'weed', 't1k', 'admin']) {
++        expect(
++          LeaderboardService.validateNickname(name),
++          isNotNull,
++          reason: 'should have rejected "$name"',
++        );
++      }
++    });
++
++    test('folding matches what Postgres does', () {
++      expect(normaliseNickname('F.U.C.K'), 'fuck');
++      expect(normaliseNickname('Cl4r4 P'), 'clarap');
++      expect(normaliseNickname('1337'), 'ieet');
++      expect(nicknameTokens('Clara P'), ['clara', 'p']);
++      expect(nicknameTokens('kart_42'), ['kart', 'a']);
++    });
++  });
++
+ }
