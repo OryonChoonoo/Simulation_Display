@@ -74,18 +74,13 @@
       <button id="pick-sensorless" class="primary-btn ghost">Sensorless &mdash; estimate it instead</button>
       <p class="hint">Either one opens the explanation of what the controller then does with that angle.</p>
     </div>
-    <div class="controls">
-      <div class="zoom-row">
-        <button id="d3-out" title="Zoom out">&minus;</button>
-        <button id="d3-in" title="Zoom in">+</button>
-        <button id="d3-reset" class="wide">Reset the view</button>
-      </div>
-      <label>Speed <b id="d3-speed-out">400 rpm</b>
-        <input id="d3-speed" type="range" min="30" max="2000" step="10" value="400">
-      </label>
-      <label class="check"><input id="d3-sensorless" type="checkbox"> Estimate the angle instead of measuring it</label>
-      <p class="hint">Sensored uses the encoder. Sensorless has to work the angle out from the voltage the
-        magnets generate, which shrinks as the motor slows.</p>
+    <div class="sweep-card">
+      <p class="sweep-label">Running on its own</p>
+      <p class="sweep-speed"><b id="d3-speed-out">400</b> <span>rpm</span></p>
+      <p class="sweep-mode" id="d3-mode-out">measuring the angle with the encoder</p>
+      <p class="hint">The rig sweeps up and down its speed range by itself, switching between measuring
+        the angle and estimating it, so there is always something moving to look at. Drag the rig to
+        turn it; scroll or pinch to zoom.</p>
     </div>
     <div class="numbers-card">
       <h2>Rotor angle</h2>

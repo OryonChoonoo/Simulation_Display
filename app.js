@@ -689,13 +689,39 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, ch =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 }
+/* The rig runs itself.
+
+   Nobody stands at a stand working a slider, and a still picture reads as a
+   broken screen. So the speed sweeps its range and the feedback source changes
+   over on its own - which is also the thing the whole investigation is about:
+   the same machine, the same load, one difference. */
+const SWEEP_SECONDS = 26;           // one round trip, slow enough to follow
+const SWEEP_LOW = 150, SWEEP_HIGH = 1500;
+
+function autoSweep() {
+  const phase = (performance.now() / 1000) % SWEEP_SECONDS / SWEEP_SECONDS;
+  // A cosine, so it eases at each end instead of snapping round.
+  const rpm = SWEEP_LOW + (SWEEP_HIGH - SWEEP_LOW) * (1 - Math.cos(phase * 2 * Math.PI)) / 2;
+  // Sensored on the way up, sensorless on the way down, so the two are seen at
+  // the same speeds rather than at different ones.
+  return { rpm, sensorless: phase >= 0.5 };
+}
+
 function update3d() {
   if (!rig3d) return;
-  const rpm = Number($('d3-speed').value), sensorless = $('d3-sensorless').checked;
+  const auto = autoSweep();
+  const rpm = auto.rpm, sensorless = auto.sensorless;
   const heat = P ? Math.min(1.5 * P.Rs_ohm * Math.pow(rigState().sensorless.current, 2) / 40, 1) : 0;
   const measuredError = sweepMetric(rpm, 'loaded_angle_rms_error_deg');
   rig3d.setOptions({ rpm, sensorless, heat, errorDeg: sensorless && measuredError !== null ? measuredError : 0 });
-  $('d3-speed-out').textContent = Math.round(rpm) + ' rpm';
+  $('d3-speed-out').textContent = Math.round(rpm);
+  const modeOut = $('d3-mode-out');
+  if (modeOut) {
+    modeOut.textContent = sensorless
+      ? 'estimating the angle from the back-EMF'
+      : 'measuring the angle with the encoder';
+    modeOut.className = 'sweep-mode ' + (sensorless ? 'sensorless' : 'sensored');
+  }
   const r = rig3d.readout();
   const backEmf = (rpm * 2 * Math.PI / 60) * P.pole_pairs * P.flux_Wb;
   $('d3-numbers').innerHTML = [
@@ -1063,7 +1089,7 @@ function showHeat(which, watts) {
 // are drawn at a stated 1.0 N m: enough to make the current vector meaningful.
 const RIG_GRAPH_TORQUE = 1.0;
 function rigState() {
-  const rpm = Number($('d3-speed').value);
+  const rpm = autoSweep().rpm;           // the graphs follow the same sweep
   const o = operate(rpm, RIG_GRAPH_TORQUE);
   // Take the error straight from the 3D view, so the graph and the arrow in the
   // picture can never disagree: it already returns zero when the encoder is on.
@@ -2124,21 +2150,10 @@ async function start() {
   requestAnimationFrame(rigGraphFrame);
   on('play-link', 'click', touched);
   on('sb-refresh', 'click', () => { touched(); loadSharedBoard(true); });
-  for (const id of ['d3-speed', 'd3-sensorless']) $(id).addEventListener('input', () => { touched(); update3d(); });
-  $('d3-in').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1 / 1.25); });
-  $('d3-out').addEventListener('click', () => { touched(); rig3d && rig3d.zoomBy(1.25); });
-  $('d3-reset').addEventListener('click', () => {
-    touched();
-    rig3d && rig3d.resetView();
-    rig3d && rig3d.highlight(null);
-    for (const b of document.querySelectorAll('#partbar button')) b.classList.remove('active');
-    $('source-choice').hidden = true;
-    $('d3-title').textContent = 'The rig';
-    $('d3-text').textContent = 'Two motors joined by a chain, each driven by its own controller from one '
-      + 'battery. The left motor is the one under test; the right one acts as the brake that loads it. '
-      + 'Tap any part to see what it does.';
-  });
-  setInterval(() => { if (!$('tab-3d').hidden) update3d(); }, 250);
+  // The rig's own controls are gone: it sweeps itself, and the view is dragged
+  // and pinched directly. Tapping a part still selects it.
+  on('d3-reset', 'click', () => { touched(); rig3d && rig3d.resetView(); });
+  setInterval(() => { if (!$('tab-3d').hidden) update3d(); }, 60);
   buildPartBar();
   buildStory();
   setSource('sensored');

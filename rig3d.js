@@ -921,9 +921,9 @@ function drawPane(pane, dt) {
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const o = pane.orbit;
   const target = inside ? new THREE.Vector3(-.238, .012, .02) : new THREE.Vector3(0, .26, 0);
-  const wanted = inside ? .25 : 1.80;   // fills the panel now that the callouts have gone
-  const ease = Math.min(pane.intro / 3.5, 1);
-  const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * o.zoom
+  const wanted = inside ? .25 : 1.42;   // both views fill their panel
+  const ease = Math.min(pane.intro / 1.8, 1);
+  const dist = V.lerp(wanted * 1.45, wanted, ease * ease * (3 - 2 * ease)) * o.zoom
     / Math.min(1, pane.camera.aspect);
   if (pane.intro < 8 && !o.drag && !inside) o.yaw += dt * .12;
   pane.camera.position.set(

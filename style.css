@@ -499,6 +499,24 @@ a.play-link:hover{background:#b05c9c;border-color:#b05c9c}
 @media(max-width:760px){#game-kart{height:78px}}
 
 .game-pair figure{margin:0;min-width:0}
+/* The rig gets the taller panel: it is the first thing anyone sees. */
+.stage3d{height:600px}
+@media(max-width:1100px){.stage3d{height:460px}}
+
+/* The sweep readout that replaced the rig's controls. */
+.sweep-card{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+  padding:16px 18px;position:relative;overflow:hidden}
+.sweep-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--spectrum)}
+.sweep-label{margin:0;font-family:var(--display);font-size:12px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--muted);font-weight:700}
+.sweep-speed{margin:4px 0 2px;font-family:var(--display);font-variant-numeric:tabular-nums;
+  font-size:46px;line-height:1;font-weight:700}
+.sweep-speed span{font-size:18px;color:var(--muted);letter-spacing:.08em}
+.sweep-mode{margin:0 0 10px;font-weight:650;font-size:14.5px}
+.sweep-mode.sensored{color:var(--cyan)}
+.sweep-mode.sensorless{color:var(--accent-soft)}
+
 /* The exploded motor sits under the whole rig, shorter, so both fit on a screen. */
 .inside-stage{height:400px;margin-top:4px}
 @media(max-width:1100px){.inside-stage{height:320px}}
