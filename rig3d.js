@@ -924,8 +924,13 @@ function drawPane(pane, dt) {
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const o = pane.orbit;
-  const target = inside ? new THREE.Vector3(-.238, .012, .02) : new THREE.Vector3(0, .26, 0);
-  const wanted = inside ? .25 : 1.42;   // both views fill their panel
+  // The exploded parts run back toward the encoder, so the visual centre of
+  // the assembly is not the machine's origin. Aim at the middle of what is
+  // actually drawn, or it sits off to one side with dead space beside it.
+  const target = inside ? new THREE.Vector3(-.268, .030, .02) : new THREE.Vector3(0, .26, 0);
+  // Far enough back that the whole exploded assembly is in frame with a
+  // margin, close enough that nobody has to zoom in to read it.
+  const wanted = inside ? .285 : 1.42;
   const ease = Math.min(pane.intro / 1.8, 1);
   const dist = V.lerp(wanted * 1.45, wanted, ease * ease * (3 - 2 * ease)) * o.zoom
     / Math.min(1, pane.camera.aspect);

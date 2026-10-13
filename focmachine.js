@@ -324,8 +324,11 @@ export function buildFocMachine(THREE, opts = {}) {
     dTag.position.set(0, .118, 0); dArrow.add(dTag);
     const qTag = labelSprite(THREE, 'q · stator field', '#00b377', .072 * labelScale);
     qTag.position.set(0, .118, 0); qArrow.add(qTag);
+    // Further out along its own arrow than the q label, because when the
+    // estimate is good the two arrows lie on top of each other and so did
+    // their labels.
     const eTag = labelSprite(THREE, 'where it thinks', '#ef9d00', .07 * labelScale);
-    eTag.position.set(0, .118, 0); estimateArrow.add(eTag);
+    eTag.position.set(0, .158, 0); estimateArrow.add(eTag);
     const quadTag = labelSprite(THREE, '90°', '#00b377', .036 * labelScale);
     quadTag.position.set(.055, .055, 0); quadMarker.add(quadTag);
     const thetaTag = labelSprite(THREE, 'θe', '#ef9d00', .03 * labelScale);
