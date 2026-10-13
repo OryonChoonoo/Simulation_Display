@@ -47,11 +47,20 @@ export function onTheme(fn) {
   return () => listeners.delete(fn);
 }
 
-const KEY = 'ltc-theme';
-
+/* The inline script in index.html owns the switch: it runs before the first
+   paint and before this module exists, so the page can change theme whether or
+   not the module graph ever loads. This module follows it. */
 export function setTheme(name) {
-  document.documentElement.dataset.theme = name;
-  try { localStorage.setItem(KEY, name); } catch { /* private browsing */ }
+  if (typeof window.toggleTheme === 'function'
+      && document.documentElement.dataset.theme !== name) {
+    window.toggleTheme();
+  } else {
+    document.documentElement.dataset.theme = name;
+    announce();
+  }
+}
+
+function announce() {
   refresh();
   for (const fn of listeners) {
     // One listener throwing must not stop the others repainting.
@@ -59,14 +68,6 @@ export function setTheme(name) {
   }
 }
 
-/** The theme to start in: what they chose last, else what the device prefers. */
-export function startingTheme() {
-  try {
-    const saved = localStorage.getItem(KEY);
-    if (saved === 'dark' || saved === 'light') return saved;
-  } catch { /* fine */ }
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark' : 'light';
-}
+window.addEventListener('themechange', announce);
 
 refresh();

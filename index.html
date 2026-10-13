@@ -5,6 +5,46 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Let's Torque Control</title>
 <link rel="stylesheet" href="style.css">
+<script>
+/* The theme is set here, before the first paint and before any module loads.
+
+   It used to be switched inside app.js, which meant the button did nothing
+   until a megabyte of JavaScript had arrived — and did nothing at all if that
+   ever failed. Something as basic as "make it dark" should not depend on the
+   3D engine. Setting it here also avoids a flash of the wrong theme on load.
+
+   app.js subscribes to the themechange event for the canvases that have to be
+   repainted; it is not needed for the page itself to change. */
+(function () {
+  var KEY = 'ltc-theme';
+  function preferred() {
+    try {
+      var saved = localStorage.getItem(KEY);
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch (e) { /* private browsing */ }
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark' : 'light';
+  }
+  function apply(name) {
+    document.documentElement.dataset.theme = name;
+    try { localStorage.setItem(KEY, name); } catch (e) { /* fine */ }
+    var label = document.getElementById('theme-label');
+    if (label) label.textContent = name === 'dark' ? 'Light' : 'Dark';
+    var button = document.getElementById('theme-toggle');
+    if (button) button.setAttribute('aria-pressed', String(name === 'dark'));
+    window.dispatchEvent(new CustomEvent('themechange', { detail: name }));
+  }
+  apply(preferred());
+  window.toggleTheme = function () {
+    apply(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    apply(document.documentElement.dataset.theme);      // sets the button text
+    var button = document.getElementById('theme-toggle');
+    if (button) button.addEventListener('click', window.toggleTheme);
+  });
+})();
+</script>
 </head>
 <body data-mode="presenter">
 
@@ -193,26 +233,26 @@
       points from 800 to 1200 rpm on the two-motor chain-coupled dynamometer, one session per
       feedback mode, with the simulation run on the identical commands for comparison.</p>
 
-    <div id="rig-kpis" class="kpi-row"></div>
-
-    <h3 class="panel-title">What changed when the encoder came out</h3>
-    <canvas id="rig-chart" class="result-chart"
-            aria-label="Measured current variation, harmonic distortion and speed variation against speed"></canvas>
-    <p class="caption">Each point is a measured operating point. Solid is sensored, hollow with a
-      dashed line is sensorless, so the two can be told apart without relying on colour.</p>
-
-    <h3 class="panel-title result-heading">The simulation, on the same commands</h3>
+    <h3 class="panel-title">First, what the model does</h3>
     <canvas id="rig-sim-chart" class="result-chart"
             aria-label="Simulated estimator angle error against speed"></canvas>
-    <p class="caption">The model answers a different question: does the control structure execute,
+    <p class="caption">The simulation answers its own question: does the control structure execute,
       and what shape does the estimator error take. It rises linearly with speed &mdash; a fixed
       delay of about 63 &micro;s, roughly 1.3 current-loop periods &mdash; not noise.</p>
 
-    <h3 class="panel-title result-heading">Startup and handover, in the model</h3>
+    <h3 class="panel-title result-heading">How it gets going: startup and handover</h3>
     <canvas id="startup-chart" class="result-chart startup-chart"
             aria-label="Encoder-assisted startup and sensorless handover timeline"></canvas>
     <label class="scrubber">Inspect the startup at <b id="startup-time">0.000 s</b>
       <input id="startup-scrub" type="range" min="0" max="800" step="1" value="0"></label>
+
+    <h3 class="panel-title result-heading">Then, what the rig actually did</h3>
+    <div id="rig-kpis" class="kpi-row"></div>
+
+    <canvas id="rig-chart" class="result-chart"
+            aria-label="Measured current variation, harmonic distortion and speed variation against speed"></canvas>
+    <p class="caption">Each point is a measured operating point. Solid is sensored, hollow with a
+      dashed line is sensorless, so the two can be told apart without relying on colour.</p>
   </section>
 
   <section class="side">

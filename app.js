@@ -6,7 +6,7 @@
 
 import { PHYSICS, newRotor, stepRotor, rpmOf, wrapAngle, estimateAngle }
   from './gamephysics.js';
-import { C, onTheme, setTheme, startingTheme, isDark } from './palette.js';
+import { C, onTheme } from './palette.js';
 
 const $ = id => document.getElementById(id);
 let P = null, CASES = [], mode = 'presenter', idleTimer = 0, attract = null, selected = null;
@@ -2133,16 +2133,11 @@ async function start() {
   }
   on('reset', 'click', () => { touched(); reset(); });
   on('sound-toggle', 'click', () => { touched(); toggleSound(); });
-  on('theme-toggle', 'click', () => {
-    touched();
-    setTheme(isDark() ? 'light' : 'dark');
-  });
-  // Most canvases repaint themselves every frame and pick the new colours up on
-  // their own. These two are drawn once, so they are told.
+  // The toggle itself is wired in the head, so it works before this file has
+  // even arrived. All that is left here is repainting the canvases that are
+  // drawn once rather than every frame.
+  on('theme-toggle', 'click', touched);
   onTheme(() => {
-    const toggle = $('theme-toggle'), label = $('theme-label');
-    if (label) label.textContent = isDark() ? 'Light' : 'Dark';
-    if (toggle) toggle.setAttribute('aria-pressed', String(isDark()));
     if (!$('tab-results').hidden) renderResults();
     if (plannedDrawn) drawPlannedMap();
   });
@@ -2201,7 +2196,6 @@ async function start() {
   // Unattended visitors need orientation before numbers, so the kiosk opens on the rig.
   setTab('3d');
   showPart('motor1');
-  setTheme(startingTheme());          // what they chose last, else the device's
   reset(); watchIdle(); touched();
 }
 start();
