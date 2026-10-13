@@ -1972,7 +1972,7 @@ function on(id, type, handler, options) {
    bundle and is designed to be public — it grants exactly the select and
    insert that the table's row-level security allows, nothing more. Names are
    screened by a trigger on the table, not here. */
-const FOC_GAME_URL = 'https://joaopedra-amdg.github.io/FOC-game/';
+const FOC_GAME_URL = 'https://joaopedra-amdg.github.io/FOC-game/simulation/';
 
 /* The game is a few megabytes of Flutter, so it is not fetched until somebody
    actually opens the tab. A visitor who scans the QR code and reads the rig
@@ -1983,18 +1983,18 @@ function mountGame() {
   if (!frame || gameMounted) return;
   gameMounted = true;
   const note = $('game-embed-fallback');
-  frame.addEventListener('load', () => {
+  const reveal = () => {
     frame.classList.add('ready');
     if (note) note.hidden = true;
-  });
-  // If it has not come up in fifteen seconds, say so rather than leaving a
-  // blank panel: on a bad connection this is a big download.
-  setTimeout(() => {
-    if (!frame.classList.contains('ready') && note) {
-      note.innerHTML = '<p>The game is taking a while to load.<br>'
-        + '<a href="' + FOC_GAME_URL + '" target="_blank" rel="noopener">Open it in its own tab</a></p>';
-    }
-  }, 15000);
+  };
+  /* The frame is revealed on load, or after three seconds, whichever comes
+     first. Waiting for load alone was wrong: this build never fires it - a
+     Flutter app keeps fetching after its first paint, so the game was up and
+     playable behind a panel that still said it was loading. Three seconds is
+     past its own splash screen, and the game draws its own progress after
+     that, which is a better thing to look at than our placeholder. */
+  frame.addEventListener('load', reveal);
+  setTimeout(reveal, 3000);
   frame.src = FOC_GAME_URL;
 }
 const SUPABASE_URL = 'https://qiihwpffmkotsjausztc.supabase.co';
