@@ -123,8 +123,8 @@
   <section class="plot-card">
     <p class="source-note sensorless">
       <b>Driven by the matched 0.5 N&middot;m simulation sweep.</b> The angle-error curve is interpolated from
-      the successful 300&ndash;1500 rpm sensorless runs. Below 300 rpm the model is outside the demonstrated
-      sensorless region: the 200 rpm case fell back to the encoder. Changing the load here remains an
+      the sustained sensorless runs. The later 88-case matrix at a common 25 A ceiling put the boundary
+      near 225 rpm, rising with load, and the rig itself was never run below 800 rpm. Changing the load here remains an
       explanatory model, because a full sensorless load matrix has not yet been run.</p>
     <div id="sbs-stage" class="stage3d" aria-label="Two machines under the same load: one fed by an encoder, one by an estimate"></div>
     <p id="sbs-script" class="script-line" hidden></p>
@@ -188,48 +188,88 @@
 
 <main id="tab-results" hidden>
   <section class="plot-card results-page">
-    <p class="source-note sensored"><b>Simulation evidence, not hardware measurement.</b> These graphs
-      replay the matched 200&ndash;1500 rpm sweep at 0.5 N&middot;m. Both modes use the same motor and true shaft-speed
-      signal for scoring. Sensorless uses an encoder-assisted start; only 300&ndash;1500 rpm sustained
-      sensorless control without fallback.</p>
-    <div id="result-kpis" class="result-kpis"></div>
-    <h2 class="panel-title">Matched speed sweep at 0.5 N&middot;m</h2>
-    <canvas id="result-sweep" class="result-chart" aria-label="Sensorless angle, speed and current results across speed"></canvas>
-    <p class="caption">A filled point is a sustained sensorless case. The 200 rpm point is marked as a
-      fallback and is not used to claim sensorless performance.</p>
-    <h2 class="panel-title result-heading">Representative 800 rpm load response</h2>
-    <canvas id="result-transient" class="result-chart" aria-label="Matched sensored and sensorless 800 rpm transient"></canvas>
-    <p class="caption">The load is 0.5 N&middot;m. The narrow display range is intentional: it makes the small
-      difference between the true shaft-speed traces visible.</p>
-    <h2 class="panel-title result-heading">Startup and handover timeline</h2>
-    <canvas id="startup-chart" class="result-chart startup-chart" aria-label="Encoder-assisted startup and sensorless handover timeline"></canvas>
+    <p class="eyebrow">measured on the rig &middot; 10 october 2026</p>
+    <h2 class="result-statement">Without the sensor, the motor held its speed just as well
+      &mdash; and ran a dirtier current.</h2>
+    <p class="source-note measured"><b>Hardware measurement.</b> Twenty-one matched operating
+      points from 800 to 1200 rpm on the two-motor chain-coupled dynamometer, one session per
+      feedback mode, with the simulation run on the identical commands for comparison.</p>
+
+    <div id="rig-kpis" class="kpi-row"></div>
+
+    <h3 class="panel-title">What changed when the encoder came out</h3>
+    <canvas id="rig-chart" class="result-chart"
+            aria-label="Measured current variation, harmonic distortion and speed variation against speed"></canvas>
+    <p class="caption">Each point is a measured operating point. Solid is sensored, hollow with a
+      dashed line is sensorless, so the two can be told apart without relying on colour.</p>
+
+    <h3 class="panel-title result-heading">The simulation, on the same commands</h3>
+    <canvas id="rig-sim-chart" class="result-chart"
+            aria-label="Simulated estimator angle error against speed"></canvas>
+    <p class="caption">The model answers a different question: does the control structure execute,
+      and what shape does the estimator error take. It rises linearly with speed &mdash; a fixed
+      delay of about 63 &micro;s, roughly 1.3 current-loop periods &mdash; not noise.</p>
+
+    <h3 class="panel-title result-heading">Startup and handover, in the model</h3>
+    <canvas id="startup-chart" class="result-chart startup-chart"
+            aria-label="Encoder-assisted startup and sensorless handover timeline"></canvas>
     <label class="scrubber">Inspect the startup at <b id="startup-time">0.000 s</b>
       <input id="startup-scrub" type="range" min="0" max="800" step="1" value="0"></label>
   </section>
+
   <section class="side">
     <div class="verdict-card">
-      <p class="verdict warn" id="result-verdict">Boundary bracketed, not fully mapped</p>
-      <p class="explain">At 0.5 N&middot;m, 300 rpm is the lowest demonstrated sustained sensorless point and
-        200 rpm falls back. The boundary is therefore between them on this test configuration.</p>
+      <p class="verdict ok" id="result-verdict">Sensorless is viable at 800&ndash;1200 rpm</p>
+      <p class="explain">On the rig, taking the encoder out cost no speed regulation at all and
+        about a fifth more current variation. That is the answer to the research question over the
+        band that was measured. It says nothing about low speed, which the rig sessions did not
+        reach.</p>
     </div>
+
+    <div class="numbers-card">
+      <h2>Measured, 800&ndash;1200 rpm</h2>
+      <div id="rig-numbers" class="numbers"></div>
+      <p class="hint">Mean over 21 matched points. Rig current is the TEST motor; rig speed is the
+        independent LOAD shaft.</p>
+    </div>
+
     <div class="numbers-card">
       <h2>Point selected on the startup timeline</h2>
       <div id="startup-readout" class="numbers"></div>
     </div>
+
+    <div class="numbers-card callout">
+      <h2>The model does not reproduce the rig</h2>
+      <p class="explain">Under the same commands the simulation produces almost no ripple at all:
+        its current variation is <b id="gap-iq">&mdash;</b> times smaller than measured, and its
+        shaft-speed variation <b id="gap-speed">&mdash;</b> times smaller. <b>It is not validated,
+        and these results are not a prediction of the hardware.</b></p>
+      <p class="explain">That gap was tested, not assumed. Raising the simulated mechanical
+        roughness fivefold brings the sensored current variation into the right range but gets the
+        ordering backwards &mdash; rougher sensored in the model, rougher sensorless on the rig. The
+        missing physics is therefore electrical and in the active load drive, not mechanical.</p>
+    </div>
+
     <div class="numbers-card advanced">
-      <h2>What the sweep says</h2>
+      <h2>What these numbers are not</h2>
       <ul class="limits">
-        <li>Electrical-angle RMS error rises from <b>0.345&deg;</b> at 300 rpm to <b>1.698&deg;</b> at 1500 rpm.</li>
-        <li>That trend corresponds to an approximately <b>63 &micro;s fixed lag</b>, an inference consistent with computational delay.</li>
-        <li>True shaft-speed RMS error stays around <b>0.0012&ndash;0.0015 rpm</b> in the sustained cases.</li>
-        <li>Whole-run phase-current peaks sit near <b>7 A</b> because the sensorless commissioning guard is active. The sensored side uses a 25 A ceiling, so current-limit comparisons are not yet fully like-for-like.</li>
+        <li>The rig angle error is <b>relative within each short capture</b>. It omits the absolute
+          initial offset, so it cannot be compared with the simulation's absolute error.</li>
+        <li>The rig current-controls the TEST motor and regulates speed on the LOAD motor. The
+          simulation speed-controls one motor against a passive equivalent load. The two are
+          compared metric by metric, never signal by signal.</li>
+        <li>Simulated current belongs to the speed-regulating motor; the passive load has no
+          electrical model at all.</li>
+        <li>One session per mode. Repeat sessions would be needed before quoting a tolerance.</li>
+        <li>Motor parameters remain provisional, so absolute torque figures carry that uncertainty.</li>
       </ul>
     </div>
+
     <div class="numbers-card advanced">
-      <h2>Still missing</h2>
-      <p class="explain">The other load rows, finer points between 200 and 300 rpm, equalised current
-        ceilings, hardware validation and a true standstill sensorless start. Until those exist, this is a
-        one-load simulation result rather than the final operating map.</p>
+      <h2>Still open</h2>
+      <p class="explain">Low speed on the rig: the simulated boundary sits near 225 rpm and the
+        hardware sessions start at 800. Until the rig is run down there, the low-speed limit is a
+        simulation result only. A true standstill sensorless start remains undemonstrated in both.</p>
     </div>
   </section>
 </main>
@@ -526,9 +566,13 @@
     4 thermal corner &middot; 5 current limit. Letters switch tabs: W rig &middot; E envelope &middot;
     F control &middot; S side by side &middot; A actual results &middot; M method. R reset &middot; K switch mode</p>
   <p id="provenance" class="small"></p>
-  <p class="small">The sensorless simulation has been swept from 200 to 1500 rpm at 0.5 N&middot;m. It sustained
-    estimator control from 300 rpm upward; the 200 rpm run fell back to the encoder. Other loads have not
-    yet been swept, and startup is encoder-assisted.</p>
+  <p class="small">The sensorless simulation has been swept from 50 to 1500 rpm across four loads at a
+    common 25 A ceiling. It sustained estimator control from 225 rpm upward, falling back at 200 rpm once
+    loaded and never engaging below 150 rpm. Startup is encoder-assisted throughout.</p>
+  <p class="small"><b>The rig was measured on 10 October 2026</b>, 800&ndash;1200 rpm, one session per
+    feedback mode. Sensorless cost about 22 % more current variation and 83 % more fifth-harmonic
+    distortion, with no measurable speed-regulation penalty. The simulation does not reproduce those
+    ripple figures and is not validated against the hardware.</p>
   <p class="small">Simulation only, with provisional BM1109 parameters and an averaged inverter.
     It has not been validated against the physical rig, and the numbers are not measurements.</p>
 </footer>

@@ -9,7 +9,7 @@ import { PHYSICS, newRotor, stepRotor, rpmOf, wrapAngle, estimateAngle }
 
 const $ = id => document.getElementById(id);
 let P = null, CASES = [], mode = 'presenter', idleTimer = 0, attract = null, selected = null;
-let SWEEP = null, TRANSIENT = null, STARTUP = null;
+let SWEEP = null, TRANSIENT = null, STARTUP = null, RIG = null;
 
 // ---- physics ------------------------------------------------------------------
 // Iq from torque, terminal voltage from back-EMF + resistive and inductive drops,
@@ -79,14 +79,14 @@ function draw() {
       g.fillRect(px, Y(Math.min(t + dt, tmax)), step + 1, Math.max(1, Y(t) - Y(Math.min(t + dt, tmax))));
     }
   }
-  g.strokeStyle = '#5cffc0'; g.lineWidth = 2.5; g.beginPath();
+  g.strokeStyle = '#7df0c8'; g.lineWidth = 2.5; g.beginPath();
   boundary.forEach(([px, t], i) => i ? g.lineTo(px, Y(t)) : g.moveTo(px, Y(t)));
   g.stroke();
 
   // axes
-  g.strokeStyle = '#625a50'; g.lineWidth = 1; g.beginPath();
+  g.strokeStyle = '#45456d'; g.lineWidth = 1; g.beginPath();
   g.moveTo(L, T); g.lineTo(L, B); g.lineTo(R, B); g.stroke();
-  g.fillStyle = '#aea69d'; g.font = (mode === 'kiosk' ? 15 : 12) + 'px system-ui'; g.textAlign = 'center';
+  g.fillStyle = '#9292b9'; g.font = (mode === 'kiosk' ? 15 : 12) + 'px system-ui'; g.textAlign = 'center';
   for (let rpm = 0; rpm <= MAXRPM; rpm += 500) { g.fillText(rpm, X(rpm), B + 20); }
   g.fillText('speed (rpm)', (L + R) / 2, B + (mode === 'kiosk' ? 46 : 38));
   g.textAlign = 'right';
@@ -97,16 +97,16 @@ function draw() {
   // the 24 Simulink cases
   for (const cs of CASES) {
     g.beginPath(); g.arc(X(cs.rpm), Y(cs.load_Nm), mode === 'kiosk' ? 5 : 4, 0, 7);
-    g.fillStyle = '#edebe8'; g.fill();
-    g.strokeStyle = '#221e18'; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = '#e5e5f0'; g.fill();
+    g.strokeStyle = '#1c1c52'; g.lineWidth = 1.5; g.stroke();
   }
 
   // the cursor
   const rpm = Number($('speed').value), torque = Number($('load').value);
   const o = operate(rpm, torque), v = verdict(o);
   g.beginPath(); g.arc(X(rpm), Y(torque), mode === 'kiosk' ? 13 : 10, 0, 7);
-  g.fillStyle = v.ok ? (v.warn ? '#ffb020' : '#00e693') : '#ff2d55';
-  g.fill(); g.strokeStyle = '#11100e'; g.lineWidth = 3; g.stroke();
+  g.fillStyle = v.ok ? (v.warn ? '#f2b134' : '#2ee6a8') : '#ff4d6d';
+  g.fill(); g.strokeStyle = '#0e0e34'; g.lineWidth = 3; g.stroke();
   return { o, v };
 }
 
@@ -214,19 +214,19 @@ function drawMachine(g, cx, cy, r, o) {
 
   // --- stator: back iron, slots, and the three phase windings ------------------
   const iron = g.createRadialGradient(cx, cy, r * 1.3, cx, cy, r * 1.72);
-  iron.addColorStop(0, '#302c28'); iron.addColorStop(1, '#201e1b');
+  iron.addColorStop(0, '#232335'); iron.addColorStop(1, '#181823');
   g.fillStyle = iron;
   g.beginPath(); g.arc(cx, cy, r * 1.72, 0, 7);
   g.arc(cx, cy, r * 1.3, 0, 7, true); g.fill();
-  g.strokeStyle = '#413c36'; g.lineWidth = 1.5;
+  g.strokeStyle = '#2f2f48'; g.lineWidth = 1.5;
   g.beginPath(); g.arc(cx, cy, r * 1.72, 0, 7); g.stroke();
   g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.stroke();
 
-  const PHASE = ['#ff6b1a', '#00d4ff', '#b36bff'];
+  const PHASE = ['#9a4d87', '#5a7fc8', '#58d7c8'];
   for (let k = 0; k < 12; k++) {                       // slots, four per phase
     const a = -k * Math.PI / 6 + Math.PI / 12;
     g.save(); g.translate(cx, cy); g.rotate(-a);
-    g.fillStyle = '#181611';
+    g.fillStyle = '#131339';
     g.beginPath(); g.ellipse(r * 1.5, 0, r * 0.13, r * 0.085, 0, 0, 7); g.fill();
     g.fillStyle = PHASE[k % 3];
     g.globalAlpha = live ? 0.85 : 0.35;
@@ -242,7 +242,7 @@ function drawMachine(g, cx, cy, r, o) {
   }
 
   // --- air gap -----------------------------------------------------------------
-  g.fillStyle = '#11100e';
+  g.fillStyle = '#0e0e34';
   g.beginPath(); g.arc(cx, cy, r * 1.3, 0, 7); g.arc(cx, cy, r * 1.06, 0, 7, true); g.fill();
 
   // --- rotor: two shaded magnet halves, a boundary and a shaft -----------------
@@ -250,9 +250,9 @@ function drawMachine(g, cx, cy, r, o) {
   // does not get to look at the rotor either.
   if (o.hideRotor) {
     g.save(); g.translate(cx, cy);
-    g.strokeStyle = '#3e3832'; g.lineWidth = 2; g.setLineDash([5, 7]);
+    g.strokeStyle = '#2b2b45'; g.lineWidth = 2; g.setLineDash([5, 7]);
     g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); g.setLineDash([]);
-    g.fillStyle = '#786e62'; g.beginPath(); g.arc(0, 0, r * 0.2, 0, 7); g.fill();
+    g.fillStyle = '#555585'; g.beginPath(); g.arc(0, 0, r * 0.2, 0, 7); g.fill();
     if (o.dashedRotor) {
       // Where the estimator thinks the magnets are.
       g.rotate(-theta);
@@ -266,21 +266,21 @@ function drawMachine(g, cx, cy, r, o) {
   }
   if (!o.hideRotor) {
   g.save(); g.translate(cx, cy); g.rotate(-theta);
-  for (const [from, colour, dark] of [[-Math.PI / 2, '#ff2d55', '#8f1c32'], [Math.PI / 2, '#83786c', '#4b443d']]) {
+  for (const [from, colour, dark] of [[-Math.PI / 2, '#ff4d6d', '#8f1c3e'], [Math.PI / 2, '#5e5e91', '#353553']]) {
     const grad = g.createLinearGradient(0, -r, 0, r);
     grad.addColorStop(0, colour); grad.addColorStop(1, dark);
     g.fillStyle = from < 0 ? grad : dark;
-    if (from >= 0) { const g2 = g.createLinearGradient(0, r, 0, -r); g2.addColorStop(0, '#958a7e'); g2.addColorStop(1, '#4b443d'); g.fillStyle = g2; }
+    if (from >= 0) { const g2 = g.createLinearGradient(0, r, 0, -r); g2.addColorStop(0, '#7070a3'); g2.addColorStop(1, '#353553'); g.fillStyle = g2; }
     g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, r, from, from + Math.PI); g.fill();
   }
-  g.strokeStyle = '#11100e'; g.lineWidth = 2;
+  g.strokeStyle = '#0e0e34'; g.lineWidth = 2;
   g.beginPath(); g.moveTo(0, -r); g.lineTo(0, r); g.stroke();
-  g.strokeStyle = '#221e18'; g.lineWidth = 2;
+  g.strokeStyle = '#1c1c52'; g.lineWidth = 2;
   g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke();
   const hub = g.createRadialGradient(-r * 0.06, -r * 0.06, 1, 0, 0, r * 0.2);
-  hub.addColorStop(0, '#bcb5ae'); hub.addColorStop(1, '#786e62');
+  hub.addColorStop(0, '#a5a5c5'); hub.addColorStop(1, '#555585');
   g.fillStyle = hub; g.beginPath(); g.arc(0, 0, r * 0.2, 0, 7); g.fill();
-  g.fillStyle = '#4b443d'; g.fillRect(-r * 0.035, -r * 0.2, r * 0.07, r * 0.07);   // keyway
+  g.fillStyle = '#353553'; g.fillRect(-r * 0.035, -r * 0.2, r * 0.07, r * 0.07);   // keyway
   g.restore();
 
   // Pole letters stay upright so they can be read while the rotor turns.
@@ -304,20 +304,20 @@ function drawMachine(g, cx, cy, r, o) {
   // so a vector pointing sideways cannot push its label off the edge.
   const labelR = r * 2.1, bounds = o.bounds;
   if (!o.hideRotor) {
-    arrowOn(g, cx, cy, theta, r * 1.0, '#ff2d55', 'magnets (d)', false, false, labelR, bounds);
+    arrowOn(g, cx, cy, theta, r * 1.0, '#ff4d6d', 'magnets (d)', false, false, labelR, bounds);
   } else if (o.dashedRotor) {
-    arrowOn(g, cx, cy, theta, r * 1.0, '#ff2d55', 'estimated magnets', true, false, labelR, bounds);
+    arrowOn(g, cx, cy, theta, r * 1.0, '#ff4d6d', 'estimated magnets', true, false, labelR, bounds);
   }
   if (live) {
     const ideal = theta + Math.PI / 2;
     if (Math.abs(err) < 0.01) {
-      arrowOn(g, cx, cy, ideal, r * 1.0, '#00e693', 'current (q)', false, true, labelR, bounds);
+      arrowOn(g, cx, cy, ideal, r * 1.0, '#2ee6a8', 'current (q)', false, true, labelR, bounds);
     } else {
       // Only name the ideal direction when there is room for the label to sit
       // clear of the one next to it.
-      arrowOn(g, cx, cy, ideal, r * 1.0, '#186b52',
+      arrowOn(g, cx, cy, ideal, r * 1.0, '#1a6b57',
         Math.abs(err) > 0.45 ? 'should be here' : '', true, false, labelR, bounds);
-      arrowOn(g, cx, cy, ideal + err, r * 1.0, Math.abs(err) > Math.PI / 3 ? '#ff2d55' : '#ffb020',
+      arrowOn(g, cx, cy, ideal + err, r * 1.0, Math.abs(err) > Math.PI / 3 ? '#ff4d6d' : '#f2b134',
         'current', false, true, labelR, bounds);
     }
   }
@@ -356,7 +356,7 @@ function drawRotor(theta, peak, err) {
   c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
   drawMachine(g, w / 2, h / 2, Math.min(w, h) * 0.215, { theta, peak, err, bounds: [6, w - 6] });
-  g.fillStyle = '#83786c'; g.font = '12px system-ui'; g.textAlign = 'center';
+  g.fillStyle = '#5e5e91'; g.font = '12px system-ui'; g.textAlign = 'center';
   g.fillText('drawn in electrical angle: one pole pair of the three', w / 2, h - 8);
 }
 
@@ -368,10 +368,10 @@ function drawScope(theta, peak, iq, id, err, peakHeld) {
   const L = 46, R = w - 12, T = 14, B = h - 40, mid = (T + B) / 2;
   const top = rotorFrame ? Math.max(peak, 1) : Math.max(peakHeld * 1.08, 1);
   const scale = (B - T) / 2 / (top * 1.1);
-  g.strokeStyle = '#3e3933'; g.lineWidth = 1;
+  g.strokeStyle = '#2c2c45'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke();
   g.beginPath(); g.moveTo(L, T); g.lineTo(L, B); g.stroke();
-  g.fillStyle = '#aea69d'; g.font = '12px system-ui'; g.textAlign = 'right';
+  g.fillStyle = '#9292b9'; g.font = '12px system-ui'; g.textAlign = 'right';
   g.fillText('+' + top.toFixed(1) + ' A', L - 6, T + 12);
   g.fillText('0', L - 6, mid + 4);
   g.fillText('-' + top.toFixed(1) + ' A', L - 6, B);
@@ -390,8 +390,8 @@ function drawScope(theta, peak, iq, id, err, peakHeld) {
   };
 
   if (rotorFrame) {
-    for (const s2 of [{ colour: '#00e693', label: 'Iq  torque', value: iq },
-                      { colour: '#ff2d55', label: 'Id  wasted', value: id }]) {
+    for (const s2 of [{ colour: '#2ee6a8', label: 'Iq  torque', value: iq },
+                      { colour: '#ff4d6d', label: 'Id  wasted', value: id }]) {
       plot(() => s2.value, s2.colour, 2.5);
       const y = mid - s2.value * scale;
       g.fillStyle = s2.colour; g.beginPath(); g.arc(R - 1, y, 4, 0, 7); g.fill();
@@ -404,7 +404,7 @@ function drawScope(theta, peak, iq, id, err, peakHeld) {
     // faint traces are where they would be if the angle were right.
     const shifted = k => a => peakHeld * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2 + err);
     const ideal = k => a => peak * Math.cos(a - k * 2 * Math.PI / 3 + Math.PI / 2);
-    const colours = ['#ff6b1a', '#00d4ff', '#b36bff'];
+    const colours = ['#9a4d87', '#5a7fc8', '#58d7c8'];
     if (Math.abs(err) > .01) {
       for (let k = 0; k < 3; k++) plot(ideal(k), colours[k] + '55', 1.6, [5, 5]);
     }
@@ -427,23 +427,23 @@ function drawScope(theta, peak, iq, id, err, peakHeld) {
         const x1 = xOf(fIdeal), x2 = xOf(fActual);
         g.fillStyle = 'rgba(240,180,41,.16)';
         g.fillRect(Math.min(x1, x2), T, Math.abs(x2 - x1), B - T);
-        for (const [x, colour] of [[x1, '#186b52'], [x2, '#ffb020']]) {
+        for (const [x, colour] of [[x1, '#1a6b57'], [x2, '#f2b134']]) {
           g.strokeStyle = colour; g.lineWidth = 1.5; g.setLineDash([4, 4]);
           g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke(); g.setLineDash([]);
         }
-        g.fillStyle = '#ffb020'; g.font = 'bold 12px system-ui'; g.textAlign = 'center';
+        g.fillStyle = '#f2b134'; g.font = 'bold 12px system-ui'; g.textAlign = 'center';
         g.fillText(Math.abs(Math.round(err * 180 / Math.PI)) + '°',
           (x1 + x2) / 2, T + 14);
       }
     }
   }
 
-  g.fillStyle = '#aea69d'; g.textAlign = 'center'; g.font = '12px system-ui';
+  g.fillStyle = '#9292b9'; g.textAlign = 'center'; g.font = '12px system-ui';
   g.fillText(rotorFrame ? 'riding with the rotor' : 'standing still, watching the wires',
     (L + R) / 2, B + 18);
   if (!rotorFrame) {
     const degrees = Math.round(Math.abs(err) * 180 / Math.PI);
-    g.fillStyle = degrees ? '#ffb020' : '#83786c'; g.font = '12px system-ui';
+    g.fillStyle = degrees ? '#f2b134' : '#5e5e91'; g.font = '12px system-ui';
     g.fillText(degrees
       ? `shifted ${degrees}\u00b0 round, and ${peak.toFixed(1)} A becomes ${peakHeld.toFixed(1)} A for the same torque`
       : 'faint traces appear when the angle is wrong, showing where the currents should have been',
@@ -797,9 +797,9 @@ function recordHistory(hist, s, theta) {
 }
 
 function graphFrame(g, x, y, w, h, title) {
-  g.fillStyle = '#1b1916'; g.fillRect(x, y, w, h);
-  g.strokeStyle = '#302c27'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
-  g.fillStyle = '#83786c'; g.font = '600 11.5px system-ui'; g.textAlign = 'left';
+  g.fillStyle = '#161642'; g.fillRect(x, y, w, h);
+  g.strokeStyle = '#222235'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  g.fillStyle = '#5e5e91'; g.font = '600 11.5px system-ui'; g.textAlign = 'left';
   g.fillText(title, x + 10, y + 17);
   return { L: x + 34, R: x + w - 10, T: y + 26, B: y + h - 18 };
 }
@@ -839,7 +839,7 @@ function drawAngleGraph(g, x, y, w, h) {
   const n = history.theta.length;
   if (n < 2) return;
   gridLines(g, L, R, T, B, 4, 6);
-  g.fillStyle = '#5d554c'; g.font = '10px system-ui'; g.textAlign = 'right';
+  g.fillStyle = '#424267'; g.font = '10px system-ui'; g.textAlign = 'right';
   g.fillText('360', L - 5, T + 8); g.fillText('0', L - 5, B);
 
   const trace = (offset, colour, dash) => {
@@ -856,9 +856,9 @@ function drawAngleGraph(g, x, y, w, h) {
     }
     g.stroke(); g.setLineDash([]);
   };
-  trace(() => 0, '#ff2d55');                                  // magnets
-  trace(() => Math.PI / 2, '#00e693');                        // field, encoder-fed
-  trace(k => Math.PI / 2 + history.err[k], '#ffb020', [5, 4]); // field, estimate-fed
+  trace(() => 0, '#ff4d6d');                                  // magnets
+  trace(() => Math.PI / 2, '#2ee6a8');                        // field, encoder-fed
+  trace(k => Math.PI / 2 + history.err[k], '#f2b134', [5, 4]); // field, estimate-fed
 }
 
 // 2. The current vector in the rotor frame: the FOC diagnostic. On the q axis is
@@ -869,19 +869,19 @@ function drawDqGraph(g, x, y, w, h) {
   const scale = Math.min((R - L) / 2, (B - T) / 2) / (P.iq_limit_A * 1.05);
   if (scale <= 0) return;                       // nothing sensible to draw into
 
-  g.strokeStyle = '#221e18'; g.lineWidth = 1;
+  g.strokeStyle = '#1c1c52'; g.lineWidth = 1;
   for (const amps of [10, 20]) {                               // current rings
     g.beginPath(); g.arc(cx, cy, amps * scale, 0, 7); g.stroke();
   }
-  g.strokeStyle = '#ff2d55'; g.globalAlpha = .5;
+  g.strokeStyle = '#ff4d6d'; g.globalAlpha = .5;
   g.beginPath(); g.arc(cx, cy, P.iq_limit_A * scale, 0, 7); g.stroke();
   g.globalAlpha = 1;
-  g.strokeStyle = '#3e3933';
+  g.strokeStyle = '#2c2c45';
   g.beginPath(); g.moveTo(L, cy); g.lineTo(R, cy); g.moveTo(cx, T); g.lineTo(cx, B); g.stroke();
-  g.fillStyle = '#5d554c'; g.font = '10px system-ui'; g.textAlign = 'left';
+  g.fillStyle = '#424267'; g.font = '10px system-ui'; g.textAlign = 'left';
   g.fillText('Id', R - 16, cy - 5);
   g.fillText('Iq', cx + 5, T + 10);
-  g.fillStyle = '#6b3a44'; g.textAlign = 'right';
+  g.fillStyle = '#5c3a52'; g.textAlign = 'right';
   g.fillText(P.iq_limit_A + ' A limit', R - 4, B - 2);
 
   const plot = (series, colour) => {
@@ -899,8 +899,8 @@ function drawDqGraph(g, x, y, w, h) {
     g.beginPath(); g.moveTo(cx, cy); g.lineTo(px, py); g.stroke();
     g.fillStyle = colour; g.beginPath(); g.arc(px, py, 4, 0, 7); g.fill();
   };
-  plot(history.sensoredDq, '#00e693');
-  plot(history.sensorlessDq, '#ffb020');
+  plot(history.sensoredDq, '#2ee6a8');
+  plot(history.sensorlessDq, '#f2b134');
 }
 
 // 3. What the angle error costs, as it happens.
@@ -909,10 +909,10 @@ function drawErrorGraph(g, x, y, w, h) {
   const n = history.err.length;
   if (n < 2) return;
   gridLines(g, L, R, T, B, 4, 6);
-  g.fillStyle = '#5d554c'; g.font = '10px system-ui'; g.textAlign = 'right';
+  g.fillStyle = '#424267'; g.font = '10px system-ui'; g.textAlign = 'right';
   g.fillText('90\u00b0', L - 5, T + 8); g.fillText('0', L - 5, B);
 
-  g.strokeStyle = '#ffb020'; g.lineWidth = 2; g.beginPath();
+  g.strokeStyle = '#f2b134'; g.lineWidth = 2; g.beginPath();
   history.err.forEach((e, k) => {
     const px = L + (R - L) * k / (n - 1);
     const py = B - (B - T) * Math.min(Math.abs(e) / (Math.PI / 2), 1);
@@ -920,7 +920,7 @@ function drawErrorGraph(g, x, y, w, h) {
   });
   g.stroke();
 
-  g.strokeStyle = '#00e693'; g.lineWidth = 2; g.setLineDash([5, 4]); g.beginPath();
+  g.strokeStyle = '#2ee6a8'; g.lineWidth = 2; g.setLineDash([5, 4]); g.beginPath();
   history.kept.forEach((kept, k) => {
     const px = L + (R - L) * k / (n - 1);
     const py = B - (B - T) * kept;
@@ -929,14 +929,14 @@ function drawErrorGraph(g, x, y, w, h) {
   g.stroke(); g.setLineDash([]);
 
   const latest = history.err[n - 1] * 180 / Math.PI;
-  g.fillStyle = '#ffb020'; g.font = '600 11px system-ui'; g.textAlign = 'left';
+  g.fillStyle = '#f2b134'; g.font = '600 11px system-ui'; g.textAlign = 'left';
   g.fillText(latest.toFixed(0) + '\u00b0 out', L + 6, T + 12);
-  g.fillStyle = '#00e693'; g.textAlign = 'right';
+  g.fillStyle = '#2ee6a8'; g.textAlign = 'right';
   g.fillText((100 * history.kept[n - 1]).toFixed(0) + ' % kept', R - 6, T + 12);
 }
 
 function gridLines(g, L, R, T, B, rows, cols) {
-  g.strokeStyle = '#221e18'; g.lineWidth = 1;
+  g.strokeStyle = '#1c1c52'; g.lineWidth = 1;
   for (let k = 1; k < rows; k++) {
     const gy = T + (B - T) * k / rows;
     g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke();
@@ -945,7 +945,7 @@ function gridLines(g, L, R, T, B, rows, cols) {
     const gx = L + (R - L) * k / cols;
     g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke();
   }
-  g.strokeStyle = '#3e3933';
+  g.strokeStyle = '#2c2c45';
   g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
 }
 
@@ -1114,18 +1114,18 @@ function drawPlannedMap() {
       const tested = SWEEP && Math.abs(loads[row] - SWEEP.conditions.load_Nm) < 1e-6
         ? SWEEP.cases.find(k => k.control_mode === 'Sensorless' && Math.round(k.target_speed_rpm) === speeds[col])
         : null;
-      g.fillStyle = tested ? (tested.fallback_triggered ? '#ff2d55' : '#00e693') : '#1b1916';
+      g.fillStyle = tested ? (tested.fallback_triggered ? '#ff4d6d' : '#2ee6a8') : '#161642';
       g.fillRect(x + 3, y + 3, cw - 6, ch - 6);
-      g.strokeStyle = '#3b3631'; g.lineWidth = 1;
+      g.strokeStyle = '#2b2b41'; g.lineWidth = 1;
       g.setLineDash([4, 4]);
       g.strokeRect(x + 3.5, y + 3.5, cw - 7, ch - 7);
       g.setLineDash([]);
-      g.fillStyle = tested ? '#11100e' : '#4a433c'; g.font = '700 12px system-ui'; g.textAlign = 'center';
+      g.fillStyle = tested ? '#0e0e34' : '#343452'; g.font = '700 12px system-ui'; g.textAlign = 'center';
       g.fillText(tested ? (tested.fallback_triggered ? 'FB' : '\u2713') : '?', x + cw / 2, y + ch / 2 + 5);
     }
   }
 
-  g.fillStyle = '#aea69d'; g.font = '12px system-ui';
+  g.fillStyle = '#9292b9'; g.font = '12px system-ui';
   g.textAlign = 'center';
   speeds.forEach((rpm, col) => g.fillText(String(rpm), L + (col + .5) * cw, B + 18));
   g.fillText('speed, rpm', (L + R) / 2, narrow ? B + 36 : h - 4);
@@ -1138,15 +1138,15 @@ function drawPlannedMap() {
 
   // What the colours will mean once there is something to colour.
   const key = [
-    ['#00e693', 'sustained sensorless'],
-    ['#ffb020', tiny ? 'works with penalty' : 'works, but with a performance penalty'],
-    ['#ff2d55', 'encoder fallback'],
-    ['#4a433c', 'not measured yet'],
+    ['#2ee6a8', 'sustained sensorless'],
+    ['#f2b134', tiny ? 'works with penalty' : 'works, but with a performance penalty'],
+    ['#ff4d6d', 'encoder fallback'],
+    ['#343452', 'not measured yet'],
   ];
   g.textAlign = 'left';
   const keyX = narrow ? 14 : R + 22;
   const keyY = narrow ? B + (tiny ? 56 : 42) : T + 4;
-  g.font = '600 11.5px system-ui'; g.fillStyle = '#83786c';
+  g.font = '600 11.5px system-ui'; g.fillStyle = '#5e5e91';
   g.fillText('EACH SQUARE WILL BE', keyX, keyY);
   key.forEach(([colour, label], k) => {
     // Two columns on a phone, one down the side on a laptop.
@@ -1155,13 +1155,13 @@ function drawPlannedMap() {
       : narrow ? keyY + 20 + Math.floor(k / 2) * 20
       : keyY + 20 + k * 24;
     g.fillStyle = colour; g.fillRect(x, y - 9, 13, 13);
-    g.fillStyle = '#aea69d'; g.font = '12.5px system-ui';
+    g.fillStyle = '#9292b9'; g.font = '12.5px system-ui';
     g.fillText(label, x + 20, y + 2);
   });
   // On a phone the paragraph above already says none are filled in, so the
   // counter is dropped rather than squeezed on top of the key.
   if (!tiny) {
-    g.fillStyle = '#83786c'; g.font = '11.5px system-ui';
+    g.fillStyle = '#5e5e91'; g.font = '11.5px system-ui';
     const filled = SWEEP ? speeds.filter(r => SWEEP.cases.some(k => k.control_mode === 'Sensorless' && Math.round(k.target_speed_rpm) === r)).length : 0;
     g.fillText(`24 squares \u00b7 ${filled} filled in`,
       keyX, narrow ? keyY + 60 : keyY + 20 + key.length * 24 + 10);
@@ -1248,12 +1248,12 @@ function canvas2d(id) {
 
 function axes(g, box, title, minY, maxY, unit) {
   const { x, y, w, h } = box;
-  g.fillStyle = '#dbd7d3'; g.font = '600 13px system-ui'; g.textAlign = 'left'; g.fillText(title, x, y - 9);
-  g.strokeStyle = '#49423b'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h); g.lineTo(x + w, y + h); g.stroke();
-  g.font = '11px system-ui'; g.fillStyle = '#968c81';
+  g.fillStyle = '#cecee0'; g.font = '600 13px system-ui'; g.textAlign = 'left'; g.fillText(title, x, y - 9);
+  g.strokeStyle = '#333351'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h); g.lineTo(x + w, y + h); g.stroke();
+  g.font = '11px system-ui'; g.fillStyle = '#7373a4';
   for (let i = 0; i <= 2; i++) {
     const v = maxY - i * (maxY - minY) / 2, py = y + i * h / 2;
-    g.strokeStyle = '#322e29'; g.beginPath(); g.moveTo(x, py); g.lineTo(x + w, py); g.stroke();
+    g.strokeStyle = '#242437'; g.beginPath(); g.moveTo(x, py); g.lineTo(x + w, py); g.stroke();
     g.textAlign = 'right'; g.fillText(v.toFixed(maxY < 10 ? 3 : 1), x - 7, py + 4);
   }
   g.save(); g.translate(12, y + h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText(unit, 0, 0); g.restore();
@@ -1267,48 +1267,70 @@ function plotSeries(g, points, X, Y, colour, dashed) {
   for (const p of points) { g.fillStyle = colour; g.beginPath(); g.arc(X(p[0]), Y(p[1]), 3, 0, Math.PI * 2); g.fill(); }
 }
 
-function drawResultSweep() {
-  if (!SWEEP) return;
-  const cv = canvas2d('result-sweep'); if (!cv) return;
-  const { g, w, h } = cv, ok = sensorlessCases().filter(c => !c.fallback_triggered);
+/* The measured comparison.
+
+   Three panels, all from the rig: the current variation the drive had to
+   produce, how distorted that current was, and how steady the independent load
+   shaft ran. Sensored is a solid line with filled points; sensorless is dashed
+   with hollow ones, so the two are separable without relying on colour. */
+function drawRigChart() {
+  if (!RIG) return;
+  const cv = canvas2d('rig-chart'); if (!cv) return;
+  const { g, w, h } = cv;
+  const speeds = RIG.conditions.speed_rpm;
+  const lo = Math.min(...speeds), hi = Math.max(...speeds);
   const panels = [
-    ['Electrical-angle RMS error', 'loaded_angle_rms_error_deg', 0, 1.9, 'degrees', '#ffb020'],
-    ['True-speed RMS tracking error', 'loaded_speed_tracking_rms_rpm', 0, .0017, 'rpm', '#00e693'],
-    ['Whole-run peak phase current', 'run_peak_phase_current_A', 0, 7.5, 'A', '#00d4ff'],
+    ['Current variation the drive produced', 'iq_variation_rms_A', 'A RMS', 0, 1.4],
+    ['Fifth-harmonic share of the current', 'h5_percent', '% of AC power', 0, 10],
+    ['Load-shaft speed variation', 'load_speed_sd_rpm', 'rpm SD', 0, 70],
   ];
-  const gap = 54, panelH = (h - 34 - gap * 2) / 3, L = 58, R = w - 18;
+  const gap = 56, panelH = (h - 36 - gap * 2) / 3, L = 66, R = w - 18;
   panels.forEach((p, i) => {
-    const y = 28 + i * (panelH + gap), box = { x: L, y, w: R - L, h: panelH };
-    const a = axes(g, box, p[0], p[2], p[3], p[4]);
-    const X = rpm => a.X((rpm - 200) / 1300 * box.w);
-    plotSeries(g, ok.map(c => [c.target_speed_rpm, Number(c[p[1]])]), X, a.Y, p[5], false);
+    const y = 30 + i * (panelH + gap), box = { x: L, y, w: R - L, h: panelH };
+    const a = axes(g, box, p[0], p[3], p[4], p[2]);
+    const X = rpm => a.X((rpm - lo) / Math.max(hi - lo, 1) * box.w);
+    const pts = mode => speeds.map((r, k) => [r, RIG.rig[mode][p[1]][k]]);
+    plotSeries(g, pts('sensored'), X, a.Y, '#5a7fc8', false);
+    plotSeries(g, pts('sensorless'), X, a.Y, '#9a4d87', true);
+    // Hollow the sensorless markers so the series differ in shape too.
+    for (const [rpm, value] of pts('sensorless')) {
+      g.fillStyle = '#161642'; g.strokeStyle = '#9a4d87'; g.lineWidth = 2;
+      g.beginPath(); g.arc(X(rpm), a.Y(value), 3.4, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
+    if (i === 0) {
+      g.font = '600 12px system-ui'; g.textAlign = 'right';
+      g.fillStyle = '#5a7fc8'; g.fillText('sensored', R, 16);
+      g.fillStyle = '#9a4d87'; g.fillText('sensorless', R - 74, 16);
+    }
     if (i === panels.length - 1) {
-      g.fillStyle = '#968c81'; g.textAlign = 'center'; g.font = '11px system-ui';
-      [200, 400, 600, 800, 1000, 1200, 1500].forEach(r => g.fillText(r, X(r), y + panelH + 17));
-      g.fillText('speed (rpm)', (L + R) / 2, y + panelH + 34);
+      g.fillStyle = '#7373a4'; g.textAlign = 'center'; g.font = '11px system-ui';
+      speeds.filter((_, k) => k % 4 === 0).forEach(r => g.fillText(r, X(r), y + panelH + 17));
+      g.fillText('commanded speed (rpm)', (L + R) / 2, y + panelH + 34);
     }
   });
-  const fallback = sensorlessCases().find(c => c.fallback_triggered);
-  if (fallback) { g.fillStyle = '#ff2d55'; g.font = '700 12px system-ui'; g.textAlign = 'right'; g.fillText('200 rpm: encoder fallback', R, 15); }
 }
 
-function drawTransient() {
-  if (!TRANSIENT) return;
-  const cv = canvas2d('result-transient'); if (!cv) return;
-  const { g, w, h } = cv, L = 62, R = w - 18, T = 28, B = h - 40;
-  const t = TRANSIENT.time_s, from = t.findIndex(v => v >= 0.85), indices = t.map((_, i) => i).slice(from);
+/* The model, kept separate and answering its own question: the estimator's
+   angle error, which is a straight line through the origin. */
+function drawRigSimChart() {
+  if (!RIG) return;
+  const cv = canvas2d('rig-sim-chart'); if (!cv) return;
+  const { g, w, h } = cv, L = 66, R = w - 18, T = 30, B = h - 44;
+  const speeds = RIG.conditions.speed_rpm;
+  const lo = Math.min(...speeds), hi = Math.max(...speeds);
   const box = { x: L, y: T, w: R - L, h: B - T };
-  const speeds = indices.flatMap(i => [TRANSIENT.sensored_true_speed_rpm[i], TRANSIENT.sensorless_true_speed_rpm[i]]);
-  const minY = Math.min(...speeds) - .02, maxY = Math.max(...speeds) + .02;
-  const a = axes(g, box, 'True shaft speed during the load step', minY, maxY, 'rpm');
-  const X = x => a.X((x - .85) / (.95) * box.w);
-  plotSeries(g, indices.map(i => [t[i], TRANSIENT.sensored_true_speed_rpm[i]]), X, a.Y, '#00e693', false);
-  plotSeries(g, indices.map(i => [t[i], TRANSIENT.sensorless_true_speed_rpm[i]]), X, a.Y, '#ffb020', false);
-  g.fillStyle = '#00e693'; g.fillRect(R - 220, 9, 12, 3); g.fillStyle = '#dbd7d3'; g.font = '11px system-ui'; g.textAlign = 'left'; g.fillText('sensored', R - 202, 14);
-  g.fillStyle = '#ffb020'; g.fillRect(R - 120, 9, 12, 3); g.fillStyle = '#dbd7d3'; g.fillText('sensorless', R - 102, 14);
-  g.fillStyle = '#968c81'; g.textAlign = 'center'; [0.9, 1.2, 1.5, 1.8].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
+  const a = axes(g, box, 'Simulated estimator angle error', 0, 1.6, 'electrical degrees');
+  const X = rpm => a.X((rpm - lo) / Math.max(hi - lo, 1) * box.w);
+  plotSeries(g, speeds.map((r, k) => [r, RIG.sim.sensorless.angle_rms_deg[k]]),
+    X, a.Y, '#9a4d87', false);
+  g.fillStyle = '#7373a4'; g.textAlign = 'center'; g.font = '11px system-ui';
+  speeds.filter((_, k) => k % 4 === 0).forEach(r => g.fillText(r, X(r), B + 17));
+  g.fillText('commanded speed (rpm)', (L + R) / 2, B + 34);
+  g.textAlign = 'right'; g.fillStyle = '#a9add4'; g.font = '600 12px system-ui';
+  g.fillText('\u2248 63 \u00b5s fixed delay', R, T - 10);
 }
 
+// Which stage of the startup sequence the scrubber is sitting in.
 function startupPhase(i) {
   if (STARTUP.startup_abort[i]) return 'Aborted';
   if (STARTUP.closed_loop_active[i]) return 'Estimator closed loop';
@@ -1324,11 +1346,11 @@ function drawStartup() {
   const maxSpeed = Math.max(...STARTUP.true_speed_rpm, ...STARTUP.estimated_speed_rpm, 1);
   const box = { x: L, y: T, w: R - L, h: B - T }, a = axes(g, box, 'Encoder-assisted startup and handover', 0, maxSpeed * 1.08, 'rpm');
   const X = x => a.X(x / t[t.length - 1] * box.w);
-  plotSeries(g, t.map((v, i) => [v, STARTUP.true_speed_rpm[i]]), X, a.Y, '#00e693', false);
-  plotSeries(g, t.map((v, i) => [v, STARTUP.estimated_speed_rpm[i]]), X, a.Y, '#ffb020', true);
+  plotSeries(g, t.map((v, i) => [v, STARTUP.true_speed_rpm[i]]), X, a.Y, '#2ee6a8', false);
+  plotSeries(g, t.map((v, i) => [v, STARTUP.estimated_speed_rpm[i]]), X, a.Y, '#f2b134', true);
   const i = Number($('startup-scrub').value), x = X(t[i]);
-  g.strokeStyle = '#edebe8'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke();
-  g.fillStyle = '#968c81'; g.textAlign = 'center'; g.font = '11px system-ui'; [0, .4, .8, 1.2, 1.6].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
+  g.strokeStyle = '#e5e5f0'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke();
+  g.fillStyle = '#7373a4'; g.textAlign = 'center'; g.font = '11px system-ui'; [0, .4, .8, 1.2, 1.6].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
   $('startup-time').textContent = t[i].toFixed(3) + ' s';
   $('startup-readout').innerHTML = [
     ['Control phase', startupPhase(i)], ['True speed', STARTUP.true_speed_rpm[i].toFixed(1) + ' rpm'],
@@ -1338,16 +1360,42 @@ function drawStartup() {
 }
 
 function renderResults() {
-  if (!SWEEP || !TRANSIENT || !STARTUP) return;
-  const ok = sensorlessCases().filter(c => !c.fallback_triggered), min = ok[0], max = ok[ok.length - 1];
-  $('result-kpis').innerHTML = [
-    ['Sustained sensorless', `${min.target_speed_rpm}\u2013${max.target_speed_rpm} rpm`],
-    ['Lowest failed point', '200 rpm \u00b7 fallback'],
-    ['Angle RMS range', `${min.loaded_angle_rms_error_deg.toFixed(3)}\u2013${max.loaded_angle_rms_error_deg.toFixed(3)}\u00b0`],
-    ['Applied load', `${SWEEP.conditions.load_Nm.toFixed(1)} N\u00b7m`],
-  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  if (!RIG || !STARTUP) return;
+  const head = RIG.headline;
+  const signed = v => (v >= 0 ? '+' : '\u2212') + Math.abs(v).toFixed(1) + ' %';
+  // Three numbers, each with the direction of the change said in words as well
+  // as in sign, because a plus on its own does not say whether it is good.
+  $('rig-kpis').innerHTML = [
+    ['Current variation', signed(head.iq_variation_rms_A.change_percent),
+      'more ripple without the sensor', 'worse'],
+    ['Fifth harmonic', signed(head.h5_percent.change_percent),
+      'a noticeably dirtier current', 'worse'],
+    ['Speed steadiness', signed(head.load_speed_sd_rpm.change_percent),
+      'no measurable penalty', 'same'],
+  ].map(([k, v, note, tone]) =>
+    `<div class="kpi ${tone}"><span>${k}</span><b>${v}</b><i>${note}</i></div>`).join('');
+
+  const rows = [
+    ['Speed band measured',
+      `${Math.min(...RIG.conditions.speed_rpm)}\u2013${Math.max(...RIG.conditions.speed_rpm)} rpm`],
+    ['Matched points', String(RIG.source.points)],
+    ['Current variation, sensored', head.iq_variation_rms_A.sensored.toFixed(3) + ' A'],
+    ['Current variation, sensorless', head.iq_variation_rms_A.sensorless.toFixed(3) + ' A'],
+    ['Fifth harmonic, sensored', head.h5_percent.sensored.toFixed(2) + ' %'],
+    ['Fifth harmonic, sensorless', head.h5_percent.sensorless.toFixed(2) + ' %'],
+    ['Load-shaft SD, sensored', head.load_speed_sd_rpm.sensored.toFixed(1) + ' rpm'],
+    ['Load-shaft SD, sensorless', head.load_speed_sd_rpm.sensorless.toFixed(1) + ' rpm'],
+    ['Simulated angle error',
+      `${head.sim_angle_rms_deg.low}\u2013${head.sim_angle_rms_deg.high}\u00b0`],
+  ];
+  $('rig-numbers').innerHTML = rows
+    .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+
+  $('gap-iq').textContent = head.sim_vs_rig_iq_factor.toLocaleString();
+  $('gap-speed').textContent = head.sim_vs_rig_speed_factor.toLocaleString();
+
   $('startup-scrub').max = String(STARTUP.time_s.length - 1);
-  drawResultSweep(); drawTransient(); drawStartup();
+  drawRigChart(); drawRigSimChart(); drawStartup();
 }
 
 // ---- sound ---------------------------------------------------------------------
@@ -1656,13 +1704,13 @@ function drawKart() {
   const rpm = gameRpm(), speed = rpm / PHYSICS.maxDisplayRpm;   // -1 .. 1 ish
   const road = h - 16;
 
-  g.fillStyle = '#100f0d'; g.fillRect(0, 0, w, h);
-  g.strokeStyle = '#37322d'; g.lineWidth = 1;
+  g.fillStyle = '#0b0b2a'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#27273d'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(0, road + .5); g.lineTo(w, road + .5); g.stroke();
 
   // Markings slide the other way to the kart, and reverse when it does.
   const pitch = 54, shift = ((-game.distance * 120) % pitch + pitch) % pitch;
-  g.strokeStyle = '#453f38'; g.lineWidth = 3;
+  g.strokeStyle = '#30304d'; g.lineWidth = 3;
   for (let x = -pitch + shift; x < w + pitch; x += pitch) {
     g.beginPath(); g.moveTo(x, road + 7); g.lineTo(x + 26, road + 7); g.stroke();
   }
@@ -1681,17 +1729,17 @@ function drawKart() {
   // The kart sits still and the world moves, so it never runs off the end.
   const kx = w * .5, ky = road, facing = rpm >= 0 ? 1 : -1;
   g.save(); g.translate(kx, ky); g.scale(facing, 1);
-  g.fillStyle = '#ff6b1a';
+  g.fillStyle = '#9a4d87';
   g.beginPath();
   g.moveTo(-22, -6); g.lineTo(-13, -15); g.lineTo(4, -15); g.lineTo(10, -6);
   g.lineTo(20, -6); g.lineTo(20, -1); g.lineTo(-22, -1); g.closePath(); g.fill();
-  g.fillStyle = '#ffb020';
+  g.fillStyle = '#f2b134';
   g.beginPath(); g.moveTo(-11, -15); g.lineTo(-4, -22); g.lineTo(1, -15); g.closePath(); g.fill();
   const spin = game.distance * 6;
   for (const wx of [-14, 13]) {
-    g.fillStyle = '#201d18';
+    g.fillStyle = '#1b1b4e';
     g.beginPath(); g.arc(wx, -1, 6.5, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#93897e'; g.lineWidth = 1.6;
+    g.strokeStyle = '#7070a1'; g.lineWidth = 1.6;
     g.beginPath();
     g.moveTo(wx + Math.cos(spin) * 5, -1 + Math.sin(spin) * 5);
     g.lineTo(wx - Math.cos(spin) * 5, -1 - Math.sin(spin) * 5);
@@ -1699,11 +1747,11 @@ function drawKart() {
   }
   g.restore();
 
-  g.fillStyle = rpm < -1 ? '#ffb020' : '#83786c';
+  g.fillStyle = rpm < -1 ? '#f2b134' : '#5e5e91';
   g.font = '600 12px system-ui'; g.textAlign = 'left';
   g.fillText(rpm < -1 ? 'running backwards' : 'kart speed is the motor speed, drawn',
     10, 16);
-  g.textAlign = 'right'; g.fillStyle = '#dbd7d3';
+  g.textAlign = 'right'; g.fillStyle = '#cecee0';
   g.fillText(Math.round(rpm) + ' rpm', w - 10, 16);
 }
 
@@ -1752,9 +1800,9 @@ function drawGame() {
   });
 
   if (game.mode === 'sensorless' && shownRotor === null && (game.running || game.over)) {
-    g.textAlign = 'center'; g.fillStyle = '#ffb020'; g.font = 'bold 14px system-ui';
+    g.textAlign = 'center'; g.fillStyle = '#f2b134'; g.font = 'bold 14px system-ui';
     g.fillText('no estimate below ' + PHYSICS.estimatorMinRpm + ' rpm', cx, cy - r * 1.35);
-    g.fillStyle = '#aea69d'; g.font = '12px system-ui';
+    g.fillStyle = '#9292b9'; g.font = '12px system-ui';
     g.fillText('push it round blind until the dashed arrow appears', cx, cy - r * 1.35 + 18);
   }
 
@@ -1770,39 +1818,39 @@ function drawGame() {
       g.fillStyle = colour; g.font = '600 11.5px system-ui'; g.textAlign = 'center';
       g.fillText(label, x, y - 6);
     };
-    comp(ideal, useful, '#00e693', 'makes torque');
-    comp(game.theta, wasted, '#ff2d55', 'makes heat');
+    comp(ideal, useful, '#2ee6a8', 'makes torque');
+    comp(game.theta, wasted, '#ff4d6d', 'makes heat');
   }
 
   // Torque bar.
   const kept = Math.max(game.kept, 0);
   const bw = Math.min(w - 48, 420), bx = (w - bw) / 2, by = 18;
-  g.fillStyle = '#1b1916'; g.fillRect(bx, by, bw, 16);
-  g.fillStyle = kept > .9 ? '#00e693' : kept > .6 ? '#ffb020' : '#ff2d55';
+  g.fillStyle = '#161642'; g.fillRect(bx, by, bw, 16);
+  g.fillStyle = kept > .9 ? '#2ee6a8' : kept > .6 ? '#f2b134' : '#ff4d6d';
   g.fillRect(bx, by, bw * kept, 16);
-  g.strokeStyle = '#3b3631'; g.lineWidth = 1; g.strokeRect(bx + .5, by + .5, bw - 1, 15);
-  g.fillStyle = '#aea69d'; g.font = '600 12px system-ui'; g.textAlign = 'left';
+  g.strokeStyle = '#2b2b41'; g.lineWidth = 1; g.strokeRect(bx + .5, by + .5, bw - 1, 15);
+  g.fillStyle = '#9292b9'; g.font = '600 12px system-ui'; g.textAlign = 'left';
   g.fillText('torque you are making', bx, by - 5);
   g.textAlign = 'right';
-  g.fillStyle = kept > .9 ? '#00e693' : '#dbd7d3';
+  g.fillStyle = kept > .9 ? '#2ee6a8' : '#cecee0';
   g.fillText((100 * kept).toFixed(0) + ' %', bx + bw, by - 5);
 
   // Heat bar underneath it, filling with the current you are wasting.
   const hy = by + 22;
-  g.fillStyle = '#1b1916'; g.fillRect(bx, hy, bw, 8);
-  g.fillStyle = game.heat > .7 ? '#ff2d55' : '#8a5520';
+  g.fillStyle = '#161642'; g.fillRect(bx, hy, bw, 8);
+  g.fillStyle = game.heat > .7 ? '#ff4d6d' : '#6d5230';
   g.fillRect(bx, hy, bw * game.heat, 8);
-  g.fillStyle = '#83786c'; g.font = '11px system-ui'; g.textAlign = 'left';
+  g.fillStyle = '#5e5e91'; g.font = '11px system-ui'; g.textAlign = 'left';
   g.fillText('heat from the current you are wasting', bx, hy + 19);
 
   const rpmNow = gameRpm();
   g.textAlign = 'right'; g.font = 'bold 20px system-ui';
-  g.fillStyle = Math.abs(rpmNow) < 1 ? '#83786c' : rpmNow > 0 ? '#edebe8' : '#ffb020';
+  g.fillStyle = Math.abs(rpmNow) < 1 ? '#5e5e91' : rpmNow > 0 ? '#e5e5f0' : '#f2b134';
   g.fillText(Math.round(rpmNow) + ' rpm', bx + bw, hy + 30);
-  g.textAlign = 'left'; g.fillStyle = '#83786c'; g.font = '12px system-ui';
+  g.textAlign = 'left'; g.fillStyle = '#5e5e91'; g.font = '12px system-ui';
   g.fillText('best this run ' + Math.round(game.best) + ' rpm \u00b7 '
     + runRemaining().toFixed(1) + ' s left', bx, hy + 19);
-  g.fillStyle = '#5d554c'; g.font = '11.5px system-ui';
+  g.fillStyle = '#424267'; g.font = '11.5px system-ui';
   g.fillText('torque angle ' + Math.round(game.rotor.delta * 180 / Math.PI) + '\u00b0 \u00b7 '
     + 'torque ' + (game.kept >= 0 ? '+' : '\u2212')
     + Math.round(Math.abs(game.kept) * 100) + ' %', bx, hy + 36);
@@ -1812,9 +1860,9 @@ function drawGame() {
     g.fillStyle = 'rgba(13,17,23,.72)';
     g.beginPath(); g.arc(cx, cy, r * 2.0, 0, 7); g.fill();
     const n = Math.ceil(game.countdown);
-    g.fillStyle = '#00e693'; g.font = 'bold ' + Math.round(r * 1.1) + 'px system-ui';
+    g.fillStyle = '#2ee6a8'; g.font = 'bold ' + Math.round(r * 1.1) + 'px system-ui';
     g.fillText(n > 0 ? String(n) : 'GO', cx, cy + r * 0.38);
-    g.fillStyle = '#dbd7d3'; g.font = '13px system-ui';
+    g.fillStyle = '#cecee0'; g.font = '13px system-ui';
     g.fillText('get your finger on the motor', cx, cy + r * 1.3);
   }
 
@@ -1822,13 +1870,13 @@ function drawGame() {
   const age = game.elapsed - game.flashAt;
   if (game.flash && age < 2) {
     g.globalAlpha = Math.max(0, 1 - age / 2);
-    g.fillStyle = '#00e693'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
+    g.fillStyle = '#2ee6a8'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
     g.fillText(game.flash, cx, cy - r * 2.0);
     g.globalAlpha = 1;
   }
 
   if (!game.running && !game.over) {
-    g.textAlign = 'center'; g.fillStyle = '#83786c'; g.font = '13px system-ui';
+    g.textAlign = 'center'; g.fillStyle = '#5e5e91'; g.font = '13px system-ui';
     g.fillText('press Start, then drag around the motor to spin it up', cx, h - 14);
   }
 
@@ -1837,11 +1885,11 @@ function drawGame() {
     const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
     const pw = Math.min(w - 60, 360), px = (w - pw) / 2, py = cy + r * 1.95;
     g.fillStyle = 'rgba(13,17,23,.9)'; g.fillRect(px, py, pw, 70);
-    g.strokeStyle = '#ff2d55'; g.lineWidth = 1.5; g.strokeRect(px + .5, py + .5, pw - 1, 69);
+    g.strokeStyle = '#ff4d6d'; g.lineWidth = 1.5; g.strokeRect(px + .5, py + .5, pw - 1, 69);
     g.textAlign = 'center';
-    g.fillStyle = '#edebe8'; g.font = 'bold 19px system-ui';
+    g.fillStyle = '#e5e5f0'; g.font = 'bold 19px system-ui';
     g.fillText(Math.round(game.best) + ' rpm', cx, py + 28);
-    g.fillStyle = '#aea69d'; g.font = '12.5px system-ui';
+    g.fillStyle = '#9292b9'; g.font = '12.5px system-ui';
     g.fillText('max motor speed \u00b7 ' + percent.toFixed(0)
       + ' % of the torque on average', cx, py + 50);
   }
@@ -2004,7 +2052,7 @@ const STANDFIRST = {
   envelope: 'Choose a speed and a load. The green area is what the drive can deliver on the configured battery and current limit. White dots are full Simulink runs; the shading is the same physics solved live in this page.',
   foc: 'Why a motor controller has to know where the rotor is, and what it does with that angle once it has it.',
   sbs: 'The same motor twice, under the same load, differing only in where the rotor angle comes from.',
-  results: 'The matched simulation evidence: where sensorless control stayed active, how accurately it tracked, and where it fell back to the encoder.',
+  results: 'Measured on the rig on 10 October, with the simulation run on the same commands: what taking the encoder out actually cost, and where the model stops matching the hardware.',
   method: 'What is modelled, what every parameter is, which results exist, and what this work does not yet show.',
   game: 'Aim the current by hand and try to keep it a quarter turn ahead of the magnets. This is the job the controller does twenty thousand times a second.',
 };
@@ -2028,13 +2076,14 @@ function setTab(name) {
 async function start() {
   const warning = document.getElementById('boot-warning');
   if (warning) warning.remove();            // the scripts clearly did run
-  const [data, sweep, transient, startup] = await Promise.all([
+  const [data, sweep, transient, startup, rig] = await Promise.all([
     fetch('data/matrix.json').then(r => r.json()),
     fetch('data/sensorless_speed_sweep.json').then(r => r.json()),
     fetch('data/comparison_800rpm.json').then(r => r.json()),
     fetch('data/sensorless_startup.json').then(r => r.json()),
+    fetch('data/rig_comparison.json').then(r => r.json()),
   ]);
-  SWEEP = sweep; TRANSIENT = transient; STARTUP = startup;
+  SWEEP = sweep; TRANSIENT = transient; STARTUP = startup; RIG = rig;
   P = { ...data.parameters }; CASES = data.cases; DATA = data;
   $('provenance').textContent = `${data.source.cases} simulated cases from ${data.source.run} (${data.source.date}). ${data.source.note}`;
   for (const id of ['speed', 'load', 'vdc', 'imax']) {

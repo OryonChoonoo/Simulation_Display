@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Game physics tests</title>
 <style>
-  body { font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; background: #11100e;
-         color: #ecebea; margin: 0; padding: 24px 20px 60px; }
+  body { font: 15px/1.5 ui-monospace, Menlo, Consolas, monospace; background: #0e0e34;
+         color: #e8e8ee; margin: 0; padding: 24px 20px 60px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
-  p.lead { color: #aea69d; margin: 0 0 20px; }
-  li { list-style: none; padding: 6px 0; border-bottom: 1px solid #292521; }
-  .pass::before { content: 'PASS  '; color: #00e693; font-weight: 700; }
-  .fail::before { content: 'FAIL  '; color: #ff6b84; font-weight: 700; }
-  .detail { color: #93897e; display: block; padding-left: 50px; }
+  p.lead { color: #9292b9; margin: 0 0 20px; }
+  li { list-style: none; padding: 6px 0; border-bottom: 1px solid #1c1c2e; }
+  .pass::before { content: 'PASS  '; color: #2ee6a8; font-weight: 700; }
+  .fail::before { content: 'FAIL  '; color: #ff87a0; font-weight: 700; }
+  .detail { color: #7070a1; display: block; padding-left: 50px; }
   #summary { margin-top: 20px; font-size: 17px; font-weight: 700; }
 </style>
 </head>
@@ -231,7 +231,7 @@ check('-90 degrees gives maximum negative torque',
 
 const el = document.getElementById('summary');
 el.textContent = `${passed} passed, ${failed} failed`;
-el.style.color = failed ? '#ff6b84' : '#00e693';
+el.style.color = failed ? '#ff87a0' : '#2ee6a8';
 </script>
 </body>
 </html>

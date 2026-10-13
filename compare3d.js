@@ -24,7 +24,7 @@ const HOME = { yaw: .42, pitch: .33, zoom: 1 };
 export function init(container) {
   host = container;
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0f0e0c);
+  scene.background = new THREE.Color(0x090922);
   camera = new THREE.PerspectiveCamera(40, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.shadowMap.enabled = true;
@@ -33,7 +33,7 @@ export function init(container) {
   container.innerHTML = '';
   container.appendChild(renderer.domElement);
 
-  scene.add(new THREE.HemisphereLight(0xffe2c2, 0x2b2824, .72));
+  scene.add(new THREE.HemisphereLight(0xffe2c2, 0x1f1f30, .72));
   const key = new THREE.DirectionalLight(0xffffff, 1.05); key.position.set(.5, 1, .9);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -42,7 +42,7 @@ export function init(container) {
   key.shadow.camera.top = .5; key.shadow.camera.bottom = -.5;
   key.shadow.bias = -.0012;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0x7fe0ff, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
+  const rim = new THREE.DirectionalLight(0x8fa9dc, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
 
   left = buildFocMachine(THREE, { labelScale: .85, glow: 2.1 });
   right = buildFocMachine(THREE, { labelScale: .85, glow: 2.1 });
@@ -58,28 +58,28 @@ export function init(container) {
     const sprite = labelSprite(THREE, text, colour, width);
     sprite.position.set(x, .135, .05); scene.add(sprite);
   };
-  heading('ENCODER · angle measured', '#00e693', -.155, .20);
-  heading('ESTIMATE · angle worked out', '#ffb020', .155, .21);
+  heading('ENCODER · angle measured', '#2ee6a8', -.155, .20);
+  heading('ESTIMATE · angle worked out', '#f2b134', .155, .21);
 
   const divider = new THREE.Mesh(new THREE.PlaneGeometry(.001, .30),
-    new THREE.MeshBasicMaterial({ color: 0x36312c, transparent: true, opacity: .8 }));
+    new THREE.MeshBasicMaterial({ color: 0x26263c, transparent: true, opacity: .8 }));
   divider.position.set(0, 0, -.02); scene.add(divider);
 
   const note = labelSprite(THREE,
-    'one pole pair shown · the motor has three', '#786e62', .20);
+    'one pole pair shown · the motor has three', '#555585', .20);
   note.position.set(0, -.175, .05); scene.add(note);
 
   // One fixed note on the measured machine, one that rewrites itself on the
   // estimating machine as the speed changes.
   leftNote = calloutSprite(THREE,
     'The encoder says where the rotor is, so the field sits exactly 90 degrees ahead.',
-    '#00e693', .175);
+    '#2ee6a8', .175);
   leftNote.position.set(-.245, -.045, .10);
-  scene.add(leftNote, leader(THREE, [-.245, -.045, .10], [-.175, -.02, .05], '#00e693'));
+  scene.add(leftNote, leader(THREE, [-.245, -.045, .10], [-.175, -.02, .05], '#2ee6a8'));
 
-  rightNote = calloutSprite(THREE, 'Working the angle out from the back-EMF.', '#ffb020', .175);
+  rightNote = calloutSprite(THREE, 'Working the angle out from the back-EMF.', '#f2b134', .175);
   rightNote.position.set(.255, -.045, .10);
-  scene.add(rightNote, leader(THREE, [.255, -.045, .10], [.19, -.02, .05], '#ffb020'));
+  scene.add(rightNote, leader(THREE, [.255, -.045, .10], [.19, -.02, .05], '#f2b134'));
 
   let pressed = null;
   const pointer = e => {
