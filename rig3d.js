@@ -77,10 +77,10 @@ function makeScreenTexture() {
 const speedHistory = [];
 
 function panelBox(g, x, y, w, h, title) {
-  g.fillStyle = '#ffffff'; g.fillRect(x, y, w, h);
-  g.strokeStyle = '#c9c9d8'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  g.fillStyle = C.panel; g.fillRect(x, y, w, h);
+  g.strokeStyle = C.line; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
   if (title) {
-    g.fillStyle = '#7f7fa2'; g.font = '600 13px system-ui'; g.textAlign = 'left';
+    g.fillStyle = C.faint; g.font = '600 13px system-ui'; g.textAlign = 'left';
     g.fillText(title, x + 12, y + 21);
   }
 }
@@ -97,29 +97,29 @@ function drawScreen(t) {
   speedHistory.push(rpm * (1 - 0.04 * Math.sin(t * 3.1) * (opts.sensorless ? 4 : 1)));
   if (speedHistory.length > 150) speedHistory.shift();
 
-  g.fillStyle = '#f7f6f7'; g.fillRect(0, 0, W, H);
+  g.fillStyle = C.bg; g.fillRect(0, 0, W, H);
 
   // ---- title bar --------------------------------------------------------------
-  g.fillStyle = '#eae9f7'; g.fillRect(0, 0, W, 46);
+  g.fillStyle = C.panel2; g.fillRect(0, 0, W, 46);
   g.fillStyle = '#00b377'; g.font = 'bold 21px system-ui'; g.textAlign = 'left';
   g.fillText("LET'S TORQUE CONTROL", 18, 31);
-  g.fillStyle = '#c1c1d2'; g.fillRect(286, 11, 1, 24);
-  g.fillStyle = opts.sensorless ? '#ef9d00' : '#59597b'; g.font = '15px system-ui';
+  g.fillStyle = C.lineStrong; g.fillRect(286, 11, 1, 24);
+  g.fillStyle = opts.sensorless ? '#ef9d00' : C.muted; g.font = '15px system-ui';
   g.fillText(opts.sensorless ? 'SENSORLESS \u00b7 angle estimated from back-EMF'
                              : 'SENSORED \u00b7 encoder feedback', 304, 30);
-  g.fillStyle = '#7f7fa2'; g.font = '13px system-ui'; g.textAlign = 'right';
+  g.fillStyle = C.faint; g.font = '13px system-ui'; g.textAlign = 'right';
   const mm = String(Math.floor(t / 60)).padStart(2, '0'), ss = String(Math.floor(t % 60)).padStart(2, '0');
   g.fillText('elapsed ' + mm + ':' + ss, W - 86, 29);
-  g.fillStyle = (t % 2) < 1.4 ? '#00b377' : '#cdf0e1';
+  g.fillStyle = (t % 2) < 1.4 ? '#00b377' : C.line;
   g.beginPath(); g.arc(W - 62, 23, 6, 0, 7); g.fill();
-  g.fillStyle = '#7f7fa2'; g.fillText('REC', W - 20, 28);
+  g.fillStyle = C.faint; g.fillText('REC', W - 20, 28);
 
   const LX = 14, LW = 224, RX = LX + LW + 12, RW = W - RX - 14;
 
   // ---- rotor dial ---------------------------------------------------------------
   panelBox(g, LX, 54, LW, 176, 'ROTOR AND CURRENT');
   const dx = LX + LW / 2, dy = 150, dr = 56;
-  g.strokeStyle = '#bcbccf'; g.lineWidth = 1.5;
+  g.strokeStyle = C.lineStrong; g.lineWidth = 1.5;
   g.beginPath(); g.arc(dx, dy, dr, 0, 7); g.stroke();
   for (let k = 0; k < 12; k++) {
     const a = k * Math.PI / 6;
@@ -141,7 +141,7 @@ function drawScreen(t) {
   vec(theta, dr - 12, '#ff1f4f', 5);
   if (err > .02) vec(theta + Math.PI / 2, dr - 12, '#9fe3c8', 3);
   vec(theta + Math.PI / 2 + err, dr - 12, err > .02 ? '#ef9d00' : '#00b377', 5);
-  g.fillStyle = '#8989aa'; g.beginPath(); g.arc(dx, dy, 6, 0, 7); g.fill();
+  g.fillStyle = C.faint; g.beginPath(); g.arc(dx, dy, 6, 0, 7); g.fill();
   g.fillStyle = '#ff1f4f'; g.font = '11px system-ui'; g.textAlign = 'center';
   g.fillText('d', dx - dr - 8, dy + 4);
   g.fillStyle = '#00b377'; g.fillText('q', dx, dy - dr - 8);
@@ -160,7 +160,7 @@ function drawScreen(t) {
     g.textAlign = 'left';
     g.fillStyle = ok ? '#00b377' : '#ff1f4f'; g.font = 'bold 13px system-ui';
     g.fillText(ok ? '\u2713' : '\u2715', LX + 13, y);
-    g.fillStyle = ok ? '#59597b' : '#ff1f4f'; g.font = '13px system-ui';
+    g.fillStyle = ok ? C.muted : '#ff1f4f'; g.font = '13px system-ui';
     g.fillText(label, LX + 32, y);
   });
 
@@ -170,15 +170,15 @@ function drawScreen(t) {
   for (let col = 0; col < 6; col++) {
     for (let row = 0; row < 4; row++) {
       const x = LX + 18 + col * 32, y = 414 + row * 17;
-      g.fillStyle = '#cdf0e1'; g.fillRect(x, y, 26, 13);
+      g.fillStyle = C.panel2; g.fillRect(x, y, 26, 13);
       g.fillStyle = '#00b377'; g.fillRect(x, y, 26, 13);
-      g.globalAlpha = .25 + .12 * row; g.fillStyle = '#f7f6f7'; g.fillRect(x, y, 26, 13);
+      g.globalAlpha = .25 + .12 * row; g.fillStyle = C.panel; g.fillRect(x, y, 26, 13);
       g.globalAlpha = 1;
     }
-    g.fillStyle = '#8989aa'; g.font = '9px system-ui'; g.textAlign = 'center';
+    g.fillStyle = C.faint; g.font = '9px system-ui'; g.textAlign = 'center';
     g.fillText(speedsLabel[col], LX + 31 + col * 32, 496);
   }
-  g.fillStyle = '#8989aa'; g.font = '9px system-ui'; g.textAlign = 'right';
+  g.fillStyle = C.faint; g.font = '9px system-ui'; g.textAlign = 'right';
   ['0', '0.5', '1.0', '2.0'].forEach((l, row) => g.fillText(l, LX + 15, 424 + row * 17));
   g.textAlign = 'left'; g.fillText('N\u00b7m', LX + 6, 412);
   g.textAlign = 'center'; g.fillText('rpm', LX + LW / 2, 507);
@@ -188,12 +188,12 @@ function drawScreen(t) {
     panelBox(g, RX, y, RW, h, title);
     const L = RX + 12, R = RX + RW - 12, T = y + 26, B = y + h - 12;
     g.save(); g.beginPath(); g.rect(L, T, R - L, B - T); g.clip();
-    g.strokeStyle = '#e5e4f4'; g.lineWidth = 1;
+    g.strokeStyle = C.line; g.lineWidth = 1;
     for (let k = 1; k < 4; k++) { const gy = T + (B - T) * k / 4; g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke(); }
     for (let k = 1; k < 12; k++) { const gx = L + (R - L) * k / 12; g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke(); }
     draw(L, R, T, B);
     g.restore();
-    g.strokeStyle = '#bcbccf'; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
+    g.strokeStyle = C.lineStrong; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
   };
 
   plot(54, 150, 'PHASE CURRENTS   A   B   C', (L, R, T, B) => {
@@ -208,9 +208,9 @@ function drawScreen(t) {
       }
       g.stroke();
     }
-    g.strokeStyle = '#bcbccf'; g.setLineDash([3, 4]); g.lineWidth = 1;
+    g.strokeStyle = C.lineStrong; g.setLineDash([3, 4]); g.lineWidth = 1;
     g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke(); g.setLineDash([]);
-    g.fillStyle = '#7f7fa2'; g.font = '11px system-ui'; g.textAlign = 'right';
+    g.fillStyle = C.faint; g.font = '11px system-ui'; g.textAlign = 'right';
     g.fillText('+' + (iq * 1.41).toFixed(1) + ' A', R - 5, T + 13);
     g.fillText('0', R - 5, mid - 3);
     g.fillText('-' + (iq * 1.41).toFixed(1) + ' A', R - 5, B - 5);
@@ -219,7 +219,7 @@ function drawScreen(t) {
   plot(212, 138, 'SHAFT SPEED   reference and measured', (L, R, T, B) => {
     const top = Math.max(...speedHistory, rpm) * 1.25 + 50;
     const yFor = v => B - (B - T) * Math.min(v / top, 1);
-    g.strokeStyle = '#8989aa'; g.setLineDash([6, 5]); g.lineWidth = 2;
+    g.strokeStyle = C.faint; g.setLineDash([6, 5]); g.lineWidth = 2;
     g.beginPath(); g.moveTo(L, yFor(rpm)); g.lineTo(R, yFor(rpm)); g.stroke(); g.setLineDash([]);
     g.strokeStyle = '#00b377'; g.lineWidth = 2.4; g.beginPath();
     speedHistory.forEach((v, k) => {
@@ -227,7 +227,7 @@ function drawScreen(t) {
       k ? g.lineTo(x, yFor(v)) : g.moveTo(x, yFor(v));
     });
     g.stroke();
-    g.fillStyle = '#7f7fa2'; g.font = '11px system-ui'; g.textAlign = 'right';
+    g.fillStyle = C.faint; g.font = '11px system-ui'; g.textAlign = 'right';
     g.fillText(Math.round(top) + ' rpm', R - 5, T + 13);
     g.fillText('0', R - 5, B - 5);
   });
@@ -242,30 +242,30 @@ function drawScreen(t) {
   ];
   bars.forEach(([label, frac, col], k) => {
     const y = 388 + k * 30, bw = RW / 2 - 36;
-    g.fillStyle = '#59597b'; g.font = '12px system-ui'; g.textAlign = 'left';
+    g.fillStyle = C.muted; g.font = '12px system-ui'; g.textAlign = 'left';
     g.fillText(label, RX + 12, y);
-    g.fillStyle = '#ffffff'; g.fillRect(RX + 12, y + 6, bw, 9);
+    g.fillStyle = C.panel2; g.fillRect(RX + 12, y + 6, bw, 9);
     g.fillStyle = col; g.fillRect(RX + 12, y + 6, Math.max(bw * frac, 2), 9);
-    g.fillStyle = '#7f7fa2'; g.textAlign = 'right';
+    g.fillStyle = C.faint; g.textAlign = 'right';
     g.fillText((100 * frac).toFixed(0) + '%', RX + 12 + bw, y);
   });
 
   const EX = RX + RW / 2 + 6, EW = RW / 2 - 6;
   panelBox(g, EX, 358, EW, 152, 'EVENT LOG');
   const log = opts.sensorless
-    ? [['0.000', 'bus 26.5 V, drive enabled', '#59597b'],
-       ['0.300', 'alignment complete', '#59597b'],
+    ? [['0.000', 'bus 26.5 V, drive enabled', C.muted],
+       ['0.300', 'alignment complete', C.muted],
        ['0.800', 'observer valid, handover started', '#00b377'],
        ['1.050', 'closed loop on estimated angle', '#00b377'],
        ['1.050', 'angle error above target', '#ef9d00']]
-    : [['0.000', 'bus 26.5 V, drive enabled', '#59597b'],
+    : [['0.000', 'bus 26.5 V, drive enabled', C.muted],
        ['0.050', 'encoder index found', '#00b377'],
-       ['0.500', 'speed reference ' + Math.round(rpm) + ' rpm', '#59597b'],
-       ['1.200', 'load applied 1.00 N\u00b7m', '#59597b'],
+       ['0.500', 'speed reference ' + Math.round(rpm) + ' rpm', C.muted],
+       ['1.200', 'load applied 1.00 N\u00b7m', C.muted],
        ['1.400', 'steady state, logging', '#00b377']];
   log.forEach(([time, text, col], k) => {
     const y = 386 + k * 24;
-    g.fillStyle = '#a1a1bb'; g.font = '12px ui-monospace, monospace'; g.textAlign = 'left';
+    g.fillStyle = C.faint; g.font = '12px ui-monospace, monospace'; g.textAlign = 'left';
     g.fillText(time, EX + 12, y);
     g.fillStyle = col; g.font = '12px system-ui';
     g.fillText(text, EX + 58, y);
@@ -273,27 +273,27 @@ function drawScreen(t) {
 
   // ---- tiles ---------------------------------------------------------------------
   const tiles = [
-    ['SPEED', Math.round(rpm) + ' rpm', '#282837'],
-    ['Iq', iq.toFixed(1) + ' A', iq < 20 ? '#282837' : '#ef9d00'],
+    ['SPEED', Math.round(rpm) + ' rpm', C.text],
+    ['Iq', iq.toFixed(1) + ' A', iq < 20 ? C.text : '#ef9d00'],
     ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#00b377' : kept > .8 ? '#ef9d00' : '#ff1f4f'],
     ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#00b377' : '#ef9d00'],
     ['BACK-EMF', backEmf.toFixed(2) + ' V', '#2a5fd9'],
-    ['COPPER LOSS', pCu.toFixed(1) + ' W', '#59597b'],
+    ['COPPER LOSS', pCu.toFixed(1) + ' W', C.muted],
   ];
   // One line each, so the strip stays readable at the size it is seen on screen.
   const tw = (W - 28 - 5 * 7) / 6;
   tiles.forEach(([k, v, col], idx) => {
     const x = 14 + idx * (tw + 7), y = 508;
-    g.fillStyle = '#ffffff'; g.fillRect(x, y, tw, 20);
-    g.strokeStyle = '#c9c9d8'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, tw - 1, 19);
-    g.fillStyle = '#7f7fa2'; g.font = '600 10px system-ui'; g.textAlign = 'left';
+    g.fillStyle = C.panel; g.fillRect(x, y, tw, 20);
+    g.strokeStyle = C.line; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, tw - 1, 19);
+    g.fillStyle = C.faint; g.font = '600 10px system-ui'; g.textAlign = 'left';
     g.fillText(k, x + 8, y + 14);
     g.fillStyle = col; g.font = 'bold 13px system-ui'; g.textAlign = 'right';
     g.fillText(v, x + tw - 8, y + 14);
   });
 
   // The screen is convincing enough now that this line has to stay on it.
-  g.fillStyle = '#a1a1bb'; g.font = '11px system-ui'; g.textAlign = 'right';
+  g.fillStyle = C.faint; g.font = '11px system-ui'; g.textAlign = 'right';
   g.fillText('simulation, not measured', W - 14, 537);
 }
 

@@ -85,7 +85,7 @@ function draw() {
   g.stroke();
 
   // axes
-  g.strokeStyle = '#9c9cb8'; g.lineWidth = 1; g.beginPath();
+  g.strokeStyle = C.lineStrong; g.lineWidth = 1; g.beginPath();
   g.moveTo(L, T); g.lineTo(L, B); g.lineTo(R, B); g.stroke();
   g.fillStyle = C.muted; g.font = (mode === 'kiosk' ? 15 : 12) + 'px system-ui'; g.textAlign = 'center';
   for (let rpm = 0; rpm <= MAXRPM; rpm += 500) { g.fillText(rpm, X(rpm), B + 20); }
@@ -828,7 +828,7 @@ function recordHistory(hist, s, theta) {
 
 function graphFrame(g, x, y, w, h, title) {
   g.fillStyle = C.panel; g.fillRect(x, y, w, h);
-  g.strokeStyle = '#c9c9d8'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  g.strokeStyle = C.line; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
   g.fillStyle = C.muted; g.font = '600 11.5px system-ui'; g.textAlign = 'left';
   g.fillText(title, x + 10, y + 17);
   return { L: x + 34, R: x + w - 10, T: y + 26, B: y + h - 18 };
@@ -911,7 +911,7 @@ function drawDqGraph(g, x, y, w, h) {
   g.fillStyle = C.faint; g.font = '10px system-ui'; g.textAlign = 'left';
   g.fillText('Id', R - 16, cy - 5);
   g.fillText('Iq', cx + 5, T + 10);
-  g.fillStyle = '#b06a94'; g.textAlign = 'right';
+  g.fillStyle = C.accentSoft; g.textAlign = 'right';
   g.fillText(P.iq_limit_A + ' A limit', R - 4, B - 2);
 
   const plot = (series, colour) => {
@@ -1283,11 +1283,11 @@ function canvas2d(id) {
 function axes(g, box, title, minY, maxY, unit) {
   const { x, y, w, h } = box;
   g.fillStyle = C.text; g.font = '600 13px system-ui'; g.textAlign = 'left'; g.fillText(title, x, y - 9);
-  g.strokeStyle = '#b3b3c8'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h); g.lineTo(x + w, y + h); g.stroke();
+  g.strokeStyle = C.lineStrong; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h); g.lineTo(x + w, y + h); g.stroke();
   g.font = '11px system-ui'; g.fillStyle = C.faint;
   for (let i = 0; i <= 2; i++) {
     const v = maxY - i * (maxY - minY) / 2, py = y + i * h / 2;
-    g.strokeStyle = '#c7c7d6'; g.beginPath(); g.moveTo(x, py); g.lineTo(x + w, py); g.stroke();
+    g.strokeStyle = C.line; g.beginPath(); g.moveTo(x, py); g.lineTo(x + w, py); g.stroke();
     g.textAlign = 'right'; g.fillText(v.toFixed(maxY < 10 ? 3 : 1), x - 7, py + 4);
   }
   g.save(); g.translate(12, y + h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText(unit, 0, 0); g.restore();
@@ -1360,7 +1360,7 @@ function drawRigSimChart() {
   g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '11px system-ui';
   speeds.filter((_, k) => k % 4 === 0).forEach(r => g.fillText(r, X(r), B + 17));
   g.fillText('commanded speed (rpm)', (L + R) / 2, B + 34);
-  g.textAlign = 'right'; g.fillStyle = '#5a5f8f'; g.font = '600 12px system-ui';
+  g.textAlign = 'right'; g.fillStyle = C.muted; g.font = '600 12px system-ui';
   g.fillText('\u2248 63 \u00b5s fixed delay', R, T - 10);
 }
 
@@ -1739,12 +1739,12 @@ function drawKart() {
   const road = h - 16;
 
   g.fillStyle = C.panel; g.fillRect(0, 0, w, h);
-  g.strokeStyle = '#c2c2d3'; g.lineWidth = 1;
+  g.strokeStyle = C.line; g.lineWidth = 1;
   g.beginPath(); g.moveTo(0, road + .5); g.lineTo(w, road + .5); g.stroke();
 
   // Markings slide the other way to the kart, and reverse when it does.
   const pitch = 54, shift = ((-game.distance * 120) % pitch + pitch) % pitch;
-  g.strokeStyle = '#b6b6ca'; g.lineWidth = 3;
+  g.strokeStyle = C.lineStrong; g.lineWidth = 3;
   for (let x = -pitch + shift; x < w + pitch; x += pitch) {
     g.beginPath(); g.moveTo(x, road + 7); g.lineTo(x + 26, road + 7); g.stroke();
   }
@@ -1771,9 +1771,9 @@ function drawKart() {
   g.beginPath(); g.moveTo(-11, -15); g.lineTo(-4, -22); g.lineTo(1, -15); g.closePath(); g.fill();
   const spin = game.distance * 6;
   for (const wx of [-14, 13]) {
-    g.fillStyle = '#e7e6f5';
+    g.fillStyle = C.panel2;
     g.beginPath(); g.arc(wx, -1, 6.5, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#6e6e96'; g.lineWidth = 1.6;
+    g.strokeStyle = C.faint; g.lineWidth = 1.6;
     g.beginPath();
     g.moveTo(wx + Math.cos(spin) * 5, -1 + Math.sin(spin) * 5);
     g.lineTo(wx - Math.cos(spin) * 5, -1 - Math.sin(spin) * 5);
@@ -1872,7 +1872,7 @@ function drawGame() {
   // Heat bar underneath it, filling with the current you are wasting.
   const hy = by + 22;
   g.fillStyle = C.panel; g.fillRect(bx, hy, bw, 8);
-  g.fillStyle = game.heat > .7 ? '#ff1f4f' : '#a7a7bf';
+  g.fillStyle = game.heat > .7 ? '#ff1f4f' : C.faint;
   g.fillRect(bx, hy, bw * game.heat, 8);
   g.fillStyle = C.muted; g.font = '11px system-ui'; g.textAlign = 'left';
   g.fillText('heat from the current you are wasting', bx, hy + 19);
@@ -1891,8 +1891,9 @@ function drawGame() {
 
   if (game.running && game.countdown > 0) {
     g.textAlign = 'center';
-    g.fillStyle = 'rgba(13,17,23,.72)';
+    g.save(); g.globalAlpha = .86; g.fillStyle = C.panel;
     g.beginPath(); g.arc(cx, cy, r * 2.0, 0, 7); g.fill();
+    g.restore();
     const n = Math.ceil(game.countdown);
     g.fillStyle = '#00b377'; g.font = 'bold ' + Math.round(r * 1.1) + 'px system-ui';
     g.fillText(n > 0 ? String(n) : 'GO', cx, cy + r * 0.38);
@@ -1918,7 +1919,7 @@ function drawGame() {
   if (game.over && !game.demo) {
     const percent = game.elapsed > 0 ? 100 * game.score / game.elapsed : 0;
     const pw = Math.min(w - 60, 360), px = (w - pw) / 2, py = cy + r * 1.95;
-    g.fillStyle = 'rgba(13,17,23,.9)'; g.fillRect(px, py, pw, 70);
+    g.save(); g.globalAlpha = .94; g.fillStyle = C.panel; g.fillRect(px, py, pw, 70); g.restore();
     g.strokeStyle = '#ff1f4f'; g.lineWidth = 1.5; g.strokeRect(px + .5, py + .5, pw - 1, 69);
     g.textAlign = 'center';
     g.fillStyle = C.text; g.font = 'bold 19px system-ui';
@@ -2133,13 +2134,17 @@ async function start() {
   }
   on('reset', 'click', () => { touched(); reset(); });
   on('sound-toggle', 'click', () => { touched(); toggleSound(); });
-  // The toggle itself is wired in the head, so it works before this file has
-  // even arrived. All that is left here is repainting the canvases that are
-  // drawn once rather than every frame.
-  on('theme-toggle', 'click', touched);
+  // The shared palette also drives canvases that are drawn once rather than on
+  // every animation frame. `onTheme` runs immediately during start-up.
   onTheme(() => {
     if (!$('tab-results').hidden) renderResults();
     if (plannedDrawn) drawPlannedMap();
+    // Animated views repaint on their next frame. These calls also give paused
+    // and one-shot canvases a correctly themed first paint.
+    if (!$('tab-sbs').hidden) drawGraphs('sbs-graphs', sbsHistory);
+    if (!$('tab-3d').hidden) drawGraphs('rig-graphs', rigHistory);
+    if (!$('tab-game').hidden) { drawKart(); drawGame(); }
+    render();
   });
   document.addEventListener('keydown', e => {
     touched();

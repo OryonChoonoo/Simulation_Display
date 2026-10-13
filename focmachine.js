@@ -10,8 +10,21 @@
    stator field. Watching it stay 90 electrical degrees ahead of the magnets is
    watching field-oriented control work. */
 
+import { C, onTheme } from './palette.js';
+
 export const PHASE_COLOUR = [0xb8278f, 0x2a5fd9, 0x00b3a4];
 export const PHASE_NAME = ['A', 'B', 'C'];
+
+// Labels are canvas textures, so CSS cannot recolour them directly. Translate
+// the few old neutral drawing colours into the live palette while leaving the
+// physics colours (phase, magnet, current and warning) unchanged.
+function themedLabelColour(colour) {
+  const key = String(colour).toLowerCase();
+  if (['#282837', '#313144', '#36364a'].includes(key)) return C.text;
+  if (['#59597b', '#626287'].includes(key)) return C.muted;
+  if (['#7f7fa2', '#8989aa', '#a1a1bb'].includes(key)) return C.faint;
+  return colour;
+}
 
 // A soft disc, drawn once and shared, used additively so a lit coil reads as
 // glowing rather than merely being a brighter colour.
@@ -39,16 +52,25 @@ export function labelSprite(THREE, text, colour, width) {
   measure.font = font;
   c.width = Math.ceil(measure.measureText(text).width) + 28;
   c.height = 72;
-  const g = c.getContext('2d');
-  g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 7; g.strokeStyle = 'rgba(8,11,16,.92)'; g.strokeText(text, c.width / 2, 38);
-  g.fillStyle = colour; g.fillText(text, c.width / 2, 38);
-  const texture = new THREE.CanvasTexture(c);
+  let texture = null;
+  const paint = () => {
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height);
+    g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    // The outline follows the scene surface. It separates labels from the
+    // machine without leaving a black halo in light mode or a white halo in dark.
+    g.lineWidth = 7; g.strokeStyle = C.panel; g.strokeText(text, c.width / 2, 38);
+    g.fillStyle = themedLabelColour(colour); g.fillText(text, c.width / 2, 38);
+    if (texture) texture.needsUpdate = true;
+  };
+  paint();
+  texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: texture, transparent: true, depthTest: false, depthWrite: false }));
   sprite.scale.set(width, width * c.height / c.width, 1);
   sprite.renderOrder = 10;
+  sprite.userData.stopTheme = onTheme(paint);
   return sprite;
 }
 
@@ -61,7 +83,10 @@ export function calloutSprite(THREE, text, colour, width, opts = {}) {
   const font = '30px system-ui';
   const lineHeight = 38, pad = 18;
 
-  function paint(message) {
+  let texture = null, sprite = null;
+  let current = text;
+
+  function paint(message = current) {
     const measure = canvas.getContext('2d');
     measure.font = font;
     const words = String(message).split(' ');
@@ -77,43 +102,39 @@ export function calloutSprite(THREE, text, colour, width, opts = {}) {
     canvas.width = Math.ceil(widest) + pad * 2;
     canvas.height = lines.length * lineHeight + pad * 2;
     const g = canvas.getContext('2d');
-    g.fillStyle = 'rgba(13,17,23,.82)';
-    g.strokeStyle = colour; g.lineWidth = 3;
+    g.fillStyle = C.panel;
+    g.strokeStyle = themedLabelColour(colour); g.lineWidth = 3;
     const r = 14, w = canvas.width, h = canvas.height;
     g.beginPath();
     g.moveTo(r, 1.5); g.arcTo(w - 1.5, 1.5, w - 1.5, h - 1.5, r);
     g.arcTo(w - 1.5, h - 1.5, 1.5, h - 1.5, r); g.arcTo(1.5, h - 1.5, 1.5, 1.5, r);
     g.arcTo(1.5, 1.5, w - 1.5, 1.5, r); g.closePath();
     g.fill(); g.stroke();
-    g.font = font; g.textBaseline = 'middle'; g.fillStyle = '#282837';
+    g.font = font; g.textBaseline = 'middle'; g.fillStyle = C.text;
     g.textAlign = align === 'center' ? 'center' : 'left';
     lines.forEach((l, k) => {
       g.fillText(l, align === 'center' ? w / 2 : pad, pad + lineHeight * (k + .5));
     });
+    if (texture) texture.needsUpdate = true;
     return lines.length;
   }
 
   paint(text);
-  const texture = new THREE.CanvasTexture(canvas);
+  texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: texture, transparent: true, depthTest: false, depthWrite: false }));
   sprite.renderOrder = 11;
   const fit = () => sprite.scale.set(width, width * canvas.height / canvas.width, 1);
   fit();
 
-  let current = text;
   sprite.userData.setText = message => {
     if (message === current) return;
     current = message;
     paint(message);
-    texture.dispose();
-    const next = new THREE.CanvasTexture(canvas);
-    next.colorSpace = THREE.SRGBColorSpace;
-    sprite.material.map = next;
-    sprite.material.needsUpdate = true;
     fit();
   };
+  sprite.userData.stopTheme = onTheme(() => { paint(current); fit(); });
   return sprite;
 }
 

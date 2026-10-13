@@ -14,7 +14,7 @@ import * as THREE from './vendor/three.module.js';
 import { C, onTheme } from './palette.js';
 import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
-let renderer, scene, camera, clock, host, left, right, leftNote, rightNote;
+let renderer, scene, camera, clock, host, left, right, leftNote, rightNote, divider;
 let state = { rpm: 400, err: 0, amplitude: 1, limited: false, rate: .02,
   heatLeft: 0, heatRight: 0 };
 let spin = 0;
@@ -28,7 +28,10 @@ export function init(container) {
   scene.background = new THREE.Color(C.panelHex);
   // The scene's ground follows the page, so the machine never sits on a
   // slab of the wrong colour when the theme changes.
-  onTheme(() => { if (scene) scene.background = new THREE.Color(C.panelHex); });
+  onTheme(() => {
+    if (scene) scene.background = new THREE.Color(C.panelHex);
+    if (divider) divider.material.color.setHex(C.lineStrongHex);
+  });
   camera = new THREE.PerspectiveCamera(40, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.shadowMap.enabled = true;
@@ -65,8 +68,8 @@ export function init(container) {
   heading('ENCODER · angle measured', '#00b377', -.155, .20);
   heading('ESTIMATE · angle worked out', '#ef9d00', .155, .21);
 
-  const divider = new THREE.Mesh(new THREE.PlaneGeometry(.001, .30),
-    new THREE.MeshBasicMaterial({ color: 0xc3c3d4, transparent: true, opacity: .8 }));
+  divider = new THREE.Mesh(new THREE.PlaneGeometry(.001, .30),
+    new THREE.MeshBasicMaterial({ color: C.lineStrongHex, transparent: true, opacity: .8 }));
   divider.position.set(0, 0, -.02); scene.add(divider);
 
   const note = labelSprite(THREE,

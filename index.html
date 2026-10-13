@@ -6,44 +6,9 @@
 <title>Let's Torque Control</title>
 <link rel="stylesheet" href="style.css">
 <script>
-/* The theme is set here, before the first paint and before any module loads.
-
-   It used to be switched inside app.js, which meant the button did nothing
-   until a megabyte of JavaScript had arrived — and did nothing at all if that
-   ever failed. Something as basic as "make it dark" should not depend on the
-   3D engine. Setting it here also avoids a flash of the wrong theme on load.
-
-   app.js subscribes to the themechange event for the canvases that have to be
-   repainted; it is not needed for the page itself to change. */
-(function () {
-  var KEY = 'ltc-theme';
-  function preferred() {
-    try {
-      var saved = localStorage.getItem(KEY);
-      if (saved === 'dark' || saved === 'light') return saved;
-    } catch (e) { /* private browsing */ }
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark' : 'light';
-  }
-  function apply(name) {
-    document.documentElement.dataset.theme = name;
-    try { localStorage.setItem(KEY, name); } catch (e) { /* fine */ }
-    var label = document.getElementById('theme-label');
-    if (label) label.textContent = name === 'dark' ? 'Light' : 'Dark';
-    var button = document.getElementById('theme-toggle');
-    if (button) button.setAttribute('aria-pressed', String(name === 'dark'));
-    window.dispatchEvent(new CustomEvent('themechange', { detail: name }));
-  }
-  apply(preferred());
-  window.toggleTheme = function () {
-    apply(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-  };
-  document.addEventListener('DOMContentLoaded', function () {
-    apply(document.documentElement.dataset.theme);      // sets the button text
-    var button = document.getElementById('theme-toggle');
-    if (button) button.addEventListener('click', window.toggleTheme);
-  });
-})();
+/* The exhibition uses one deliberate dark presentation. Set it before the
+   first paint so the page, plots and 3D scenes all start on the same palette. */
+document.documentElement.dataset.theme = 'dark';
 </script>
 </head>
 <body data-mode="presenter">
@@ -68,10 +33,6 @@
     <p class="sub hidden-readouts"><span id="vdc-out">26.5 V</span><span id="imax-out">25 A</span></p>
   </div>
   <div class="header-right">
-    <button id="theme-toggle" class="theme-btn" aria-pressed="false"
-            aria-label="Switch between light and dark">
-      <span id="theme-label">Dark</span><small>view</small>
-    </button>
     <button id="sound-toggle" class="sound-btn" aria-pressed="false">
       <span id="sound-label">Sound off</span><small>synthesised, not a recording</small>
     </button>
