@@ -2,7 +2,7 @@
    the motor. Geometry is built from primitives at roughly rig scale: it is an
    illustration of the setup, not a CAD model, and not measured data. */
 import * as THREE from './vendor/three.module.js';
-import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
+import { buildFocMachine, labelSprite } from './focmachine.js';
 
 const V = THREE.MathUtils;
 let renderer, scene, camera, clock;
@@ -657,7 +657,8 @@ let machine = null, explode = 0;
 function buildMotorInside() {
   const centre = new THREE.Vector3(-.26, .06, 0);
 
-  machine = buildFocMachine(THREE, { labelScale: 1, detailed: true });
+  machine = buildFocMachine(THREE,
+    { labelScale: 1, detailed: true, partLabels: false });
   machine.group.position.copy(centre);
   scene.add(machine.group);
   rotorGroup = machine.rotorGroup;
@@ -680,28 +681,14 @@ function buildMotorInside() {
   const encoderTag = labelSprite(THREE, 'encoder', '#5a7fc8', .05);
   encoderTag.position.set(0, .046, -.072); rearGroup.add(encoderTag);
 
-  const poleNote = labelSprite(THREE,
-    'one pole pair shown · the motor has three', '#5e5e91', .19);
-  poleNote.position.set(-.26, -.085, .02); scene.add(poleNote);
-
-  // Floating notes, each with a line back to the part it is about, so the view
-  // explains itself to someone standing in front of it with nobody talking.
-  const notes = new THREE.Group(); scene.add(notes);
-  const note = (text, colour, at, pointsAt, width) => {
-    const sprite = calloutSprite(THREE, text, colour, width);
-    sprite.position.set(at[0], at[1], at[2]);
-    notes.add(sprite);
-    notes.add(leader(THREE, at, pointsAt, colour));
-  };
-  note('Each coil lights with the current sent to it. The lit pattern is the stator field.',
-    '#2ee6a8', [-.50, .125, -.02], [-.30, .062, -.05], .145);
-  note('That field is held 90 electrical degrees ahead of the magnets: the most torque per amp.',
-    '#f2b134', [-.035, .135, .07], [-.215, .085, .065], .145);
-  note('The encoder measures this angle. Sensorless has to work it out from the back-EMF.',
-    '#5a7fc8', [-.025, -.085, -.17], [-.255, -.01, -.165], .145);
+  // The three floating callouts and the pole-pair note that used to hover here
+  // are gone. They repeated what the caption under the panel already says, and
+  // they took up most of the frame, which left the machine itself small. The
+  // part labels stay: those identify what you are looking at rather than
+  // explaining it twice.
 
   housing = motors[0];
-  insideKeep = [machine.group, rearGroup, poleNote, notes];
+  insideKeep = [machine.group, rearGroup];
 }
 
 
@@ -933,8 +920,8 @@ function drawPane(pane, dt) {
 
   // Cinematic opening: pull in from a wide shot, then hand control to the viewer.
   const o = pane.orbit;
-  const target = inside ? new THREE.Vector3(-.26, .06, .02) : new THREE.Vector3(0, .26, 0);
-  const wanted = inside ? .36 : 1.80;   // its pane is shorter than the old full-height view
+  const target = inside ? new THREE.Vector3(-.238, .012, .02) : new THREE.Vector3(0, .26, 0);
+  const wanted = inside ? .25 : 1.80;   // fills the panel now that the callouts have gone
   const ease = Math.min(pane.intro / 3.5, 1);
   const dist = V.lerp(wanted * 2.1, wanted, ease * ease * (3 - 2 * ease)) * o.zoom
     / Math.min(1, pane.camera.aspect);

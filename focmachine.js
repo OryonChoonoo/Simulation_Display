@@ -148,7 +148,11 @@ function arrow(THREE, colour, length = .07) {
 }
 
 export function buildFocMachine(THREE, opts = {}) {
-  const { withLabels = true, labelScale = 1, detailed = false, glow: glowBoost = 1 } = opts;
+  const { withLabels = true, partLabels = true, labelScale = 1, detailed = false,
+          glow: glowBoost = 1 } = opts;
+  // partLabels names the pieces of the machine: housing, front cap, air gap.
+  // Useful in a wide view, in the way, once the machine fills its panel and
+  // the vector labels are what matter.
   const group = new THREE.Group();
 
   const rotorGroup = new THREE.Group();
@@ -322,7 +326,7 @@ export function buildFocMachine(THREE, opts = {}) {
         { transparent: true, opacity: .45 });
       fin.rotation.z = a;
     }
-    if (withLabels) {
+    if (withLabels && partLabels) {
       const tag = labelSprite(THREE, 'housing', '#8282af', .05 * labelScale);
       tag.position.set(0, .075, 0); housing.add(tag);
     }
@@ -340,7 +344,7 @@ export function buildFocMachine(THREE, opts = {}) {
       cylAt(.004, .006, 0x46466e,
         .009, frontCap, 8).position.set(Math.cos(a) * .042, Math.sin(a) * .042, .009);
     }
-    if (withLabels) {
+    if (withLabels && partLabels) {
       const tag = labelSprite(THREE, 'front cap and bearing', '#9292b9', .085 * labelScale);
       tag.position.set(0, .068, .012); frontCap.add(tag);
     }
@@ -364,8 +368,10 @@ export function buildFocMachine(THREE, opts = {}) {
 
       // The air gap: a millimetre or so of nothing, and the reason the whole
       // machine has to be built accurately.
-      const gap = labelSprite(THREE, 'air gap', '#5e5e91', .05 * labelScale);
-      gap.position.set(.058, .030, .048); statorGroup.add(gap);
+      if (partLabels) {
+        const gap = labelSprite(THREE, 'air gap', '#5e5e91', .05 * labelScale);
+        gap.position.set(.058, .030, .048); statorGroup.add(gap);
+      }
       statorGroup.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
           new THREE.Vector3(.0335, .0335, .048), new THREE.Vector3(.050, .026, .048)]),
