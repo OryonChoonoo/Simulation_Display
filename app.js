@@ -87,7 +87,7 @@ function draw() {
   // axes
   g.strokeStyle = C.lineStrong; g.lineWidth = 1; g.beginPath();
   g.moveTo(L, T); g.lineTo(L, B); g.lineTo(R, B); g.stroke();
-  g.fillStyle = C.muted; g.font = (mode === 'kiosk' ? 15 : 12) + 'px system-ui'; g.textAlign = 'center';
+  g.fillStyle = C.muted; g.font = '600 ' + (mode === 'kiosk' ? 15 : 12) + 'px system-ui'; g.textAlign = 'center';
   for (let rpm = 0; rpm <= MAXRPM; rpm += 500) { g.fillText(rpm, X(rpm), B + 20); }
   g.fillText('speed (rpm)', (L + R) / 2, B + (mode === 'kiosk' ? 46 : 38));
   g.textAlign = 'right';
@@ -360,7 +360,7 @@ function drawRotor(theta, peak, err) {
   c.width = w * dpr; c.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
   drawMachine(g, w / 2, h / 2, Math.min(w, h) * 0.215, { theta, peak, err, bounds: [6, w - 6] });
-  g.fillStyle = C.muted; g.font = '12px system-ui'; g.textAlign = 'center';
+  g.fillStyle = C.muted; g.font = '600 12px system-ui'; g.textAlign = 'center';
   g.fillText('drawn in electrical angle: one pole pair of the three', w / 2, h - 8);
 }
 
@@ -375,7 +375,7 @@ function drawScope(theta, peak, iq, id, err, peakHeld) {
   g.strokeStyle = C.line; g.lineWidth = 1;
   g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke();
   g.beginPath(); g.moveTo(L, T); g.lineTo(L, B); g.stroke();
-  g.fillStyle = C.muted; g.font = '12px system-ui'; g.textAlign = 'right';
+  g.fillStyle = C.muted; g.font = '600 12px system-ui'; g.textAlign = 'right';
   g.fillText('+' + top.toFixed(1) + ' A', L - 6, T + 12);
   g.fillText('0', L - 6, mid + 4);
   g.fillText('-' + top.toFixed(1) + ' A', L - 6, B);
@@ -442,12 +442,12 @@ function drawScope(theta, peak, iq, id, err, peakHeld) {
     }
   }
 
-  g.fillStyle = C.muted; g.textAlign = 'center'; g.font = '12px system-ui';
+  g.fillStyle = C.muted; g.textAlign = 'center'; g.font = '600 12px system-ui';
   g.fillText(rotorFrame ? 'riding with the rotor' : 'standing still, watching the wires',
     (L + R) / 2, B + 18);
   if (!rotorFrame) {
     const degrees = Math.round(Math.abs(err) * 180 / Math.PI);
-    g.fillStyle = degrees ? '#ef9d00' : C.muted; g.font = '12px system-ui';
+    g.fillStyle = degrees ? '#ef9d00' : C.muted; g.font = '600 12px system-ui';
     g.fillText(degrees
       ? `shifted ${degrees}\u00b0 round, and ${peak.toFixed(1)} A becomes ${peakHeld.toFixed(1)} A for the same torque`
       : 'faint traces appear when the angle is wrong, showing where the currents should have been',
@@ -869,7 +869,7 @@ function drawAngleGraph(g, x, y, w, h) {
   const n = history.theta.length;
   if (n < 2) return;
   gridLines(g, L, R, T, B, 4, 6);
-  g.fillStyle = C.faint; g.font = '10px system-ui'; g.textAlign = 'right';
+  g.fillStyle = C.faint; g.font = '600 10px system-ui'; g.textAlign = 'right';
   g.fillText('360', L - 5, T + 8); g.fillText('0', L - 5, B);
 
   const trace = (offset, colour, dash) => {
@@ -908,7 +908,7 @@ function drawDqGraph(g, x, y, w, h) {
   g.globalAlpha = 1;
   g.strokeStyle = C.line;
   g.beginPath(); g.moveTo(L, cy); g.lineTo(R, cy); g.moveTo(cx, T); g.lineTo(cx, B); g.stroke();
-  g.fillStyle = C.faint; g.font = '10px system-ui'; g.textAlign = 'left';
+  g.fillStyle = C.faint; g.font = '600 10px system-ui'; g.textAlign = 'left';
   g.fillText('Id', R - 16, cy - 5);
   g.fillText('Iq', cx + 5, T + 10);
   g.fillStyle = C.accentSoft; g.textAlign = 'right';
@@ -939,7 +939,7 @@ function drawErrorGraph(g, x, y, w, h) {
   const n = history.err.length;
   if (n < 2) return;
   gridLines(g, L, R, T, B, 4, 6);
-  g.fillStyle = C.faint; g.font = '10px system-ui'; g.textAlign = 'right';
+  g.fillStyle = C.faint; g.font = '600 10px system-ui'; g.textAlign = 'right';
   g.fillText('90\u00b0', L - 5, T + 8); g.fillText('0', L - 5, B);
 
   g.strokeStyle = '#ef9d00'; g.lineWidth = 2; g.beginPath();
@@ -1155,7 +1155,7 @@ function drawPlannedMap() {
     }
   }
 
-  g.fillStyle = C.muted; g.font = '12px system-ui';
+  g.fillStyle = C.muted; g.font = '600 12px system-ui';
   g.textAlign = 'center';
   speeds.forEach((rpm, col) => g.fillText(String(rpm), L + (col + .5) * cw, B + 18));
   g.fillText('speed, rpm', (L + R) / 2, narrow ? B + 36 : h - 4);
@@ -1185,13 +1185,13 @@ function drawPlannedMap() {
       : narrow ? keyY + 20 + Math.floor(k / 2) * 20
       : keyY + 20 + k * 24;
     g.fillStyle = colour; g.fillRect(x, y - 9, 13, 13);
-    g.fillStyle = C.muted; g.font = '12.5px system-ui';
+    g.fillStyle = C.muted; g.font = '600 12.5px system-ui';
     g.fillText(label, x + 20, y + 2);
   });
   // On a phone the paragraph above already says none are filled in, so the
   // counter is dropped rather than squeezed on top of the key.
   if (!tiny) {
-    g.fillStyle = C.muted; g.font = '11.5px system-ui';
+    g.fillStyle = C.muted; g.font = '600 11.5px system-ui';
     const filled = SWEEP ? speeds.filter(r => SWEEP.cases.some(k => k.control_mode === 'Sensorless' && Math.round(k.target_speed_rpm) === r)).length : 0;
     g.fillText(`24 squares \u00b7 ${filled} filled in`,
       keyX, narrow ? keyY + 60 : keyY + 20 + key.length * 24 + 10);
@@ -1284,7 +1284,7 @@ function axes(g, box, title, minY, maxY, unit) {
   const { x, y, w, h } = box;
   g.fillStyle = C.text; g.font = '600 13px system-ui'; g.textAlign = 'left'; g.fillText(title, x, y - 9);
   g.strokeStyle = C.lineStrong; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h); g.lineTo(x + w, y + h); g.stroke();
-  g.font = '11px system-ui'; g.fillStyle = C.faint;
+  g.font = '600 11px system-ui'; g.fillStyle = C.faint;
   for (let i = 0; i <= 2; i++) {
     const v = maxY - i * (maxY - minY) / 2, py = y + i * h / 2;
     g.strokeStyle = C.line; g.beginPath(); g.moveTo(x, py); g.lineTo(x + w, py); g.stroke();
@@ -1337,7 +1337,7 @@ function drawRigChart() {
       g.fillStyle = '#b8278f'; g.fillText('sensorless', R - 74, 16);
     }
     if (i === panels.length - 1) {
-      g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '11px system-ui';
+      g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '600 11px system-ui';
       speeds.filter((_, k) => k % 4 === 0).forEach(r => g.fillText(r, X(r), y + panelH + 17));
       g.fillText('commanded speed (rpm)', (L + R) / 2, y + panelH + 34);
     }
@@ -1357,7 +1357,7 @@ function drawRigSimChart() {
   const X = rpm => a.X((rpm - lo) / Math.max(hi - lo, 1) * box.w);
   plotSeries(g, speeds.map((r, k) => [r, RIG.sim.sensorless.angle_rms_deg[k]]),
     X, a.Y, '#b8278f', false);
-  g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '11px system-ui';
+  g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '600 11px system-ui';
   speeds.filter((_, k) => k % 4 === 0).forEach(r => g.fillText(r, X(r), B + 17));
   g.fillText('commanded speed (rpm)', (L + R) / 2, B + 34);
   g.textAlign = 'right'; g.fillStyle = C.muted; g.font = '600 12px system-ui';
@@ -1384,7 +1384,7 @@ function drawStartup() {
   plotSeries(g, t.map((v, i) => [v, STARTUP.estimated_speed_rpm[i]]), X, a.Y, '#ef9d00', true);
   const i = Number($('startup-scrub').value), x = X(t[i]);
   g.strokeStyle = C.text; g.lineWidth = 1; g.beginPath(); g.moveTo(x, T); g.lineTo(x, B); g.stroke();
-  g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '11px system-ui'; [0, .4, .8, 1.2, 1.6].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
+  g.fillStyle = C.faint; g.textAlign = 'center'; g.font = '600 11px system-ui'; [0, .4, .8, 1.2, 1.6].forEach(v => g.fillText(v.toFixed(1), X(v), B + 17)); g.fillText('time (s)', (L + R) / 2, B + 35);
   $('startup-time').textContent = t[i].toFixed(3) + ' s';
   $('startup-readout').innerHTML = [
     ['Control phase', startupPhase(i)], ['True speed', STARTUP.true_speed_rpm[i].toFixed(1) + ' rpm'],
@@ -1836,7 +1836,7 @@ function drawGame() {
   if (game.mode === 'sensorless' && shownRotor === null && (game.running || game.over)) {
     g.textAlign = 'center'; g.fillStyle = '#ef9d00'; g.font = 'bold 14px system-ui';
     g.fillText('no estimate below ' + PHYSICS.estimatorMinRpm + ' rpm', cx, cy - r * 1.35);
-    g.fillStyle = C.muted; g.font = '12px system-ui';
+    g.fillStyle = C.muted; g.font = '600 12px system-ui';
     g.fillText('push it round blind until the dashed arrow appears', cx, cy - r * 1.35 + 18);
   }
 
@@ -1874,17 +1874,17 @@ function drawGame() {
   g.fillStyle = C.panel; g.fillRect(bx, hy, bw, 8);
   g.fillStyle = game.heat > .7 ? '#ff1f4f' : C.faint;
   g.fillRect(bx, hy, bw * game.heat, 8);
-  g.fillStyle = C.muted; g.font = '11px system-ui'; g.textAlign = 'left';
+  g.fillStyle = C.muted; g.font = '600 11px system-ui'; g.textAlign = 'left';
   g.fillText('heat from the current you are wasting', bx, hy + 19);
 
   const rpmNow = gameRpm();
   g.textAlign = 'right'; g.font = 'bold 20px system-ui';
   g.fillStyle = Math.abs(rpmNow) < 1 ? C.muted : rpmNow > 0 ? C.text : '#ef9d00';
   g.fillText(Math.round(rpmNow) + ' rpm', bx + bw, hy + 30);
-  g.textAlign = 'left'; g.fillStyle = C.muted; g.font = '12px system-ui';
+  g.textAlign = 'left'; g.fillStyle = C.muted; g.font = '600 12px system-ui';
   g.fillText('best this run ' + Math.round(game.best) + ' rpm \u00b7 '
     + runRemaining().toFixed(1) + ' s left', bx, hy + 19);
-  g.fillStyle = C.faint; g.font = '11.5px system-ui';
+  g.fillStyle = C.faint; g.font = '600 11.5px system-ui';
   g.fillText('torque angle ' + Math.round(game.rotor.delta * 180 / Math.PI) + '\u00b0 \u00b7 '
     + 'torque ' + (game.kept >= 0 ? '+' : '\u2212')
     + Math.round(Math.abs(game.kept) * 100) + ' %', bx, hy + 36);
@@ -1897,7 +1897,7 @@ function drawGame() {
     const n = Math.ceil(game.countdown);
     g.fillStyle = '#00b377'; g.font = 'bold ' + Math.round(r * 1.1) + 'px system-ui';
     g.fillText(n > 0 ? String(n) : 'GO', cx, cy + r * 0.38);
-    g.fillStyle = C.text; g.font = '13px system-ui';
+    g.fillStyle = C.text; g.font = '600 13px system-ui';
     g.fillText('get your finger on the motor', cx, cy + r * 1.3);
   }
 
@@ -1911,7 +1911,7 @@ function drawGame() {
   }
 
   if (!game.running && !game.over) {
-    g.textAlign = 'center'; g.fillStyle = C.muted; g.font = '13px system-ui';
+    g.textAlign = 'center'; g.fillStyle = C.muted; g.font = '600 13px system-ui';
     g.fillText('press Start, then drag around the motor to spin it up', cx, h - 14);
   }
 
@@ -1924,7 +1924,7 @@ function drawGame() {
     g.textAlign = 'center';
     g.fillStyle = C.text; g.font = 'bold 19px system-ui';
     g.fillText(Math.round(game.best) + ' rpm', cx, py + 28);
-    g.fillStyle = C.muted; g.font = '12.5px system-ui';
+    g.fillStyle = C.muted; g.font = '600 12.5px system-ui';
     g.fillText('max motor speed \u00b7 ' + percent.toFixed(0)
       + ' % of the torque on average', cx, py + 50);
   }

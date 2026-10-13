@@ -35,32 +35,79 @@
    top right, remembered per browser, and defaulting to whatever the device
    already prefers. */
 :root[data-theme="dark"]{
-  --bg:#0e0e34; --bg-2:#090922; --panel:#161642; --panel-2:#1c1d55;
-  --line:#2a2b66; --line-strong:#3a3c86;
-  --text:#f7f6f7; --muted:#a9add4; --faint:#6e72a8;
-  --accent:#c661ab; --accent-soft:#e08fc9; --accent-dim:#46213d;
-  --cyan:#6f9bf0; --cyan-dim:#27365e;
-  --magnet:#ff4d6d; --current:#2ee6a8; --warn:#f2b134; --bad:#ff4d6d;
-  --ok:#2ee6a8; --out:#2ee6a8; --cu:#e8709a; --fric:#6f9bf0;
-  --spectrum:linear-gradient(118deg,#3a46c8 0%,#c661ab 52%,#6f9bf0 100%);
+  --bg:#080822; --bg-2:#0b0b2b; --panel:#151648; --panel-2:#202260;
+  --line:#383b86; --line-strong:#686dcc;
+  --text:#ffffff; --muted:#d7daf4; --faint:#b3b8df;
+  --accent:#ec68c4; --accent-soft:#ff9ade; --accent-dim:#532650;
+  --cyan:#83b5ff; --cyan-dim:#263f79;
+  --magnet:#ff5f7d; --current:#42efb5; --warn:#ffc857; --bad:#ff5f7d;
+  --ok:#42efb5; --out:#42efb5; --cu:#ff7eaa; --fric:#83b5ff;
+  --spectrum:linear-gradient(118deg,#6574ff 0%,#ec68c4 52%,#83b5ff 100%);
 }
 :root[data-theme="dark"] body{
   background-image:
-    radial-gradient(1100px 620px at 88% 0%,rgba(37,46,138,.38) 0%,transparent 64%),
-    radial-gradient(900px 520px at 4% 8%,rgba(154,77,135,.16) 0%,transparent 62%)}
+    radial-gradient(1100px 620px at 88% 0%,rgba(73,84,205,.48) 0%,transparent 64%),
+    radial-gradient(900px 520px at 4% 8%,rgba(207,73,169,.24) 0%,transparent 62%)}
 :root[data-theme="dark"] header{
   background:
-    radial-gradient(900px 420px at 12% -40%,rgba(154,77,135,.30) 0%,transparent 70%),
-    radial-gradient(760px 380px at 82% -60%,rgba(37,46,138,.45) 0%,transparent 72%)}
-:root[data-theme="dark"] .tabs{background:rgba(14,14,52,.86)}
+    radial-gradient(900px 420px at 12% -40%,rgba(236,104,196,.34) 0%,transparent 70%),
+    radial-gradient(760px 380px at 82% -60%,rgba(101,116,255,.50) 0%,transparent 72%)}
+:root[data-theme="dark"] .tabs{background:rgba(8,8,34,.94)}
 :root[data-theme="dark"] .plot-card{
-  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 40px -28px #000}
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 22px 46px -28px #000}
 :root[data-theme="dark"] button:hover{background:#23245e;color:#fff}
 :root[data-theme="dark"] .primary-btn.ghost:hover{background:#23245e;color:#fff}
 :root[data-theme="dark"] .source-note.measured{background:rgba(46,230,168,.09)}
 :root[data-theme="dark"] .evidence.measured{background:rgba(46,230,168,.08)}
 :root[data-theme="dark"] .evidence.simulated{background:rgba(111,155,240,.10)}
 :root[data-theme="dark"] .numbers-card.callout{background:rgba(198,97,171,.12)}
+
+/* High-contrast exhibition treatment. The dashboard is shown in a bright room,
+   so every interactive surface and every text tier must remain legible at a
+   distance. These selectors are deliberately theme-scoped: no native/light
+   button surface can bleed into the dark presentation. */
+:root[data-theme="dark"] :where(.plot-card,.verdict-card,.controls,.power,.numbers-card,
+  .sweep-card,.kpi,.evidence,.game-hosted){
+  background:linear-gradient(145deg,rgba(35,37,103,.98),rgba(19,20,67,.98));
+  border-color:var(--line-strong);
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 18px 42px -30px #000}
+:root[data-theme="dark"] :where(h1,h2,h3,.panel-title,.why-head,.game-bar-title,
+  .choice-q,.sweep-label,.result-statement){
+  color:var(--text);font-weight:800;text-shadow:0 1px 16px rgba(131,181,255,.16)}
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] .panel-title,
+:root[data-theme="dark"] .sweep-label{color:var(--accent-soft)}
+:root[data-theme="dark"] :where(.sub,.tagline,.caption,.hint,.explain,.why-list,
+  .method-lede,.limits,.game-bar-note,.launch-lead,.source-note,.evidence p,
+  .ptable td,.timeline span,.numbers span){
+  color:var(--muted);font-weight:600}
+:root[data-theme="dark"] :where(.partbar button,.why-steps button,.why-nav button,
+  .zoom-row button,.sound-btn,.theme-btn,.primary-btn.ghost){
+  background:linear-gradient(180deg,#2b2e78 0%,#1c1e55 100%);
+  border-color:var(--line-strong);color:var(--text);font-weight:750;
+  box-shadow:0 1px 0 rgba(255,255,255,.10) inset,0 5px 14px rgba(0,0,0,.16)}
+:root[data-theme="dark"] :where(.partbar button,.why-steps button,.why-nav button,
+  .zoom-row button,.sound-btn,.theme-btn,.primary-btn.ghost):hover{
+  background:linear-gradient(180deg,#3a3f91 0%,#292c72 100%);
+  border-color:var(--current);color:#fff}
+:root[data-theme="dark"] .primary-btn:not(.ghost){
+  background:linear-gradient(135deg,#ec68c4,#a947d4);
+  border-color:#ff9ade;color:#fff;
+  box-shadow:0 0 0 1px rgba(255,154,222,.12),0 10px 24px rgba(236,104,196,.16)}
+:root[data-theme="dark"] .primary-btn:not(.ghost):hover{
+  background:linear-gradient(135deg,#ff7dd0,#bd59e7);border-color:#fff}
+:root[data-theme="dark"] .partbar button.active,
+:root[data-theme="dark"] .why-steps button.active{
+  background:linear-gradient(180deg,rgba(31,111,94,.96),rgba(20,69,67,.98));
+  border-color:var(--current);color:#fff;
+  box-shadow:0 0 0 1px rgba(66,239,181,.16),0 0 18px rgba(66,239,181,.16)}
+:root[data-theme="dark"] .tab{color:var(--muted);font-weight:800}
+:root[data-theme="dark"] .tab:is(:hover,[aria-selected=true]){color:#fff}
+:root[data-theme="dark"] :where(.verdict,.sweep-mode,.mode-badge span,.eyebrow){font-weight:800}
+:root[data-theme="dark"] :where(.numbers b,.power p b,.result-kpis b,.kpi b,
+  .heat-row b,.scrubber b){color:#fff;font-weight:800}
+:root[data-theme="dark"] :where(.ptable th,.result-kpis span,.kpi span,
+  .evidence-tag,.heat-row span){color:var(--muted);font-weight:750}
 
 
 /* Numbers are read at a glance from a metre away. */
@@ -70,7 +117,7 @@
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
-  font:16px/1.55 var(--body);
+  font:500 16px/1.55 var(--body);text-rendering:optimizeLegibility;
   background-attachment:fixed;
   background-image:
     radial-gradient(1100px 620px at 88% 0%,rgba(42,95,217,.10) 0%,transparent 64%),
@@ -86,7 +133,7 @@ header::after{content:none}
 .eyebrow{margin:0;color:var(--accent-soft);font-family:var(--display);font-size:13px;
   letter-spacing:.24em;font-weight:700;text-transform:uppercase}
 h1{margin:8px 0 10px;font-family:var(--display);font-size:clamp(38px,4.4vw,56px);
-  line-height:1.0;font-weight:700;letter-spacing:-.015em;text-transform:uppercase;
+  line-height:1.0;font-weight:800;letter-spacing:-.015em;text-transform:uppercase;
   max-width:19ch}
 .sub{margin:0;color:var(--muted);max-width:70ch}
 .mode-badge{flex-shrink:0;text-align:right;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
@@ -114,7 +161,7 @@ main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:22
   font-family:var(--display);font-size:1.08em}
 input[type=range]{width:100%;margin-top:8px;accent-color:var(--accent);height:26px}
 button{background:var(--panel-2);color:var(--text);border:1px solid var(--line-strong);
-  border-radius:3px;padding:11px 16px;font:inherit;font-weight:650;cursor:pointer;
+  border-radius:3px;padding:11px 16px;font:inherit;font-weight:750;cursor:pointer;
   letter-spacing:.02em;transition:background .12s,border-color .12s,color .12s}
 button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 button:active{transform:translateY(1px)}
@@ -123,7 +170,7 @@ button:active{transform:translateY(1px)}
 .primary-btn.ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
 .primary-btn.ghost:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 h2{margin:0 0 10px;font-family:var(--display);font-size:16px;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--accent-soft);font-weight:700}
+  text-transform:uppercase;color:var(--accent-soft);font-weight:800}
 .bar{height:12px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:6px 0 2px}
 .fill{display:block;height:100%;width:0;transition:width .12s linear}
 .fill.out{background:var(--out)} .fill.cu{background:var(--cu)} .fill.fric{background:var(--fric)}
@@ -211,7 +258,7 @@ body[data-mode=kiosk] .stage3d{height:620px}
 /* Part picker under the 3D view */
 .partbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .partbar button{background:var(--panel-2);color:var(--text);border:1px solid var(--line-strong);border-radius:999px;
-  padding:6px 13px;font:500 13.5px system-ui;cursor:pointer}
+  padding:7px 14px;font:750 13.5px system-ui;cursor:pointer}
 .partbar button:hover{border-color:var(--current);color:var(--text)}
 .partbar button.active{background:color-mix(in srgb,var(--current) 14%,var(--panel));border-color:var(--current);color:var(--text)}
 body[data-mode=kiosk] .partbar button{font-size:15.5px;padding:8px 16px}
