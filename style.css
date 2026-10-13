@@ -429,21 +429,52 @@ body[data-mode=kiosk] .script-line{font-size:17.5px}
    a narrow laptop window gets the same treatment and nothing has to be guessed.
    The QR code on the stand sends people straight here, so it has to work. */
 @media (max-width: 760px) {
-  header{flex-direction:column;gap:12px;padding:16px 16px 12px}
-  .header-right{width:100%;justify-content:space-between}
-  .eyebrow{font-size:10px;letter-spacing:.12em}
-  h1{font-size:25px;margin:4px 0 6px}
-  .tagline{font-size:15px}
-  .sub{font-size:14.5px}
-  main{padding:14px 16px;gap:16px}
-  .plot-card{padding:10px}
-  .tabs{gap:4px;padding:10px 16px 0;overflow-x:auto;scrollbar-width:none}
+  html{-webkit-text-size-adjust:100%;scroll-padding-top:56px}
+  body{overflow-x:hidden;font-size:16px}
+  header{flex-direction:column;gap:14px;
+    padding:18px max(16px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left))}
+  .header-right{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:8px}
+  .mode-badge,.sound-btn{width:100%;min-height:52px;text-align:center;align-items:center;
+    justify-content:center;padding:8px 10px}
+  .eyebrow{font-size:10.5px;line-height:1.45;letter-spacing:.12em}
+  h1{font-size:clamp(28px,10vw,38px);margin:5px 0 8px;max-width:13ch}
+  .tagline{font-size:16px;line-height:1.45}
+  .sub{font-size:15px;line-height:1.55}
+  main{grid-template-columns:minmax(0,1fr);padding:14px max(12px,env(safe-area-inset-right)) 18px max(12px,env(safe-area-inset-left));gap:16px}
+  main > *,section,.side,.plot-card,.numbers-card{min-width:0}
+  .plot-card{padding:12px;border-radius:8px}
+  .tabs{gap:2px;padding:0 max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left));
+    overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;
+    overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
+    box-shadow:0 8px 24px rgba(0,0,0,.20)}
   .tabs::-webkit-scrollbar{display:none}
-  .tab{padding:9px 12px;font-size:13.5px;white-space:nowrap}
+  .tab{flex:0 0 auto;min-height:50px;padding:12px 13px 10px;font-size:13.5px;
+    white-space:nowrap;scroll-snap-align:start}
+
+  .caption,.hint,.explain,.why-list,.method-lede,.limits.big li,
+  .evidence p,.source-note{font-size:15px;line-height:1.6}
+  h2,.panel-title{font-size:15px;line-height:1.35;letter-spacing:.1em}
+  .result-statement{font-size:clamp(25px,8.5vw,33px);max-width:100%}
+  button,.primary-btn{min-height:48px}
+  .partbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .partbar button{width:100%;min-height:44px;padding:7px 9px;white-space:normal;
+    line-height:1.25;text-align:center}
+  .why-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .why-steps button{min-height:44px;white-space:normal}
+  .numbers div{align-items:flex-start;gap:12px;padding:8px 0}
+  .numbers span{min-width:0;line-height:1.35}
+  .numbers b{text-align:right;white-space:nowrap}
+  .evidence-pair,.game-below{grid-template-columns:minmax(0,1fr)}
+  .kpi-row{grid-template-columns:minmax(0,1fr);gap:10px}
+  .kpi{padding:15px 16px}
+  .kpi b{font-size:38px}
+  .ptable{font-size:13.5px}
+  .ptable th,.ptable td{padding:8px 7px;overflow-wrap:anywhere}
 
   /* Stages: shorter, because a phone screen is tall and narrow and the rest of
      the page has to be reachable without endless scrolling. */
-  .stage3d{height:300px}
+  .stage3d{height:clamp(300px,58vh,430px)}
+  .inside-stage{height:clamp(250px,48vh,360px)}
   #sbs-stage{height:290px}
   #envelope{height:340px}
   #rotor,#scope{height:300px}
@@ -454,15 +485,16 @@ body[data-mode=kiosk] .script-line{font-size:17.5px}
   #planned-map{height:380px}
 
   .heat-row{grid-template-columns:1fr;gap:8px}
-  .verdict{font-size:19px}
+  .verdict{font-size:22px;line-height:1.15}
   .verdict-card,.controls,.numbers-card{padding:13px 14px}
   .chain li{grid-template-columns:22px 1fr;row-gap:2px}
   .chain li span{grid-column:2}
   .ptable td:nth-child(3){display:none}      /* keep the quantity and the value */
-  .partbar button{font-size:12.5px;padding:5px 10px}
+  .partbar button{font-size:13.5px}
   .sound-btn{padding:6px 10px;font-size:12px}
   .sound-btn small{display:none}
   .script-line{font-size:14.5px}
+  footer{padding:8px 16px calc(24px + env(safe-area-inset-bottom))}
 }
 
 /* Very small phones: give the 3D a little more height back, since by then the
@@ -471,6 +503,8 @@ body[data-mode=kiosk] .script-line{font-size:17.5px}
   h1{font-size:22px}
   .stage3d{height:260px}
   #sbs-stage{height:250px}
+  .result-kpis{grid-template-columns:1fr}
+  .partbar,.why-steps{grid-template-columns:1fr}
 }
 
 /* Beat the controller */
@@ -641,3 +675,36 @@ body[data-mode=kiosk] .game-pair .game-stage{height:480px}
 .lb-list li i{grid-column:2/4;color:var(--faint);font-style:normal;font-size:12px}
 .lb-list li.empty{grid-template-columns:1fr;color:var(--faint)}
 .lb-list li.empty::before{content:''}
+
+/* Final responsive stage sizing lives at the end of the cascade because the
+   desktop exhibit rules above intentionally come after the general phone
+   layout. This makes portrait and landscape behaviour deterministic. */
+@media (max-width:760px) {
+  .stage3d{height:clamp(300px,58vh,430px)}
+  .inside-stage{height:clamp(250px,48vh,360px)}
+  #sbs-stage{height:clamp(280px,54vh,390px)}
+  #rotor,#scope{height:clamp(290px,54vh,390px)}
+  .game-pair #game,.game-pair .game-stage{height:clamp(290px,54vh,380px)}
+}
+
+/* A phone turned sideways has plenty of width but very little height. Keep the
+   navigation and controls reachable, then shorten the animated stages so the
+   explanation below them does not disappear several screens away. */
+@media (orientation:landscape) and (max-height:600px) and (max-width:1000px) {
+  header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
+    gap:16px;padding:12px max(18px,env(safe-area-inset-right)) 10px max(18px,env(safe-area-inset-left))}
+  header > div:first-child{min-width:0}
+  .header-right{display:flex;width:auto;min-width:250px}
+  .mode-badge,.sound-btn{width:auto;min-width:116px;min-height:46px}
+  .eyebrow{font-size:9.5px}
+  h1{font-size:30px;margin:3px 0 4px;max-width:none}
+  .tagline{font-size:14px;margin:0}
+  header .sub{display:none}
+  .tab{min-height:44px;padding:10px 13px 8px;font-size:12.5px}
+  main{padding-top:10px}
+  .stage3d{height:72vh;min-height:270px;max-height:390px}
+  .inside-stage{height:62vh;min-height:240px;max-height:330px}
+  #sbs-stage,#rotor,#scope{height:68vh;min-height:260px;max-height:360px}
+  #rig-graphs,#sbs-graphs{height:230px}
+  .game-embed-wrap{height:calc(100vh - 78px);min-height:330px}
+}
