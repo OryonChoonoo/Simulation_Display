@@ -31,6 +31,37 @@
             "Helvetica Neue",system-ui,sans-serif;
   --body:system-ui,-apple-system,"Segoe UI",sans-serif;
 }
+/* Dark, the same spectrum on ink instead of paper. Chosen by the toggle at the
+   top right, remembered per browser, and defaulting to whatever the device
+   already prefers. */
+:root[data-theme="dark"]{
+  --bg:#0e0e34; --bg-2:#090922; --panel:#161642; --panel-2:#1c1d55;
+  --line:#2a2b66; --line-strong:#3a3c86;
+  --text:#f7f6f7; --muted:#a9add4; --faint:#6e72a8;
+  --accent:#c661ab; --accent-soft:#e08fc9; --accent-dim:#46213d;
+  --cyan:#6f9bf0; --cyan-dim:#27365e;
+  --magnet:#ff4d6d; --current:#2ee6a8; --warn:#f2b134; --bad:#ff4d6d;
+  --ok:#2ee6a8; --out:#2ee6a8; --cu:#e8709a; --fric:#6f9bf0;
+  --spectrum:linear-gradient(118deg,#3a46c8 0%,#c661ab 52%,#6f9bf0 100%);
+}
+:root[data-theme="dark"] body{
+  background-image:
+    radial-gradient(1100px 620px at 88% 0%,rgba(37,46,138,.38) 0%,transparent 64%),
+    radial-gradient(900px 520px at 4% 8%,rgba(154,77,135,.16) 0%,transparent 62%)}
+:root[data-theme="dark"] header{
+  background:
+    radial-gradient(900px 420px at 12% -40%,rgba(154,77,135,.30) 0%,transparent 70%),
+    radial-gradient(760px 380px at 82% -60%,rgba(37,46,138,.45) 0%,transparent 72%)}
+:root[data-theme="dark"] .tabs{background:rgba(14,14,52,.86)}
+:root[data-theme="dark"] .plot-card{
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 40px -28px #000}
+:root[data-theme="dark"] button:hover{background:#23245e;color:#fff}
+:root[data-theme="dark"] .primary-btn.ghost:hover{background:#23245e;color:#fff}
+:root[data-theme="dark"] .source-note.measured{background:rgba(46,230,168,.09)}
+:root[data-theme="dark"] .evidence.measured{background:rgba(46,230,168,.08)}
+:root[data-theme="dark"] .evidence.simulated{background:rgba(111,155,240,.10)}
+:root[data-theme="dark"] .numbers-card.callout{background:rgba(198,97,171,.12)}
+
 
 /* Numbers are read at a glance from a metre away. */
 .num,.numbers b,.power p b,.controls label b,.lb-list b{
@@ -499,6 +530,14 @@ a.play-link:hover{background:#a01f7c;border-color:#a01f7c}
 @media(max-width:760px){#game-kart{height:78px}}
 
 .game-pair figure{margin:0;min-width:0}
+/* The light/dark toggle sits with the other header controls. */
+.theme-btn{display:flex;flex-direction:column;align-items:center;gap:0;
+  padding:8px 14px;border-radius:4px;line-height:1.15}
+.theme-btn span{font-family:var(--display);font-weight:700;font-size:14px;
+  letter-spacing:.08em;text-transform:uppercase}
+.theme-btn small{color:var(--muted);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase}
+
 /* The rig gets the taller panel: it is the first thing anyone sees. */
 .stage3d{height:600px}
 @media(max-width:1100px){.stage3d{height:460px}}

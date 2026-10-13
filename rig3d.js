@@ -2,6 +2,7 @@
    the motor. Geometry is built from primitives at roughly rig scale: it is an
    illustration of the setup, not a CAD model, and not measured data. */
 import * as THREE from './vendor/three.module.js';
+import { C, onTheme } from './palette.js';
 import { buildFocMachine, labelSprite } from './focmachine.js';
 
 const V = THREE.MathUtils;
@@ -735,7 +736,10 @@ function partAt(e, pane) {
 }
 
 export function init(container, insideContainer) {
-  scene = new THREE.Scene(); scene.background = new THREE.Color(0xf4f3fc);
+  scene = new THREE.Scene(); scene.background = new THREE.Color(C.panelHex);
+  // The scene's ground follows the page, so the machine never sits on a
+  // slab of the wrong colour when the theme changes.
+  onTheme(() => { if (scene) scene.background = new THREE.Color(C.panelHex); });
   scene.add(new THREE.HemisphereLight(0xfff1e0, 0xcdcddb, 1.15));
   const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(.6, 1, .8);
   key.castShadow = true;

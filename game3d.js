@@ -7,6 +7,7 @@
    ones, which is the thing the whole page is about. */
 
 import * as THREE from './vendor/three.module.js';
+import { C, onTheme } from './palette.js';
 import { buildFocMachine, labelSprite } from './focmachine.js';
 
 let renderer, scene, camera, host, machine, clock;
@@ -44,7 +45,10 @@ function aimFrom(event) {
 export function init(container) {
   host = container;
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
+  scene.background = new THREE.Color(C.panelHex);
+  // The scene's ground follows the page, so the machine never sits on a
+  // slab of the wrong colour when the theme changes.
+  onTheme(() => { if (scene) scene.background = new THREE.Color(C.panelHex); });
   camera = new THREE.PerspectiveCamera(42, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));

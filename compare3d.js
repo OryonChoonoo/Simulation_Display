@@ -11,6 +11,7 @@
    coils at low speed, which is the thing the whole investigation is about. */
 
 import * as THREE from './vendor/three.module.js';
+import { C, onTheme } from './palette.js';
 import { buildFocMachine, labelSprite, calloutSprite, leader } from './focmachine.js';
 
 let renderer, scene, camera, clock, host, left, right, leftNote, rightNote;
@@ -24,7 +25,10 @@ const HOME = { yaw: .42, pitch: .33, zoom: 1 };
 export function init(container) {
   host = container;
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
+  scene.background = new THREE.Color(C.panelHex);
+  // The scene's ground follows the page, so the machine never sits on a
+  // slab of the wrong colour when the theme changes.
+  onTheme(() => { if (scene) scene.background = new THREE.Color(C.panelHex); });
   camera = new THREE.PerspectiveCamera(40, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.shadowMap.enabled = true;
