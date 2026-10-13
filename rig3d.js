@@ -16,8 +16,8 @@ let panes = [];
 const START = { rig: { yaw: 0.75, pitch: 0.22 }, inside: { yaw: Math.PI / 2 - .8, pitch: 0.30 } };
 let opts = { rpm: 400, sensorless: false, errorDeg: 0, slow: 0.04, heat: 0 };
 
-const COLOUR = { steel: 0x8282af, dark: 0x28283f, pcb: 0x0c6b52, magnetN: 0xff4d6d, magnetS: 0x555585,
-  copper: 0xf2b134, current: 0x2ee6a8, estimate: 0xf2b134, cable: 0xff4d6d, power: 0xf2b134, signal: 0x5a7fc8 };
+const COLOUR = { steel: 0x626287, dark: 0xc1c1d2, pcb: 0x9fe3c8, magnetN: 0xff1f4f, magnetS: 0x8989aa,
+  copper: 0xef9d00, current: 0x00b377, estimate: 0xef9d00, cable: 0xff1f4f, power: 0xef9d00, signal: 0x2a5fd9 };
 
 // Every mesh built while `tagging` is set belongs to that part of the rig, which is
 // what makes the rig itself clickable rather than a diagram beside it.
@@ -53,9 +53,9 @@ function tube(points, radius, colour) {
 
 // Fasteners and cable hardware, small enough that they only register as texture from
 // a distance but make the rig read as a built object close up.
-function bolt(x, y, z, r = .0035, h = .004, colour = 0x9292b9) { return cyl(r, h, colour, x, y, z, null, 8); }
-function tieWrap(x, y, z) { return box(.008, .008, .003, 0x13133a, x, y, z); }
-function label(w, h, x, y, z, colour = 0xd7d7e5) { return box(w, h, .0012, colour, x, y, z); }
+function bolt(x, y, z, r = .0035, h = .004, colour = 0x59597b) { return cyl(r, h, colour, x, y, z, null, 8); }
+function tieWrap(x, y, z) { return box(.008, .008, .003, 0xf2f1fb, x, y, z); }
+function label(w, h, x, y, z, colour = 0x313144) { return box(w, h, .0012, colour, x, y, z); }
 
 // The operator's screen: a small dashboard drawn to a canvas and used as a
 // texture, so the monitor in the scene shows something worth reading rather than
@@ -76,10 +76,10 @@ function makeScreenTexture() {
 const speedHistory = [];
 
 function panelBox(g, x, y, w, h, title) {
-  g.fillStyle = '#161642'; g.fillRect(x, y, w, h);
-  g.strokeStyle = '#222235'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  g.fillStyle = '#ffffff'; g.fillRect(x, y, w, h);
+  g.strokeStyle = '#c9c9d8'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
   if (title) {
-    g.fillStyle = '#5e5e91'; g.font = '600 13px system-ui'; g.textAlign = 'left';
+    g.fillStyle = '#7f7fa2'; g.font = '600 13px system-ui'; g.textAlign = 'left';
     g.fillText(title, x + 12, y + 21);
   }
 }
@@ -96,29 +96,29 @@ function drawScreen(t) {
   speedHistory.push(rpm * (1 - 0.04 * Math.sin(t * 3.1) * (opts.sensorless ? 4 : 1)));
   if (speedHistory.length > 150) speedHistory.shift();
 
-  g.fillStyle = '#0e0e34'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#f7f6f7'; g.fillRect(0, 0, W, H);
 
   // ---- title bar --------------------------------------------------------------
-  g.fillStyle = '#191947'; g.fillRect(0, 0, W, 46);
-  g.fillStyle = '#2ee6a8'; g.font = 'bold 21px system-ui'; g.textAlign = 'left';
+  g.fillStyle = '#eae9f7'; g.fillRect(0, 0, W, 46);
+  g.fillStyle = '#00b377'; g.font = 'bold 21px system-ui'; g.textAlign = 'left';
   g.fillText("LET'S TORQUE CONTROL", 18, 31);
-  g.fillStyle = '#28283f'; g.fillRect(286, 11, 1, 24);
-  g.fillStyle = opts.sensorless ? '#f2b134' : '#9292b9'; g.font = '15px system-ui';
+  g.fillStyle = '#c1c1d2'; g.fillRect(286, 11, 1, 24);
+  g.fillStyle = opts.sensorless ? '#ef9d00' : '#59597b'; g.font = '15px system-ui';
   g.fillText(opts.sensorless ? 'SENSORLESS \u00b7 angle estimated from back-EMF'
                              : 'SENSORED \u00b7 encoder feedback', 304, 30);
-  g.fillStyle = '#5e5e91'; g.font = '13px system-ui'; g.textAlign = 'right';
+  g.fillStyle = '#7f7fa2'; g.font = '13px system-ui'; g.textAlign = 'right';
   const mm = String(Math.floor(t / 60)).padStart(2, '0'), ss = String(Math.floor(t % 60)).padStart(2, '0');
   g.fillText('elapsed ' + mm + ':' + ss, W - 86, 29);
-  g.fillStyle = (t % 2) < 1.4 ? '#2ee6a8' : '#0e3a33';
+  g.fillStyle = (t % 2) < 1.4 ? '#00b377' : '#cdf0e1';
   g.beginPath(); g.arc(W - 62, 23, 6, 0, 7); g.fill();
-  g.fillStyle = '#5e5e91'; g.fillText('REC', W - 20, 28);
+  g.fillStyle = '#7f7fa2'; g.fillText('REC', W - 20, 28);
 
   const LX = 14, LW = 224, RX = LX + LW + 12, RW = W - RX - 14;
 
   // ---- rotor dial ---------------------------------------------------------------
   panelBox(g, LX, 54, LW, 176, 'ROTOR AND CURRENT');
   const dx = LX + LW / 2, dy = 150, dr = 56;
-  g.strokeStyle = '#2c2c45'; g.lineWidth = 1.5;
+  g.strokeStyle = '#bcbccf'; g.lineWidth = 1.5;
   g.beginPath(); g.arc(dx, dy, dr, 0, 7); g.stroke();
   for (let k = 0; k < 12; k++) {
     const a = k * Math.PI / 6;
@@ -137,13 +137,13 @@ function drawScreen(t) {
     g.beginPath(); g.moveTo(dx, dy);
     g.arc(dx, dy, dr - 10, -(theta + Math.PI / 2 + err), -(theta + Math.PI / 2)); g.fill();
   }
-  vec(theta, dr - 12, '#ff4d6d', 5);
-  if (err > .02) vec(theta + Math.PI / 2, dr - 12, '#1a6b57', 3);
-  vec(theta + Math.PI / 2 + err, dr - 12, err > .02 ? '#f2b134' : '#2ee6a8', 5);
-  g.fillStyle = '#555585'; g.beginPath(); g.arc(dx, dy, 6, 0, 7); g.fill();
-  g.fillStyle = '#ff4d6d'; g.font = '11px system-ui'; g.textAlign = 'center';
+  vec(theta, dr - 12, '#ff1f4f', 5);
+  if (err > .02) vec(theta + Math.PI / 2, dr - 12, '#9fe3c8', 3);
+  vec(theta + Math.PI / 2 + err, dr - 12, err > .02 ? '#ef9d00' : '#00b377', 5);
+  g.fillStyle = '#8989aa'; g.beginPath(); g.arc(dx, dy, 6, 0, 7); g.fill();
+  g.fillStyle = '#ff1f4f'; g.font = '11px system-ui'; g.textAlign = 'center';
   g.fillText('d', dx - dr - 8, dy + 4);
-  g.fillStyle = '#2ee6a8'; g.fillText('q', dx, dy - dr - 8);
+  g.fillStyle = '#00b377'; g.fillText('q', dx, dy - dr - 8);
 
   // ---- checks -------------------------------------------------------------------
   panelBox(g, LX, 238, LW, 146, 'CHECKS');
@@ -157,9 +157,9 @@ function drawScreen(t) {
   checks.forEach(([label, ok], k) => {
     const y = 266 + k * 23;
     g.textAlign = 'left';
-    g.fillStyle = ok ? '#2ee6a8' : '#ff4d6d'; g.font = 'bold 13px system-ui';
+    g.fillStyle = ok ? '#00b377' : '#ff1f4f'; g.font = 'bold 13px system-ui';
     g.fillText(ok ? '\u2713' : '\u2715', LX + 13, y);
-    g.fillStyle = ok ? '#9292b9' : '#ff4d6d'; g.font = '13px system-ui';
+    g.fillStyle = ok ? '#59597b' : '#ff1f4f'; g.font = '13px system-ui';
     g.fillText(label, LX + 32, y);
   });
 
@@ -169,15 +169,15 @@ function drawScreen(t) {
   for (let col = 0; col < 6; col++) {
     for (let row = 0; row < 4; row++) {
       const x = LX + 18 + col * 32, y = 414 + row * 17;
-      g.fillStyle = '#0e3a33'; g.fillRect(x, y, 26, 13);
-      g.fillStyle = '#2ee6a8'; g.fillRect(x, y, 26, 13);
-      g.globalAlpha = .25 + .12 * row; g.fillStyle = '#0e0e34'; g.fillRect(x, y, 26, 13);
+      g.fillStyle = '#cdf0e1'; g.fillRect(x, y, 26, 13);
+      g.fillStyle = '#00b377'; g.fillRect(x, y, 26, 13);
+      g.globalAlpha = .25 + .12 * row; g.fillStyle = '#f7f6f7'; g.fillRect(x, y, 26, 13);
       g.globalAlpha = 1;
     }
-    g.fillStyle = '#555585'; g.font = '9px system-ui'; g.textAlign = 'center';
+    g.fillStyle = '#8989aa'; g.font = '9px system-ui'; g.textAlign = 'center';
     g.fillText(speedsLabel[col], LX + 31 + col * 32, 496);
   }
-  g.fillStyle = '#555585'; g.font = '9px system-ui'; g.textAlign = 'right';
+  g.fillStyle = '#8989aa'; g.font = '9px system-ui'; g.textAlign = 'right';
   ['0', '0.5', '1.0', '2.0'].forEach((l, row) => g.fillText(l, LX + 15, 424 + row * 17));
   g.textAlign = 'left'; g.fillText('N\u00b7m', LX + 6, 412);
   g.textAlign = 'center'; g.fillText('rpm', LX + LW / 2, 507);
@@ -187,18 +187,18 @@ function drawScreen(t) {
     panelBox(g, RX, y, RW, h, title);
     const L = RX + 12, R = RX + RW - 12, T = y + 26, B = y + h - 12;
     g.save(); g.beginPath(); g.rect(L, T, R - L, B - T); g.clip();
-    g.strokeStyle = '#1c1c52'; g.lineWidth = 1;
+    g.strokeStyle = '#e5e4f4'; g.lineWidth = 1;
     for (let k = 1; k < 4; k++) { const gy = T + (B - T) * k / 4; g.beginPath(); g.moveTo(L, gy); g.lineTo(R, gy); g.stroke(); }
     for (let k = 1; k < 12; k++) { const gx = L + (R - L) * k / 12; g.beginPath(); g.moveTo(gx, T); g.lineTo(gx, B); g.stroke(); }
     draw(L, R, T, B);
     g.restore();
-    g.strokeStyle = '#2c2c45'; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
+    g.strokeStyle = '#bcbccf'; g.strokeRect(L + .5, T + .5, R - L - 1, B - T - 1);
   };
 
   plot(54, 150, 'PHASE CURRENTS   A   B   C', (L, R, T, B) => {
     const mid = (T + B) / 2, amp = (B - T) * .4 * (0.35 + 0.65 * Math.min(rpm / 1200, 1));
     for (let ph = 0; ph < 3; ph++) {
-      g.strokeStyle = ['#9a4d87', '#5a7fc8', '#58d7c8'][ph]; g.lineWidth = 2.2;
+      g.strokeStyle = ['#b8278f', '#2a5fd9', '#00b3a4'][ph]; g.lineWidth = 2.2;
       g.beginPath();
       for (let px = 0; px <= R - L; px += 3) {
         const a = px / 78 + t * 2.4 - ph * 2 * Math.PI / 3;
@@ -207,9 +207,9 @@ function drawScreen(t) {
       }
       g.stroke();
     }
-    g.strokeStyle = '#2c2c45'; g.setLineDash([3, 4]); g.lineWidth = 1;
+    g.strokeStyle = '#bcbccf'; g.setLineDash([3, 4]); g.lineWidth = 1;
     g.beginPath(); g.moveTo(L, mid); g.lineTo(R, mid); g.stroke(); g.setLineDash([]);
-    g.fillStyle = '#5e5e91'; g.font = '11px system-ui'; g.textAlign = 'right';
+    g.fillStyle = '#7f7fa2'; g.font = '11px system-ui'; g.textAlign = 'right';
     g.fillText('+' + (iq * 1.41).toFixed(1) + ' A', R - 5, T + 13);
     g.fillText('0', R - 5, mid - 3);
     g.fillText('-' + (iq * 1.41).toFixed(1) + ' A', R - 5, B - 5);
@@ -218,15 +218,15 @@ function drawScreen(t) {
   plot(212, 138, 'SHAFT SPEED   reference and measured', (L, R, T, B) => {
     const top = Math.max(...speedHistory, rpm) * 1.25 + 50;
     const yFor = v => B - (B - T) * Math.min(v / top, 1);
-    g.strokeStyle = '#555585'; g.setLineDash([6, 5]); g.lineWidth = 2;
+    g.strokeStyle = '#8989aa'; g.setLineDash([6, 5]); g.lineWidth = 2;
     g.beginPath(); g.moveTo(L, yFor(rpm)); g.lineTo(R, yFor(rpm)); g.stroke(); g.setLineDash([]);
-    g.strokeStyle = '#2ee6a8'; g.lineWidth = 2.4; g.beginPath();
+    g.strokeStyle = '#00b377'; g.lineWidth = 2.4; g.beginPath();
     speedHistory.forEach((v, k) => {
       const x = L + (R - L) * k / Math.max(speedHistory.length - 1, 1);
       k ? g.lineTo(x, yFor(v)) : g.moveTo(x, yFor(v));
     });
     g.stroke();
-    g.fillStyle = '#5e5e91'; g.font = '11px system-ui'; g.textAlign = 'right';
+    g.fillStyle = '#7f7fa2'; g.font = '11px system-ui'; g.textAlign = 'right';
     g.fillText(Math.round(top) + ' rpm', R - 5, T + 13);
     g.fillText('0', R - 5, B - 5);
   });
@@ -234,37 +234,37 @@ function drawScreen(t) {
   // ---- bars and event log --------------------------------------------------------
   panelBox(g, RX, 358, RW / 2 - 6, 152, 'LIMITS');
   const bars = [
-    ['Iq against 25 A', Math.min(iq / 25, 1), iq < 20 ? '#2ee6a8' : '#f2b134'],
-    ['Maximum duty', duty, duty < .95 ? '#2ee6a8' : '#f2b134'],
-    ['Torque kept', kept, kept > .97 ? '#2ee6a8' : kept > .8 ? '#f2b134' : '#ff4d6d'],
-    ['Copper loss share', Math.min(pCu / Math.max(pOut + pCu + pFr, .001), 1), '#5a7fc8'],
+    ['Iq against 25 A', Math.min(iq / 25, 1), iq < 20 ? '#00b377' : '#ef9d00'],
+    ['Maximum duty', duty, duty < .95 ? '#00b377' : '#ef9d00'],
+    ['Torque kept', kept, kept > .97 ? '#00b377' : kept > .8 ? '#ef9d00' : '#ff1f4f'],
+    ['Copper loss share', Math.min(pCu / Math.max(pOut + pCu + pFr, .001), 1), '#2a5fd9'],
   ];
   bars.forEach(([label, frac, col], k) => {
     const y = 388 + k * 30, bw = RW / 2 - 36;
-    g.fillStyle = '#9292b9'; g.font = '12px system-ui'; g.textAlign = 'left';
+    g.fillStyle = '#59597b'; g.font = '12px system-ui'; g.textAlign = 'left';
     g.fillText(label, RX + 12, y);
-    g.fillStyle = '#090922'; g.fillRect(RX + 12, y + 6, bw, 9);
+    g.fillStyle = '#ffffff'; g.fillRect(RX + 12, y + 6, bw, 9);
     g.fillStyle = col; g.fillRect(RX + 12, y + 6, Math.max(bw * frac, 2), 9);
-    g.fillStyle = '#5e5e91'; g.textAlign = 'right';
+    g.fillStyle = '#7f7fa2'; g.textAlign = 'right';
     g.fillText((100 * frac).toFixed(0) + '%', RX + 12 + bw, y);
   });
 
   const EX = RX + RW / 2 + 6, EW = RW / 2 - 6;
   panelBox(g, EX, 358, EW, 152, 'EVENT LOG');
   const log = opts.sensorless
-    ? [['0.000', 'bus 26.5 V, drive enabled', '#9292b9'],
-       ['0.300', 'alignment complete', '#9292b9'],
-       ['0.800', 'observer valid, handover started', '#2ee6a8'],
-       ['1.050', 'closed loop on estimated angle', '#2ee6a8'],
-       ['1.050', 'angle error above target', '#f2b134']]
-    : [['0.000', 'bus 26.5 V, drive enabled', '#9292b9'],
-       ['0.050', 'encoder index found', '#2ee6a8'],
-       ['0.500', 'speed reference ' + Math.round(rpm) + ' rpm', '#9292b9'],
-       ['1.200', 'load applied 1.00 N\u00b7m', '#9292b9'],
-       ['1.400', 'steady state, logging', '#2ee6a8']];
+    ? [['0.000', 'bus 26.5 V, drive enabled', '#59597b'],
+       ['0.300', 'alignment complete', '#59597b'],
+       ['0.800', 'observer valid, handover started', '#00b377'],
+       ['1.050', 'closed loop on estimated angle', '#00b377'],
+       ['1.050', 'angle error above target', '#ef9d00']]
+    : [['0.000', 'bus 26.5 V, drive enabled', '#59597b'],
+       ['0.050', 'encoder index found', '#00b377'],
+       ['0.500', 'speed reference ' + Math.round(rpm) + ' rpm', '#59597b'],
+       ['1.200', 'load applied 1.00 N\u00b7m', '#59597b'],
+       ['1.400', 'steady state, logging', '#00b377']];
   log.forEach(([time, text, col], k) => {
     const y = 386 + k * 24;
-    g.fillStyle = '#424267'; g.font = '12px ui-monospace, monospace'; g.textAlign = 'left';
+    g.fillStyle = '#a1a1bb'; g.font = '12px ui-monospace, monospace'; g.textAlign = 'left';
     g.fillText(time, EX + 12, y);
     g.fillStyle = col; g.font = '12px system-ui';
     g.fillText(text, EX + 58, y);
@@ -272,196 +272,196 @@ function drawScreen(t) {
 
   // ---- tiles ---------------------------------------------------------------------
   const tiles = [
-    ['SPEED', Math.round(rpm) + ' rpm', '#e5e5f0'],
-    ['Iq', iq.toFixed(1) + ' A', iq < 20 ? '#e5e5f0' : '#f2b134'],
-    ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#2ee6a8' : kept > .8 ? '#f2b134' : '#ff4d6d'],
-    ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#2ee6a8' : '#f2b134'],
-    ['BACK-EMF', backEmf.toFixed(2) + ' V', '#5a7fc8'],
-    ['COPPER LOSS', pCu.toFixed(1) + ' W', '#9292b9'],
+    ['SPEED', Math.round(rpm) + ' rpm', '#282837'],
+    ['Iq', iq.toFixed(1) + ' A', iq < 20 ? '#282837' : '#ef9d00'],
+    ['TORQUE KEPT', (100 * kept).toFixed(0) + ' %', kept > .97 ? '#00b377' : kept > .8 ? '#ef9d00' : '#ff1f4f'],
+    ['ANGLE ERROR', (err * 180 / Math.PI).toFixed(0) + '\u00b0', err < .05 ? '#00b377' : '#ef9d00'],
+    ['BACK-EMF', backEmf.toFixed(2) + ' V', '#2a5fd9'],
+    ['COPPER LOSS', pCu.toFixed(1) + ' W', '#59597b'],
   ];
   // One line each, so the strip stays readable at the size it is seen on screen.
   const tw = (W - 28 - 5 * 7) / 6;
   tiles.forEach(([k, v, col], idx) => {
     const x = 14 + idx * (tw + 7), y = 508;
-    g.fillStyle = '#161642'; g.fillRect(x, y, tw, 20);
-    g.strokeStyle = '#222235'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, tw - 1, 19);
-    g.fillStyle = '#5e5e91'; g.font = '600 10px system-ui'; g.textAlign = 'left';
+    g.fillStyle = '#ffffff'; g.fillRect(x, y, tw, 20);
+    g.strokeStyle = '#c9c9d8'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, tw - 1, 19);
+    g.fillStyle = '#7f7fa2'; g.font = '600 10px system-ui'; g.textAlign = 'left';
     g.fillText(k, x + 8, y + 14);
     g.fillStyle = col; g.font = 'bold 13px system-ui'; g.textAlign = 'right';
     g.fillText(v, x + tw - 8, y + 14);
   });
 
   // The screen is convincing enough now that this line has to stay on it.
-  g.fillStyle = '#424267'; g.font = '11px system-ui'; g.textAlign = 'right';
+  g.fillStyle = '#a1a1bb'; g.font = '11px system-ui'; g.textAlign = 'right';
   g.fillText('simulation, not measured', W - 14, 537);
 }
 
 function buildRig() {
   // A steel workbench: a plate top with a folded lip, square-tube legs with
   // stretchers and levelling feet, and a lower shelf.
-  const steelTop = box(1.08, .014, .48, 0x4e4e79, 0, -.071, 0);
+  const steelTop = box(1.08, .014, .48, 0x9292b0, 0, -.071, 0);
   steelTop.material.metalness = .62; steelTop.material.roughness = .52;
-  for (const ez of [-.236, .236]) box(1.08, .03, .012, 0x5d5d8f, 0, -.084, ez);   // folded lip
-  for (const ex of [-.534, .534]) box(.012, .03, .48, 0x5d5d8f, ex, -.084, 0);
+  for (const ez of [-.236, .236]) box(1.08, .03, .012, 0x8080a3, 0, -.084, ez);   // folded lip
+  for (const ex of [-.534, .534]) box(.012, .03, .48, 0x8080a3, ex, -.084, 0);
   for (const lx of [-.49, .49]) for (const lz of [-.20, .20]) {      // square-tube legs
-    const leg = box(.032, .20, .032, 0x51517d, lx, -.185, lz);
+    const leg = box(.032, .20, .032, 0x8f8fae, lx, -.185, lz);
     leg.material.metalness = .8; leg.material.roughness = .4;
-    cyl(.018, .008, 0x28283f, lx, -.287, lz, null, 12);              // levelling foot
-    bolt(lx, -.064, lz, .005, .005, 0x8383ae);                       // top fixing
+    cyl(.018, .008, 0xc1c1d2, lx, -.287, lz, null, 12);              // levelling foot
+    bolt(lx, -.064, lz, .005, .005, 0x626287);                       // top fixing
   }
-  for (const lz of [-.20, .20]) box(.95, .022, .022, 0x51517d, 0, -.255, lz);     // stretchers
-  box(.022, .022, .38, 0x51517d, -.49, -.255, 0);
-  box(.022, .022, .38, 0x51517d, .49, -.255, 0);
-  const lowerShelf = box(.95, .008, .36, 0x444469, 0, -.243, 0);     // lower shelf
+  for (const lz of [-.20, .20]) box(.95, .022, .022, 0x8f8fae, 0, -.255, lz);     // stretchers
+  box(.022, .022, .38, 0x8f8fae, -.49, -.255, 0);
+  box(.022, .022, .38, 0x8f8fae, .49, -.255, 0);
+  const lowerShelf = box(.95, .008, .36, 0x9f9fb9, 0, -.243, 0);     // lower shelf
   lowerShelf.material.metalness = .6; lowerShelf.material.roughness = .55;
-  const backPanel = box(1.08, .17, .014, 0x51517d, 0, .0, -.262);    // back panel
+  const backPanel = box(1.08, .17, .014, 0x8f8fae, 0, .0, -.262);    // back panel
   backPanel.material.metalness = .8; backPanel.material.roughness = .42;
-  for (const bx2 of [-.44, -.15, .15, .44]) bolt(bx2, .06, -.25, .005, .006, 0xbbbbd4);
+  for (const bx2 of [-.44, -.15, .15, .44]) bolt(bx2, .06, -.25, .005, .006, 0x41415a);
   for (const [i, x] of [-.26, .26].entries()) {
     tagging = i ? 'motor2' : 'motor1';
     const body = cyl(.05, .13, COLOUR.steel, x, .06, 0);             // motor body
-    const cap = cyl(.052, .01, 0x606093, x, .06, .066, null);        // front end cap
+    const cap = cyl(.052, .01, 0x7d7da1, x, .06, .066, null);        // front end cap
     if (x < 0) body.userData.cap = cap;
-    cyl(.052, .012, 0x606093, x, .06, -.066, null);                  // rear end cap
+    cyl(.052, .012, 0x7d7da1, x, .06, -.066, null);                  // rear end cap
     for (let f = 0; f < 18; f++) {                                   // cooling fins
       const a = f / 18 * Math.PI * 2;
-      const fin = box(.006, .012, .118, 0x7171a2, x + Math.cos(a) * .053, .06 + Math.sin(a) * .053, 0);
+      const fin = box(.006, .012, .118, 0x6d6d95, x + Math.cos(a) * .053, .06 + Math.sin(a) * .053, 0);
       fin.rotation.z = a;
     }
     for (let b = 0; b < 4; b++) {                                    // end-cap bolts
       const a = Math.PI / 4 + b / 4 * Math.PI * 2;
-      cyl(.004, .006, 0x46466e, x + Math.cos(a) * .04, .06 + Math.sin(a) * .04, .072, null, 8);
+      cyl(.004, .006, 0x9b9bb7, x + Math.cos(a) * .04, .06 + Math.sin(a) * .04, .072, null, 8);
     }
     // Rear cowl with cooling slots, a lifting eye, a direction arrow and a lid on
     // the terminal box: the things that are on every industrial motor.
-    cyl(.047, .022, 0x606093, x, .06, -.086, null, 24);              // fan cowl
+    cyl(.047, .022, 0x7d7da1, x, .06, -.086, null, 24);              // fan cowl
     for (let v2 = 0; v2 < 10; v2++) {
       const a2 = v2 / 10 * Math.PI * 2;
-      const slot = box(.006, .018, .004, 0x1c1c52,
+      const slot = box(.006, .018, .004, 0xe5e4f4,
         x + Math.cos(a2) * .032, .06 + Math.sin(a2) * .032, -.0975);
       slot.rotation.z = a2;
     }
     const eye = new THREE.Mesh(new THREE.TorusGeometry(.008, .0028, 8, 16),
-      new THREE.MeshStandardMaterial({ color: 0x8383ae, roughness: .5, metalness: .7 }));
+      new THREE.MeshStandardMaterial({ color: 0x626287, roughness: .5, metalness: .7 }));
     eye.position.set(x, .122, -.02); eye.rotation.y = Math.PI / 2; scene.add(eye); tag(eye);
-    const arrow = box(.012, .003, .012, 0xd7d7e5, x + .024, .1105, .012);
+    const arrow = box(.012, .003, .012, 0x313144, x + .024, .1105, .012);
     arrow.rotation.y = Math.PI / 4;                                  // rotation arrow sticker
-    box(.034, .005, .034, 0x28283f, x, .014, .03);                   // terminal box lid
+    box(.034, .005, .034, 0xc1c1d2, x, .014, .03);                   // terminal box lid
     for (const s4 of [-1, 1]) for (const s5 of [-1, 1])
-      cyl(.0025, .003, 0x8383ae, x + s4 * .012, .017, .03 + s5 * .012, null, 6);
-    tube([[x - .012, .03, .012], [x - .018, .02, .022], [x - .012, .012, .028]], .0015, 0x5a7fc8);
+      cyl(.0025, .003, 0x626287, x + s4 * .012, .017, .03 + s5 * .012, null, 6);
+    tube([[x - .012, .03, .012], [x - .018, .02, .022], [x - .012, .012, .028]], .0015, 0x2a5fd9);
     for (const s6 of [-1, 1])                                        // slotted foot holes
-      box(.022, .004, .012, 0x13133a, x + s6 * .05, -.0335, 0);
+      box(.022, .004, .012, 0xf2f1fb, x + s6 * .05, -.0335, 0);
     cyl(.008, .07, COLOUR.steel, x, .06, .10);                       // shaft
-    cyl(.013, .012, 0x606093, x, .06, .112, null, 16);               // shaft collar
-    box(.03, .022, .03, 0x1f1f30, x, .002, .03);                     // terminal box
+    cyl(.013, .012, 0x7d7da1, x, .06, .112, null, 16);               // shaft collar
+    box(.03, .022, .03, 0xcdcddb, x, .002, .03);                     // terminal box
     box(.13, .022, .11, COLOUR.dark, x, -.045, 0);                   // mounting foot
     for (const s2 of [-1, 1]) for (const s3 of [-1, 1]) {            // foot bolts
-      cyl(.005, .008, 0x46466e, x + s2 * .05, -.034, s3 * .04, null, 8).rotation.set(0, 0, 0);
+      cyl(.005, .008, 0x9b9bb7, x + s2 * .05, -.034, s3 * .04, null, 8).rotation.set(0, 0, 0);
     }
     // nameplate, cable gland and shaft key: the things you actually see on the motor
-    label(.05, .026, x, .1105, -.012, 0xc5c5db).rotation.x = Math.PI / 2;   // nameplate
-    label(.03, .012, x, .1105, .026, 0x8383ae).rotation.x = Math.PI / 2;    // CE / rating strip
-    cyl(.008, .014, 0x2a2a41, x - .022, .006, .03, null, 12);        // cable gland
-    box(.004, .004, .026, 0x7171a2, x, .0695, .104);                 // shaft key
+    label(.05, .026, x, .1105, -.012, 0x3b3b51).rotation.x = Math.PI / 2;   // nameplate
+    label(.03, .012, x, .1105, .026, 0x626287).rotation.x = Math.PI / 2;    // CE / rating strip
+    cyl(.008, .014, 0xbfbfd1, x - .022, .006, .03, null, 12);        // cable gland
+    box(.004, .004, .026, 0x6d6d95, x, .0695, .104);                 // shaft key
     for (let b = 0; b < 4; b++) {                                    // rear cap bolts
       const a = Math.PI / 4 + b / 4 * Math.PI * 2;
-      bolt(x + Math.cos(a) * .04, .06 + Math.sin(a) * .04, -.074, .004, .006, 0x46466e);
+      bolt(x + Math.cos(a) * .04, .06 + Math.sin(a) * .04, -.074, .004, .006, 0x9b9bb7);
     }
     for (const s2 of [-1, 1]) {                                      // washers under the foot bolts
-      for (const s3 of [-1, 1]) cyl(.008, .002, 0x555585, x + s2 * .05, -.0325, s3 * .04, null, 10);
+      for (const s3 of [-1, 1]) cyl(.008, .002, 0x8989aa, x + s2 * .05, -.0325, s3 * .04, null, 10);
     }
     motors.push(body);
     // a small encoder housing on the rear face, where the rotor angle is measured
     tagging = 'encoder';
-    cyl(.022, .014, 0x32324e, x, .06, -.079, null, 20);
-    cyl(.01, .006, 0x5a7fc8, x, .06, -.088, null, 14);
-    box(.01, .006, .006, 0xe5e5f0, x + .015, .052, -.084);           // small white connector
+    cyl(.022, .014, 0xb5b5c9, x, .06, -.079, null, 20);
+    cyl(.01, .006, 0x2a5fd9, x, .06, -.088, null, 14);
+    box(.01, .006, .006, 0x282837, x + .015, .052, -.084);           // small white connector
     for (let b = 0; b < 3; b++) {                                    // housing screws
       const a = b / 3 * Math.PI * 2;
-      bolt(x + Math.cos(a) * .017, .06 + Math.sin(a) * .017, -.087, .002, .003, 0x555585);
+      bolt(x + Math.cos(a) * .017, .06 + Math.sin(a) * .017, -.087, .002, .003, 0x8989aa);
     }
     tagging = 'chain';
     const s = new THREE.Group(); s.position.set(x, .06, .125); scene.add(s);
-    cyl(.045, .012, 0x9292b9, 0, 0, 0, s, 24);                       // sprocket disc
-    cyl(.014, .018, 0x606093, 0, 0, 0, s, 16);                       // hub
+    cyl(.045, .012, 0x59597b, 0, 0, 0, s, 24);                       // sprocket disc
+    cyl(.014, .018, 0x7d7da1, 0, 0, 0, s, 16);                       // hub
     for (let t = 0; t < 16; t++) {                                   // teeth
       const a = t / 16 * Math.PI * 2;
-      const tooth = box(.008, .010, .012, 0x9292b9, Math.cos(a) * .049, Math.sin(a) * .049, 0, s);
+      const tooth = box(.008, .010, .012, 0x59597b, Math.cos(a) * .049, Math.sin(a) * .049, 0, s);
       tooth.rotation.z = a;
     }
-    box(.006, .007, .007, 0x46466e, 0, .0165, .004, s);              // grub screw in the hub
+    box(.006, .007, .007, 0x9b9bb7, 0, .0165, .004, s);              // grub screw in the hub
     for (let b = 0; b < 4; b++) {                                    // sprocket lightening holes
       const a = Math.PI / 4 + b / 4 * Math.PI * 2;
-      cyl(.007, .014, 0x626297, Math.cos(a) * .028, Math.sin(a) * .028, 0, s, 10);
+      cyl(.007, .014, 0x7a7a9f, Math.cos(a) * .028, Math.sin(a) * .028, 0, s, 10);
     }
     sprockets.push(s);
     tagging = i ? 'odrive2' : 'odrive1';
     // The ODrive Pro is not on the bench: it sits in the middle of a round plate
     // carried on threaded rods past the sprocket, so the shaft stays behind it.
-    cyl(.085, .006, 0xc0c0d6, x, .06, .145, null, 44);               // face plate
+    cyl(.085, .006, 0x3e3e56, x, .06, .145, null, 44);               // face plate
     for (let b = 0; b < 8; b++) {                                    // plate rim fixings
       const a = Math.PI / 8 + b / 8 * Math.PI * 2;
-      bolt(x + Math.cos(a) * .076, .06 + Math.sin(a) * .076, .1415, .004, .005, 0x8383ae);
+      bolt(x + Math.cos(a) * .076, .06 + Math.sin(a) * .076, .1415, .004, .005, 0x626287);
     }
-    label(.03, .01, x + .05, .015, .1485, 0xf2b134);                 // warning sticker
+    label(.03, .01, x + .05, .015, .1485, 0xef9d00);                 // warning sticker
     for (const a of [Math.PI / 2, -Math.PI / 2]) {                   // threaded rods carrying it
-      cyl(.005, .19, 0x9292b9, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .055, null, 10);
-      cyl(.008, .008, 0x46466e, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .152, null, 8);
-      cyl(.009, .003, 0x8383ae, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .139, null, 8);  // nut
-      cyl(.009, .003, 0x8383ae, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, -.03, null, 8);
+      cyl(.005, .19, 0x59597b, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .055, null, 10);
+      cyl(.008, .008, 0x9b9bb7, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .152, null, 8);
+      cyl(.009, .003, 0x626287, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, .139, null, 8);  // nut
+      cyl(.009, .003, 0x626287, x + Math.cos(a) * .072, .06 + Math.sin(a) * .072, -.03, null, 8);
     }
     const bx = x, by = .06, bz = .154;                               // board, centred on the plate
     const board = box(.076, .056, .003, COLOUR.pcb, bx, by, bz);
     for (const sx of [-1, 1]) for (const sy of [-1, 1])              // standoffs
-      cyl(.0028, .009, 0x555585, bx + sx * .032, by + sy * .022, .1495, null, 8);
-    box(.05, .009, .009, 0x343452, bx - .004, by + .019, bz + .005); // heatsink over the FETs
+      cyl(.0028, .009, 0x8989aa, bx + sx * .032, by + sy * .022, .1495, null, 8);
+    box(.05, .009, .009, 0xb2b2c7, bx - .004, by + .019, bz + .005); // heatsink over the FETs
     for (let hs = 0; hs < 5; hs++)
-      box(.0025, .013, .009, 0x444469, bx - .026 + hs * .012, by + .021, bz + .005);
-    box(.011, .044, .014, 0x15a37a, bx - .039, by, bz + .004);       // green phase terminal
+      box(.0025, .013, .009, 0x9f9fb9, bx - .026 + hs * .012, by + .021, bz + .005);
+    box(.011, .044, .014, 0x00996b, bx - .039, by, bz + .004);       // green phase terminal
     for (let k = 0; k < 4; k++)                                      // yellow bullet connectors
-      box(.018, .007, .007, 0xf2b134, bx - .053, by - .016 + k * .011, bz + .004);
-    box(.012, .007, .006, 0x141420, bx + .03, by + .016, bz + .004); // encoder header
-    box(.01, .006, .005, 0xe5e5f0, bx + .03, by + .005, bz + .004);  // CAN connector
-    box(.013, .013, .0025, 0x101033, bx - .002, by + .004, bz + .003);  // gate driver
-    box(.009, .009, .002, 0x101033, bx + .016, by - .003, bz + .003);   // microcontroller
-    box(.006, .011, .0025, 0x2a2a41, bx - .02, by + .004, bz + .003);   // current sense
+      box(.018, .007, .007, 0xef9d00, bx - .053, by - .016 + k * .011, bz + .004);
+    box(.012, .007, .006, 0xdadae4, bx + .03, by + .016, bz + .004); // encoder header
+    box(.01, .006, .005, 0x282837, bx + .03, by + .005, bz + .004);  // CAN connector
+    box(.013, .013, .0025, 0xfbfaff, bx - .002, by + .004, bz + .003);  // gate driver
+    box(.009, .009, .002, 0xfbfaff, bx + .016, by - .003, bz + .003);   // microcontroller
+    box(.006, .011, .0025, 0xbfbfd1, bx - .02, by + .004, bz + .003);   // current sense
     for (let tp = 0; tp < 6; tp++)                                   // test points
-      cyl(.0012, .0015, 0xe8a93f, bx - .024 + tp * .009, by - .0225, bz + .003, null, 6);
-    for (const [dx, col] of [[-.028, 0xff4d6d], [-.021, 0x5a7fc8]]) {  // status LEDs
+      cyl(.0012, .0015, 0xd98f00, bx - .024 + tp * .009, by - .0225, bz + .003, null, 6);
+    for (const [dx, col] of [[-.028, 0xff1f4f], [-.021, 0x2a5fd9]]) {  // status LEDs
       const d = box(.0035, .0035, .002, col, bx + dx, by - .018, bz + .004);
       d.material.emissive = new THREE.Color(col); d.material.emissiveIntensity = 1.1;
     }
     for (let sc = 0; sc < 4; sc++)                                   // terminal screws
-      cyl(.0022, .002, 0xbbbbd4, bx - .039, by - .016 + sc * .011, bz + .011, null, 8);
+      cyl(.0022, .002, 0x41415a, bx - .039, by - .016 + sc * .011, bz + .011, null, 8);
     for (let k2 = 0; k2 < 4; k2++)                                   // crimp ferrules
-      box(.006, .0075, .0075, 0xb6b6d0, bx - .0455, by - .016 + k2 * .011, bz + .004);
-    const silk = box(.078, .058, .0012, 0x15a37a, bx, by, bz - .002); // board edge
+      box(.006, .0075, .0075, 0x44445e, bx - .0455, by - .016 + k2 * .011, bz + .004);
+    const silk = box(.078, .058, .0012, 0x00996b, bx, by, bz - .002); // board edge
     silk.material.roughness = .9;
-    const led = box(.004, .004, .003, 0x2ee6a8, bx + .012, by - .018, bz + .004);
-    led.material.emissive = new THREE.Color(0x2ee6a8); led.material.emissiveIntensity = 1.4;
+    const led = box(.004, .004, .003, 0x00b377, bx + .012, by - .018, bz + .004);
+    led.material.emissive = new THREE.Color(0x00b377); led.material.emissiveIntensity = 1.4;
     for (let c = 0; c < 4; c++)                                      // bus capacitors
-      cyl(.0055, .013, 0x2a2a40, bx - .026 + c * .012, by - .015, bz + .008, null, 12);
+      cyl(.0055, .013, 0xc0c0d1, bx - .026 + c * .012, by - .015, bz + .008, null, 12);
     for (let c = 0; c < 4; c++)                                      // their tops
-      cyl(.0055, .001, 0x8383ae, bx - .026 + c * .012, by - .015, bz + .0145, null, 12);
-    box(.009, .005, .006, 0xbbbbd4, bx + .034, by - .022, bz + .004);  // USB-C socket
-    box(.007, .007, .0035, 0x343452, bx + .018, by - .006, bz + .003); // inductor
+      cyl(.0055, .001, 0x626287, bx - .026 + c * .012, by - .015, bz + .0145, null, 12);
+    box(.009, .005, .006, 0x41415a, bx + .034, by - .022, bz + .004);  // USB-C socket
+    box(.007, .007, .0035, 0xb2b2c7, bx + .018, by - .006, bz + .003); // inductor
     for (let ic = 0; ic < 5; ic++)                                   // small packages
-      box(.005, .005, .0015, 0x141420, bx - .03 + ic * .014, by - .001, bz + .002);
+      box(.005, .005, .0015, 0xdadae4, bx - .03 + ic * .014, by - .001, bz + .002);
     for (let sh = 0; sh < 3; sh++)                                   // shunt resistors
-      box(.004, .002, .001, 0xd7d7e5, bx - .012 + sh * .009, by - .026, bz + .002);
-    label(.05, .003, bx - .008, by - .0285, bz + .002, 0xbbbbd5);    // silkscreen strip
+      box(.004, .002, .001, 0x313144, bx - .012 + sh * .009, by - .026, bz + .002);
+    label(.05, .003, bx - .008, by - .0285, bz + .002, 0x414159);    // silkscreen strip
     for (const sx of [-1, 1]) for (const sy of [-1, 1])              // board screws
-      cyl(.0022, .002, 0xbbbbd4, bx + sx * .032, by + sy * .022, bz + .003, null, 8);
+      cyl(.0022, .002, 0x41415a, bx + sx * .032, by + sy * .022, bz + .003, null, 8);
     boards.push(board);
     for (let k = 0; k < 4; k++)                                      // heat-shrink behind the bullets
-      box(.008, .009, .009, 0x13133a, bx - .066, by - .016 + k * .011, bz + .004);
+      box(.008, .009, .009, 0xf2f1fb, bx - .066, by - .016 + k * .011, bz + .004);
     tieWrap(x - .1, .034, .11); tieWrap(x - .062, .006, .052);
     // phase leads from the bullet connectors round the side to the terminal box
     for (const [k, off] of [-.008, 0, .008].entries()) {
       tube([[bx - .062, by + off, bz], [x - .105, .03 + off, .11], [x - .06, .004, .05],
         [x - .015, .002, .034]], .0028,
-        [0xff4d6d, 0xe5e5f0, 0x5a7fc8][k]);
+        [0xff1f4f, 0x282837, 0x2a5fd9][k]);
     }
     // the encoder cable runs from the rear of the motor to the controller
     tagging = 'encoder';
@@ -471,23 +471,23 @@ function buildRig() {
   // its isolator and fuse beside it, and feeds both controllers up the back.
   tagging = 'battery';
   const batY = -.192, batZ = -.03;
-  box(.17, .092, .085, 0x27273d, -.02, batY, batZ);                  // pack
-  box(.17, .010, .085, 0x3b3b5d, -.02, batY + .051, batZ);           // lid
-  box(.058, .004, .026, 0xd7d7e5, -.02, batY + .058, batZ + .028);   // label
-  label(.034, .018, -.02, batY + .058, batZ - .03, 0xf2b134);        // warning label
+  box(.17, .092, .085, 0xc2c2d3, -.02, batY, batZ);                  // pack
+  box(.17, .010, .085, 0xa9a9c1, -.02, batY + .051, batZ);           // lid
+  box(.058, .004, .026, 0x313144, -.02, batY + .058, batZ + .028);   // label
+  label(.034, .018, -.02, batY + .058, batZ - .03, 0xef9d00);        // warning label
   for (const s2 of [-1, 1])                                          // terminals
-    box(.013, .013, .013, s2 > 0 ? 0xff4d6d : 0x1c1c52, -.02 + s2 * .048, batY + .062, batZ - .01);
+    box(.013, .013, .013, s2 > 0 ? 0xff1f4f : 0xe5e4f4, -.02 + s2 * .048, batY + .062, batZ - .01);
   for (const bz2 of [batZ - .028, batZ + .028])                      // retaining straps
-    box(.178, .096, .007, 0x13133a, -.02, batY, bz2);
-  box(.028, .016, .018, 0x141420, .085, batY + .03, batZ);           // BMS
+    box(.178, .096, .007, 0xf2f1fb, -.02, batY, bz2);
+  box(.028, .016, .018, 0xdadae4, .085, batY + .03, batZ);           // BMS
   for (let l = 0; l < 4; l++)                                        // balance leads
     tube([[.062, batY + .05, batZ - .012 + l * .008], [.075, batY + .046, batZ - .006 + l * .006],
-          [.082, batY + .036, batZ]], .0012, [0xff4d6d, 0xf2b134, 0x5a7fc8, 0xe5e5f0][l]);
-  box(.022, .014, .014, 0xf2b134, .02, batY + .062, batZ - .01);     // XT90
-  cyl(.008, .034, 0x343452, .14, batY + .02, batZ, null, 12);        // inline fuse
-  box(.026, .022, .026, 0x28283f, .20, batY + .012, batZ);           // isolator
-  box(.01, .016, .01, 0xc02048, .20, batY + .03, batZ);              // its red lever
-  box(.034, .004, .034, 0x13133a, .20, batY - .001, batZ);           // isolator base
+          [.082, batY + .036, batZ]], .0012, [0xff1f4f, 0xef9d00, 0x2a5fd9, 0x282837][l]);
+  box(.022, .014, .014, 0xef9d00, .02, batY + .062, batZ - .01);     // XT90
+  cyl(.008, .034, 0xb2b2c7, .14, batY + .02, batZ, null, 12);        // inline fuse
+  box(.026, .022, .026, 0xc1c1d2, .20, batY + .012, batZ);           // isolator
+  box(.01, .016, .01, 0xd4003c, .20, batY + .03, batZ);              // its red lever
+  box(.034, .004, .034, 0xf2f1fb, .20, batY - .001, batZ);           // isolator base
 
   // Supply up the back of the bench to each controller, tied as it goes.
   tube([[-.322, .06, .155], [-.44, .0, .08], [-.47, -.14, -.05], [-.17, -.168, batZ]], .005, COLOUR.power);
@@ -496,14 +496,14 @@ function buildRig() {
     tieWrap(tx, ty, tz);
   // A loom run along the back board, tied down, as any bench build ends up with.
   tagging = null;
-  tube([[-.44, -.03, -.248], [0, -.035, -.248], [.44, -.03, -.248]], .006, 0x1b1b4e);
+  tube([[-.44, -.03, -.248], [0, -.035, -.248], [.44, -.03, -.248]], .006, 0xe7e6f5);
   for (const tx of [-.34, -.1, .14, .38]) {
-    const tie = box(.006, .018, .006, 0x13133a, tx, -.03, -.248);
+    const tie = box(.006, .018, .006, 0xf2f1fb, tx, -.03, -.248);
     tie.material.roughness = .8;
   }
   for (const ex of [-.26, .26]) {                                    // earth straps
-    tube([[ex + .06, -.034, .02], [ex + .12, -.06, -.06], [ex + .1, -.055, -.16]], .0022, 0x19c48c);
-    box(.012, .004, .008, 0xf2b134, ex + .06, -.03, .02);            // cable tag
+    tube([[ex + .06, -.034, .02], [ex + .12, -.06, -.06], [ex + .1, -.055, -.16]], .0022, 0x00b377);
+    box(.012, .004, .008, 0xef9d00, ex + .06, -.03, .02);            // cable tag
   }
   // A desktop on the bench and its tower standing on the floor beside the frame.
   tagging = 'laptop';
@@ -512,24 +512,24 @@ function buildRig() {
   // A shelf across the back of the frame carries the screen above the rig, where
   // an operator can watch it while standing at the bench.
   for (const ux of [-.50, .50]) {
-    const upright = box(.034, .24, .034, 0x51517d, ux, .058, -.12);
+    const upright = box(.034, .24, .034, 0x8f8fae, ux, .058, -.12);
     upright.material.metalness = .8; upright.material.roughness = .4;
-    bolt(ux, -.056, -.12, .006, .006, 0xbbbbd4);
+    bolt(ux, -.056, -.12, .006, .006, 0x41415a);
   }
-  const shelf = box(1.16, .016, .20, 0x4e4e79, 0, .173, -.12);
+  const shelf = box(1.16, .016, .20, 0x9292b0, 0, .173, -.12);
   shelf.material.metalness = .62; shelf.material.roughness = .52;
-  box(1.16, .024, .012, 0x5d5d8f, 0, .160, -.022);                   // shelf lip
-  for (const sx of [-.50, .50]) bolt(sx, .183, -.12, .005, .005, 0x8383ae);
+  box(1.16, .024, .012, 0x8080a3, 0, .160, -.022);                   // shelf lip
+  for (const sx of [-.50, .50]) bolt(sx, .183, -.12, .005, .005, 0x626287);
 
   const monitor = new THREE.Group();
   monitor.position.set(0, .179, -.125);
   scene.add(monitor);
-  box(.38, .016, .17, 0x1c1c52, 0, .008, .02, monitor);              // stand foot
-  box(.06, .15, .05, 0x232335, 0, .085, 0, monitor);                 // column
-  const panel = box(1.09, .67, .018, 0x161642, 0, .50, -.008, monitor);
+  box(.38, .016, .17, 0xe5e4f4, 0, .008, .02, monitor);              // stand foot
+  box(.06, .15, .05, 0xc8c8d7, 0, .085, 0, monitor);                 // column
+  const panel = box(1.09, .67, .018, 0xffffff, 0, .50, -.008, monitor);
   panel.rotation.x = -.07;
-  const bezelLight = box(.026, .008, .003, 0x2ee6a8, .48, .185, .008, monitor);
-  bezelLight.material.emissive = new THREE.Color(0x2ee6a8);
+  const bezelLight = box(.026, .008, .003, 0x00b377, .48, .185, .008, monitor);
+  bezelLight.material.emissive = new THREE.Color(0x00b377);
   bezelLight.material.emissiveIntensity = 1.1;
 
   // The screen is a drawn dashboard rather than a coloured rectangle, redrawn
@@ -544,48 +544,48 @@ function buildRig() {
   const desk = new THREE.Group();
   desk.position.set(deskX + .03, benchTop, .12);
   desk.rotation.y = .62; scene.add(desk);
-  box(.17, .008, .055, 0x232335, 0, .004, 0, desk);                  // keyboard
+  box(.17, .008, .055, 0xc8c8d7, 0, .004, 0, desk);                  // keyboard
   for (let kr = 0; kr < 5; kr++)
-    box(.158, .0015, .0075, 0x343452, 0, .009, -.019 + kr * .0095, desk);
-  const mouse = box(.024, .012, .038, 0x232335, .115, .006, .004, desk);
+    box(.158, .0015, .0075, 0xb2b2c7, 0, .009, -.019 + kr * .0095, desk);
+  const mouse = box(.024, .012, .038, 0xc8c8d7, .115, .006, .004, desk);
   mouse.material.roughness = .45;
 
   // Tower on the floor, with its own cables up to the bench.
   const tower = new THREE.Group(); tower.position.set(-.60, -.115, .02); scene.add(tower);
-  box(.10, .33, .28, 0x1c1c52, 0, 0, 0, tower);                      // case
-  box(.004, .33, .28, 0x26263b, .052, 0, 0, tower);                  // side panel
-  box(.085, .30, .004, 0x151540, 0, 0, .142, tower);                 // front bezel
+  box(.10, .33, .28, 0xe5e4f4, 0, 0, 0, tower);                      // case
+  box(.004, .33, .28, 0xc4c4d4, .052, 0, 0, tower);                  // side panel
+  box(.085, .30, .004, 0xeeedf9, 0, 0, .142, tower);                 // front bezel
   for (let v = 0; v < 9; v++)                                        // front vents
-    box(.06, .006, .003, 0x0e0e34, 0, .11 - v * .016, .145, tower);
-  const power = cyl(.008, .004, 0x2ee6a8, 0, -.055, .146, tower, 14);
-  power.material.emissive = new THREE.Color(0x2ee6a8); power.material.emissiveIntensity = 1.3;
-  box(.05, .01, .003, 0x343452, 0, -.085, .145, tower);              // front port strip
+    box(.06, .006, .003, 0xf7f6f7, 0, .11 - v * .016, .145, tower);
+  const power = cyl(.008, .004, 0x00b377, 0, -.055, .146, tower, 14);
+  power.material.emissive = new THREE.Color(0x00b377); power.material.emissiveIntensity = 1.3;
+  box(.05, .01, .003, 0xb2b2c7, 0, -.085, .145, tower);              // front port strip
   for (const fz of [-.11, .11]) for (const fx of [-.04, .04])        // feet
-    box(.02, .012, .02, 0x13133a, fx, -.171, fz, tower);
-  box(.05, .05, .004, 0x28283f, 0, .08, -.141, tower);               // rear fan grille
+    box(.02, .012, .02, 0xf2f1fb, fx, -.171, fz, tower);
+  box(.05, .05, .004, 0xc1c1d2, 0, .08, -.141, tower);               // rear fan grille
   for (let f2 = 0; f2 < 6; f2++) {
-    const blade = box(.004, .022, .002, 0x343452, 0, .08, -.144, tower);
+    const blade = box(.004, .022, .002, 0xb2b2c7, 0, .08, -.144, tower);
     blade.rotation.z = f2 / 6 * Math.PI;
   }
 
-  tube([[-.60, .06, .04], [-.53, .0, .0], [-.47, -.04, -.02]], .0035, 0x28283f);  // monitor lead
-  tube([[-.60, -.27, .06], [-.5, -.275, .16], [-.3, -.275, .2]], .004, 0x13133a);    // mains
-  tube([[-.23, .076, .156], [-.38, .02, .1], [-.52, -.03, -.02], [-.56, -.02, -.06]], .0022, 0x555585);
-  tube([[.29, .076, .156], [.1, .04, .2], [-.4, -.02, .16], [-.56, -.02, -.04]], .0022, 0x555585);
+  tube([[-.60, .06, .04], [-.53, .0, .0], [-.47, -.04, -.02]], .0035, 0xc1c1d2);  // monitor lead
+  tube([[-.60, -.27, .06], [-.5, -.275, .16], [-.3, -.275, .2]], .004, 0xf2f1fb);    // mains
+  tube([[-.23, .076, .156], [-.38, .02, .1], [-.52, -.03, -.02], [-.56, -.02, -.06]], .0022, 0x8989aa);
+  tube([[.29, .076, .156], [.1, .04, .2], [-.4, -.02, .16], [-.56, -.02, -.04]], .0022, 0x8989aa);
   // emergency stop on its own post
   tagging = 'estop';
-  cyl(.012, .06, 0x343452, .46, .0, -.12);
+  cyl(.012, .06, 0xb2b2c7, .46, .0, -.12);
   const mushroom = new THREE.Mesh(new THREE.CylinderGeometry(.03, .026, .016, 20),
-    new THREE.MeshStandardMaterial({ color: 0xc02048, roughness: .5 }));
+    new THREE.MeshStandardMaterial({ color: 0xd4003c, roughness: .5 }));
   mushroom.position.set(.46, .036, -.12); scene.add(mushroom); tag(mushroom);
-  box(.05, .008, .05, 0xf2b134, .46, .002, -.12);                    // yellow base plate
-  cyl(.033, .003, 0xf2b134, .46, .0275, -.12, null, 20);             // yellow legend ring
-  for (const s2 of [-1, 1]) bolt(.46 + s2 * .02, .007, -.12, .003, .004, 0x555585);
-  box(.026, .01, .026, 0x28283f, .46, -.008, -.12);                  // mounting block
-  tube([[.46, -.01, -.12], [.42, -.05, -.16], [.2, -.055, -.2]], .004, 0x343452);  // conduit
+  box(.05, .008, .05, 0xef9d00, .46, .002, -.12);                    // yellow base plate
+  cyl(.033, .003, 0xef9d00, .46, .0275, -.12, null, 20);             // yellow legend ring
+  for (const s2 of [-1, 1]) bolt(.46 + s2 * .02, .007, -.12, .003, .004, 0x8989aa);
+  box(.026, .01, .026, 0xc1c1d2, .46, -.008, -.12);                  // mounting block
+  tube([[.46, -.01, -.12], [.42, -.05, -.16], [.2, -.055, -.2]], .004, 0xb2b2c7);  // conduit
   tagging = 'chain';
   // chain guard: a transparent shield over the drive, as the rig will need
-  const guard = box(.4, .16, .006, 0x8fa9dc, 0, .06, .158);
+  const guard = box(.4, .16, .006, 0x4a7fe0, 0, .06, .158);
   guard.material.transparent = true; guard.material.opacity = .12;
 
   // chain: alternating roller and side-plate links around both sprockets
@@ -596,20 +596,20 @@ function buildRig() {
       // An outer link: two side plates with the pin heads showing through them.
       link = new THREE.Group(); scene.add(link);
       for (const pz of [-.0065, .0065]) {
-        const plate = box(.016, .009, .0025, 0x8383ae, 0, 0, pz, link);
+        const plate = box(.016, .009, .0025, 0x626287, 0, 0, pz, link);
         plate.material.metalness = .7; plate.material.roughness = .35;
         for (const px of [-.005, .005])
-          cyl(.0022, .0008, 0xd7d7e5, px, 0, pz + Math.sign(pz) * .0016, link, 8);
+          cyl(.0022, .0008, 0x313144, px, 0, pz + Math.sign(pz) * .0016, link, 8);
       }
       link.userData.rotates = true;
     } else {
       // An inner link: the roller plus the two narrower plates that carry it.
       link = new THREE.Group(); scene.add(link);
-      const roller = cyl(.005, .015, 0xc6c6dc, 0, 0, 0, link, 12);
+      const roller = cyl(.005, .015, 0x3a3a50, 0, 0, 0, link, 12);
       roller.rotation.z = Math.PI / 2;
       roller.material.metalness = .75; roller.material.roughness = .3;
       for (const pz of [-.0042, .0042]) {
-        const inner = box(.014, .0075, .0022, 0x6f6fa1, 0, 0, pz, link);
+        const inner = box(.014, .0075, .0022, 0x6f6f96, 0, 0, pz, link);
         inner.material.metalness = .7; inner.material.roughness = .4;
       }
       link.userData.rotates = true;
@@ -619,7 +619,7 @@ function buildRig() {
   // The master link, which is the one you actually undo to fit the chain.
   // Both kinds of link are groups now, so colour whatever is inside them.
   for (const masterLink of [chainLinks[0], chainLinks[1]])
-    masterLink.traverse(m => { if (m.material) m.material.color.setHex(0xf5bf52); });
+    masterLink.traverse(m => { if (m.material) m.material.color.setHex(0xe8a300); });
   positionChain(0, R, span);
   tagging = null;
 }
@@ -668,17 +668,17 @@ function buildMotorInside() {
   rearGroup.position.copy(centre);
   rearGroup.userData.explodeZ = -.185;
   scene.add(rearGroup);
-  cyl(.050, .012, 0x606093, 0, 0, -.06, rearGroup, 28);
-  encoderDisc = cyl(.026, .005, 0x5a7fc8, 0, 0, -.072, rearGroup);
+  cyl(.050, .012, 0x7d7da1, 0, 0, -.06, rearGroup, 28);
+  encoderDisc = cyl(.026, .005, 0x2a5fd9, 0, 0, -.072, rearGroup);
   for (let k = 0; k < 36; k++) {
     const a = k / 36 * Math.PI * 2;
-    box(.0022, .006, .0022, 0x0e0e34, Math.cos(a) * .021, Math.sin(a) * .021, -.0745, rearGroup);
+    box(.0022, .006, .0022, 0xf7f6f7, Math.cos(a) * .021, Math.sin(a) * .021, -.0745, rearGroup);
   }
   for (let b = 0; b < 3; b++) {
     const a = b / 3 * Math.PI * 2 + .4;
-    cyl(.002, .004, 0x8383ae, Math.cos(a) * .034, Math.sin(a) * .034, -.06, rearGroup, 6);
+    cyl(.002, .004, 0x626287, Math.cos(a) * .034, Math.sin(a) * .034, -.06, rearGroup, 6);
   }
-  const encoderTag = labelSprite(THREE, 'encoder', '#5a7fc8', .05);
+  const encoderTag = labelSprite(THREE, 'encoder', '#2a5fd9', .05);
   encoderTag.position.set(0, .046, -.072); rearGroup.add(encoderTag);
 
   // The three floating callouts and the pole-pair note that used to hover here
@@ -699,7 +699,7 @@ function estimateError() {
 }
 
 const raycaster = new THREE.Raycaster();
-const HIGHLIGHT = new THREE.Color(0x1fb98a);
+const HIGHLIGHT = new THREE.Color(0x00a874);
 let onPick = null;
 
 export function setPickHandler(fn) { onPick = fn; }
@@ -735,8 +735,8 @@ function partAt(e, pane) {
 }
 
 export function init(container, insideContainer) {
-  scene = new THREE.Scene(); scene.background = new THREE.Color(0x121236);
-  scene.add(new THREE.HemisphereLight(0xffe2c2, 0x1f1f30, 1.15));
+  scene = new THREE.Scene(); scene.background = new THREE.Color(0xf4f3fc);
+  scene.add(new THREE.HemisphereLight(0xfff1e0, 0xcdcddb, 1.15));
   const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(.6, 1, .8);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -745,7 +745,7 @@ export function init(container, insideContainer) {
   key.shadow.camera.top = 1; key.shadow.camera.bottom = -1;
   key.shadow.bias = -.0012;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0x8fa9dc, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
+  const rim = new THREE.DirectionalLight(0x4a7fe0, .35); rim.position.set(-.8, .4, -.7); scene.add(rim);
   buildRig(); buildMotorInside(); setView('rig');
   // Everything solid casts and receives. Doing it in one pass afterwards beats
   // remembering it on every one of the few hundred parts.

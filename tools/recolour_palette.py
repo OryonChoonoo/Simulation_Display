@@ -59,6 +59,22 @@ EXPLICIT = {
     'f2b134': 'ef9d00',          # warning
     'e8709a': 'e0457f',          # copper loss
     '58d7c8': '00b3a4',          # the third phase
+    # Deep navies that the saturation test would have left behind. On a white
+    # page every one of these has to come up, not stay down.
+    '08081f': 'ffffff', '0b0b2a': 'ffffff', '101033': 'fbfaff', '121236': 'f4f3fc',
+    '131339': 'f4f3fc', '13133a': 'f2f1fb', '151540': 'eeedf9', '181748': 'eae9f7',
+    '191947': 'eae9f7', '1a1540': 'efe9f7', '1b1b4e': 'e7e6f5', '1c1c52': 'e5e4f4',
+    '23245e': 'dedcf0', '121820': 'f6f5fb', '111820': 'f6f5fb',
+    # Dark green fills become pale green tints.
+    '0a2622': 'ddf6ec', '0e3a33': 'cdf0e1', '0c6b52': '9fe3c8', '1a6b57': '9fe3c8',
+    '0d4b40': 'b6ead6', '0c5c4c': 'a8e6cf',
+    # Greens that were already mid-tone, deepened so they read on white.
+    '15a37a': '00996b', '19c48c': '00b377', '1fb98a': '00a874',
+    # Dark reds.
+    '8f1c3e': 'ff1f4f', 'c02048': 'd4003c', '5c3a52': 'b06a94',
+    # Ambers and violets are fine as they are, only deepened a little.
+    'e8a93f': 'd98f00', 'f5bf52': 'e8a300', '8f7bd4': '6c4fd0', 'b0a6e0': '8f7bd4',
+    'ffe2c2': 'fff1e0',
 }
 
 PATTERN = re.compile(r'(#|0x)([0-9a-fA-F]{6})\b')

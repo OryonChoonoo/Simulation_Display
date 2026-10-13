@@ -44,7 +44,7 @@ function aimFrom(event) {
 export function init(container) {
   host = container;
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090922);
+  scene.background = new THREE.Color(0xffffff);
   camera = new THREE.PerspectiveCamera(42, 2, .01, 20);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -53,7 +53,7 @@ export function init(container) {
   container.innerHTML = '';
   container.appendChild(renderer.domElement);
 
-  scene.add(new THREE.HemisphereLight(0xffe2c2, 0x1f1f30, .75));
+  scene.add(new THREE.HemisphereLight(0xfff1e0, 0xcdcddb, .75));
   const key = new THREE.DirectionalLight(0xffffff, 1.1);
   key.position.set(.5, 1, .9); key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -70,7 +70,7 @@ export function init(container) {
     if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; }
   });
 
-  const note = labelSprite(THREE, 'the coils you are lighting', '#9292b9', .13);
+  const note = labelSprite(THREE, 'the coils you are lighting', '#59597b', .13);
   note.position.set(0, -.115, .06); scene.add(note);
 
   // Draggable, like every other 3D view here.
