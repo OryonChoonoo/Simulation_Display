@@ -112,6 +112,7 @@ function draw() {
 
 // ---- readouts -----------------------------------------------------------------
 function render() {
+  if (!$('envelope')) return;          // the envelope exhibit was retired
   const { o, v } = draw();
   $('speed-out').textContent = Math.round(o.rpm) + ' rpm';
   $('load-out').textContent = o.torque.toFixed(2) + ' N·m';
@@ -145,8 +146,10 @@ function setMode(next) {
 }
 const DEFAULTS = { speed: 400, load: 0.5, vdc: 26.5, imax: 25 };
 function reset() {
-  $('speed').value = DEFAULTS.speed; $('load').value = DEFAULTS.load;
-  $('vdc').value = DEFAULTS.vdc; $('imax').value = DEFAULTS.imax;
+  for (const [id, value] of [['speed', DEFAULTS.speed], ['load', DEFAULTS.load],
+                             ['vdc', DEFAULTS.vdc], ['imax', DEFAULTS.imax]]) {
+    const el = $(id); if (el) el.value = value;
+  }
   P.vdc_V = DEFAULTS.vdc; P.iq_limit_A = DEFAULTS.imax; render();
 }
 const SCENARIOS = {
@@ -171,7 +174,7 @@ function watchIdle() {
   setInterval(() => {
     if (mode !== 'kiosk' || Date.now() - idleTimer < 45000) return;
     if (!attract) {
-      reset(); setTab('envelope');   // the sweeping envelope is what catches the eye
+      reset(); setTab('3d');          // the rig turning slowly is what catches an eye
       let phase = 0;
       attract = setInterval(() => {
         phase += 0.02;
@@ -1208,16 +1211,20 @@ function renderMethod() {
        ['Loads tested', loads.map(l => l.toFixed(1)).join(', ') + ' N\u00b7m'],
        ['Settling windows', 'unloaded 0.90\u20131.15 s, loaded 1.40\u20131.65 s'],
        ['Worst duty cycle seen', '0.896, at 1500 rpm and 2.0 N\u00b7m \u2014 no saturation anywhere'],
-       ['Sensorless sweep', '200\u20131500 rpm at 0.5 N\u00b7m; 300\u20131500 sustained, 200 rpm encoder fallback'],
+       ['Sensorless matrix', '50\u20131500 rpm \u00d7 four loads at a common 25 A ceiling; '
+         + 'sustained from 225 rpm, fallback at 200 rpm under load'],
+       ['Current-noise sweep', '48 cases at 0, 0.02 and 0.05 A RMS; the 200 rpm handover fails at 0.05'],
+       ['Rig sessions', '10 October 2026, one per feedback mode, 800\u20131200 rpm, 21 matched points'],
        ['Sensored run', DATA.source.run + ' (' + DATA.source.date + ')'],
       ].map(([a, b]) => `<tr><td>${a}</td><td><b>${b}</b></td></tr>`).join('')
     + '</tbody></table>';
 
   $('method-sensorless').innerHTML = [
-    ['Lowest sustained sensorless point', '300 rpm at 0.5 N\u00b7m'],
-    ['200 rpm result', 'handover completed, then fallback to encoder'],
-    ['Angle error over sustained sweep', '0.345\u00b0 to 1.698\u00b0 RMS'],
-    ['True-speed RMS error', '0.0012 to 0.0015 rpm'],
+    ['Measured on the rig', '800\u20131200 rpm, 21 matched points'],
+    ['Cost of removing the encoder', '+22 % current variation, +83 % fifth harmonic'],
+    ['Speed regulation penalty', 'none measurable (49.9 vs 49.6 rpm SD)'],
+    ['Simulated boundary', 'sustained from 225 rpm; fallback at 200 rpm under load'],
+    ['Simulated angle error', '0.90\u00b0 to 1.35\u00b0 RMS over the rig band'],
     ['Observed angle lag', 'approximately 63 \u00b5s (inferred)'],
     ['Startup', 'encoder-assisted; not standstill sensorless'],
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
@@ -2049,17 +2056,16 @@ async function ensureGame3d() {
 // the page opened on the rig, which was the first thing a visitor read.
 const STANDFIRST = {
   '3d': 'The rig that produces the measurements: two motors joined by a chain, each with its own controller. Tap any part to see what it does.',
-  envelope: 'Choose a speed and a load. The green area is what the drive can deliver on the configured battery and current limit. White dots are full Simulink runs; the shading is the same physics solved live in this page.',
   foc: 'Why a motor controller has to know where the rotor is, and what it does with that angle once it has it.',
   sbs: 'The same motor twice, under the same load, differing only in where the rotor angle comes from.',
   results: 'Measured on the rig on 10 October, with the simulation run on the same commands: what taking the encoder out actually cost, and where the model stops matching the hardware.',
-  method: 'What is modelled, what every parameter is, which results exist, and what this work does not yet show.',
+  method: 'Two sources of evidence, one measured and one modelled: what each covers, every parameter behind them, and what neither can tell you.',
   game: 'Aim the current by hand and try to keep it a quarter turn ahead of the magnets. This is the job the controller does twenty thousand times a second.',
 };
 
 function setTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
-  for (const id of ['envelope', 'foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
+  for (const id of ['foc', '3d', 'sbs', 'results', 'method', 'game']) $('tab-' + id).hidden = name !== id;
   if (STANDFIRST[name]) $('standfirst').textContent = STANDFIRST[name];
   if (name === '3d') ensure3d();
   if (name === 'game') { mountGame(); loadSharedBoard(); }
@@ -2067,7 +2073,6 @@ function setTab(name) {
     ensureCompare3d();
     if (!plannedDrawn) { plannedDrawn = true; requestAnimationFrame(drawPlannedMap); }
   }
-  if (name === 'envelope') render();
   if (name === 'results') requestAnimationFrame(renderResults);
   if (name === 'method') renderMethod();
 }
@@ -2086,22 +2091,25 @@ async function start() {
   SWEEP = sweep; TRANSIENT = transient; STARTUP = startup; RIG = rig;
   P = { ...data.parameters }; CASES = data.cases; DATA = data;
   $('provenance').textContent = `${data.source.cases} simulated cases from ${data.source.run} (${data.source.date}). ${data.source.note}`;
+  // These four belonged to the envelope exhibit. They are wired through on(),
+  // which no-ops when the element is absent, so the page does not fall over if
+  // a tab is retired.
   for (const id of ['speed', 'load', 'vdc', 'imax']) {
-    $(id).addEventListener('input', () => {
-      P.vdc_V = Number($('vdc').value); P.iq_limit_A = Number($('imax').value);
-      touched(); $('scenario').textContent = ''; render();
+    on(id, 'input', () => {
+      const vdc = $('vdc'), imax = $('imax');
+      if (vdc) P.vdc_V = Number(vdc.value);
+      if (imax) P.iq_limit_A = Number(imax.value);
+      touched();
+      const label = $('scenario'); if (label) label.textContent = '';
+      render();
     });
   }
-  $('reset').addEventListener('click', () => { touched(); reset(); });
-  $('sound-toggle').addEventListener('click', () => { touched(); toggleSound(); });
+  on('reset', 'click', () => { touched(); reset(); });
+  on('sound-toggle', 'click', () => { touched(); toggleSound(); });
   document.addEventListener('keydown', e => {
     touched();
-    // Scenarios own the number keys. Tabs are letters, so pressing 3 on the
-    // envelope runs the voltage-ceiling scenario instead of jumping away from it.
-    if (SCENARIOS[e.key] && !$('tab-envelope').hidden) { scenario(e.key); return; }
     if (e.key === 'k') setMode(mode === 'kiosk' ? 'presenter' : 'kiosk');
     if (e.key === 'r') reset();
-    if (e.key === 'e') setTab('envelope');
     if (e.key === 'f') setTab('foc');
     if (e.key === 'w') setTab('3d');
     if (e.key === 's') setTab('sbs');

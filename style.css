@@ -430,6 +430,26 @@ body[data-mode=kiosk] #game{height:560px}
 .numbers-card.callout{background:rgba(154,77,135,.09);border-color:var(--accent)}
 .panel-title{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em}
 
+/* Method: the two sources of evidence, side by side, so which is which is
+   settled before any number is read. They differ by tag, border and tint, not
+   by colour alone. */
+.evidence-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+  gap:16px;margin:0 0 10px}
+.evidence{border:1px solid var(--line);border-radius:6px;padding:16px 18px;
+  background:var(--panel-2)}
+.evidence.measured{border-color:var(--current);background:rgba(46,230,168,.07)}
+.evidence.simulated{border-color:var(--cyan);background:rgba(90,127,200,.07)}
+.evidence-tag{margin:0 0 8px;font-family:var(--display);font-size:12px;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase}
+.evidence.measured .evidence-tag{color:var(--current)}
+.evidence.simulated .evidence-tag{color:var(--cyan)}
+.evidence p{margin:0 0 8px;font-size:14.5px;line-height:1.5}
+.evidence-note{color:var(--muted);font-size:13px!important;font-style:italic;margin:0!important}
+
+/* The limits list, given room to breathe rather than set as fine print. */
+.limits.big li{margin:0 0 12px;line-height:1.55;font-size:15.5px}
+.limits.big{padding-left:20px}
+
 /* The game runs inside the page. It gets the whole width and most of the
    height, because it is the thing people came to the stand to do. */
 .game-tab{grid-template-columns:minmax(0,1fr)}
